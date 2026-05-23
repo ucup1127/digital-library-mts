@@ -53,7 +53,7 @@ export default async function LaporanAktivitasPage({
     db.visitorLog.count(),
     db.visitorLog.count({ where: { action: "READ" } }),
     db.visitorLog.count({ where: { action: "SEARCH" } }),
-    db.visitorLog.groupBy({ by: ["userEmail"], _count: { id: true } }).then(res => res.length),
+    db.visitorLog.groupBy({ by: ["userEmail"], _count: { id: true } }).then((res: any) => res.length),
     db.visitorLog.count({
       where: {
         createdAt: {

@@ -15,7 +15,7 @@ export default async function LaporanAktivitasPage({
   const dateFilter = params.date || "";
   const itemsPerPage = 10;
 
-  // Build where clause (TANPA FILTER SEKOLAH DULU, nanti difilter di frontend)
+  // Build where clause
   const where: any = {};
 
   if (actionFilter) where.action = actionFilter;
@@ -155,7 +155,7 @@ export default async function LaporanAktivitasPage({
               </div>
             ) : (
               <div className="space-y-3">
-                {topBooks.map((book, idx) => (
+                {topBooks.map((book: any, idx: number) => (
                   <div key={book.bookTitle} className="flex items-center justify-between">
                     <div className="flex items-center gap-3 flex-1">
                       <span className="text-sm font-bold text-gray-400 w-6">#{idx + 1}</span>
@@ -183,7 +183,7 @@ export default async function LaporanAktivitasPage({
               </div>
             ) : (
               <div className="space-y-2">
-                {(activityByHour as any[]).map((item) => {
+                {(activityByHour as any[]).map((item: any) => {
                   const hour = parseInt(item.hour);
                   const count = parseInt(item.count);
                   const maxCount = Math.max(...(activityByHour as any[]).map((h: any) => parseInt(h.count)));

@@ -55,7 +55,7 @@ export async function middleware(request: NextRequest) {
           path: pathname,
           method: request.method,
           userAgent: request.headers.get('user-agent'),
-          ip: request.headers.get('x-forwarded-for') || request.ip,
+          ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
         });
       }
     }, 0);

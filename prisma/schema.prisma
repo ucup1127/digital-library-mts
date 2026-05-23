@@ -1,0 +1,187 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==================== MODEL DULUAN (YANG TIDAK DEPEND) ====================
+
+model School {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  logo      String? 
+  books     Book[]
+  users     User[]
+  createdAt DateTime @default(now())
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Relasi ke BookCategory
+  books     BookCategory[]
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String   @db.Text
+  name      String?  
+  className String?  
+  image     String?  
+  role      String   @default("USER") // USER, ADMIN, SUPER_ADMIN
+  schoolId  String?
+  school    School?   @relation(fields: [schoolId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([schoolId])
+  @@index([role])
+}
+
+model Organization {
+  id       String  @id @default(cuid())
+  name     String
+  position String
+  imageUrl String?
+  order    Int     @default(0)
+}
+
+model Visitor {
+  id           String   @id @default(cuid())
+  name         String
+  schoolOrigin String
+  accessedAt   DateTime @default(now())
+  duration     Int      @default(0)
+}
+
+model SchoolProfile {
+  id      String @id @default(cuid())
+  vision  String @db.Text
+  mission String @db.Text
+  history String @db.Text
+}
+
+// ==================== MODEL DENGAN RELASI ====================
+
+model Book {
+  id            String    @id @default(cuid())
+  title         String
+  author        String
+  description   String?   @db.Text
+  coverUrl      String?
+  fileUrl       String?
+  year          String?
+  isRecommended Boolean   @default(false)
+  views         Int       @default(0)
+  schoolId      String
+  isShared      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relasi
+  school        School        @relation(fields: [schoolId], references: [id])
+  categories    BookCategory[]
+
+  // Index
+  @@index([title])
+  @@index([author])
+  @@index([schoolId])
+  @@index([createdAt])
+  @@index([views])
+  @@index([title, author])
+}
+
+// Junction Table (HARUS SETELAH Book dan Category)
+model BookCategory {
+  bookId     String
+  categoryId String
+  book       Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([bookId, categoryId])
+  @@index([bookId])
+  @@index([categoryId])
+}
+model VisitorLog {
+  id         String   @id @default(cuid())
+  userId     String?  
+  userEmail  String?  
+  action     String   
+  bookId     String?  
+  bookTitle  String?  
+  categoryId String?
+  schoolId   String? 
+  ipAddress  String?
+  userAgent  String?
+  sessionId  String
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
+  @@index([action])
+  @@index([sessionId])
+}
+
+model ActiveSession {
+  id         String   @id @default(cuid())
+  userId     String
+  userEmail  String
+  userName   String
+  sessionId  String   @unique
+  lastActive DateTime @default(now())
+  createdAt  DateTime @default(now())
+  
+  @@index([lastActive])
+}
+model SystemLog {
+  id        String   @id @default(cuid())
+  level     String   // ERROR, WARNING, INFO
+  message   String   @db.Text
+  stack     String?  @db.Text
+  path      String?  // URL path yang error
+  method    String?  // GET, POST, PUT, DELETE
+  userId    String?  // ID user yang login (jika ada)
+  userEmail String?  // Email user
+  userAgent String?  // Browser info
+  ipAddress String?  // IP address
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([level])
+}
+model AdminLog {
+  id          String   @id @default(cuid())
+  adminId     String
+  adminName   String
+  adminEmail  String
+  adminRole   String
+  schoolId    String?
+  action      String   // CREATE, UPDATE, DELETE, LOGIN, LOGOUT
+  targetType  String   // BOOK, USER, CATEGORY, SCHOOL, etc
+  targetId    String?
+  targetName  String?
+  changes     Json?    // Perubahan data (JSON)
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([adminId])
+  @@index([schoolId])
+  @@index([createdAt])
+  @@index([action])
+}
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}

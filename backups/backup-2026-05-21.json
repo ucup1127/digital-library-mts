@@ -1,0 +1,721 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-05-21T17:18:40.924Z",
+  "database": {
+    "schools": [
+      {
+        "id": "1",
+        "name": "MTs Muhammadiyah Patikraja",
+        "slug": "mts-muhammadiyah-patikraja",
+        "logo": "/uploads/schools/1779264605092-76eg7j.png",
+        "createdAt": "2026-05-06T11:58:15.492Z"
+      },
+      {
+        "id": "cmpds39960000q8vluu98ofym",
+        "name": "MTs Muhammadiyah Purwokerto",
+        "slug": "mts-muhammadiyah-purwokerto",
+        "logo": "/uploads/schools/1779264618208-9k8emr.png",
+        "createdAt": "2026-05-20T08:06:50.010Z"
+      }
+    ],
+    "categories": [
+      {
+        "id": "cmotz25qb0000ugvlomv52321",
+        "name": "AGAMA",
+        "createdAt": "2026-05-06T11:26:32.579Z",
+        "updatedAt": "2026-05-06T11:26:32.579Z"
+      },
+      {
+        "id": "cmotz289o0001ugvl104i9t8q",
+        "name": "BAHASA",
+        "createdAt": "2026-05-06T11:26:35.868Z",
+        "updatedAt": "2026-05-06T11:26:35.868Z"
+      },
+      {
+        "id": "cmotz2aex0002ugvltacncfbn",
+        "name": "SEJARAH",
+        "createdAt": "2026-05-06T11:26:38.649Z",
+        "updatedAt": "2026-05-06T11:26:38.649Z"
+      },
+      {
+        "id": "cmown1zr4000084vlvk9ac5j7",
+        "name": "SAINS",
+        "createdAt": "2026-05-08T08:13:47.968Z",
+        "updatedAt": "2026-05-08T08:13:47.968Z"
+      },
+      {
+        "id": "cmown29db000184vlyf9f8prc",
+        "name": "KELAS VII",
+        "createdAt": "2026-05-08T08:14:00.431Z",
+        "updatedAt": "2026-05-08T08:14:00.431Z"
+      },
+      {
+        "id": "cmown2ca0000284vly2jpraub",
+        "name": "KELAS VIII",
+        "createdAt": "2026-05-08T08:14:04.200Z",
+        "updatedAt": "2026-05-08T08:14:04.200Z"
+      },
+      {
+        "id": "cmown2etc000384vl0j1yc9dc",
+        "name": "KELAS IX",
+        "createdAt": "2026-05-08T08:14:07.488Z",
+        "updatedAt": "2026-05-08T08:14:07.488Z"
+      },
+      {
+        "id": "cmown351y000484vlxdlqgj7p",
+        "name": "TEKNOLOGI",
+        "createdAt": "2026-05-08T08:14:41.494Z",
+        "updatedAt": "2026-05-08T08:14:41.494Z"
+      },
+      {
+        "id": "cmownowlm00037cvl2m80y8lr",
+        "name": "PANDUAN GURU",
+        "createdAt": "2026-05-08T08:31:36.970Z",
+        "updatedAt": "2026-05-08T08:31:36.970Z"
+      },
+      {
+        "id": "cmowoph9u000c7cvliro2tcmy",
+        "name": "KEWARGANEGARAAN",
+        "createdAt": "2026-05-08T09:00:03.378Z",
+        "updatedAt": "2026-05-08T09:00:03.378Z"
+      },
+      {
+        "id": "cmowoue2a000f7cvl3f2cws4s",
+        "name": "SENI",
+        "createdAt": "2026-05-08T09:03:52.498Z",
+        "updatedAt": "2026-05-08T09:03:52.498Z"
+      },
+      {
+        "id": "cmowox070000h7cvlfh3wb8gv",
+        "name": "SOSIAL",
+        "createdAt": "2026-05-08T09:05:54.492Z",
+        "updatedAt": "2026-05-08T09:05:54.492Z"
+      }
+    ],
+    "users": [
+      {
+        "id": "cmou07g3k0005ukvlfp0u81g2",
+        "email": "ucupwahid@gmail.com",
+        "name": "Luthfi Yusuf",
+        "className": "7C",
+        "image": null,
+        "role": "USER",
+        "schoolId": "1",
+        "createdAt": "2026-05-06T11:58:38.912Z",
+        "updatedAt": "2026-05-06T14:24:32.757Z"
+      },
+      {
+        "id": "cmou06y6g0004ukvloivk3ixh",
+        "email": "luthfiyusufti@gmail.com",
+        "name": "Luthfi Yusuf",
+        "className": "",
+        "image": null,
+        "role": "ADMIN",
+        "schoolId": "1",
+        "createdAt": "2026-05-06T11:58:15.689Z",
+        "updatedAt": "2026-05-06T11:58:15.689Z"
+      },
+      {
+        "id": "cmp0yebye00000kvlxmj66vig",
+        "email": "upiwahid@gmail.com",
+        "name": "Upi",
+        "className": "",
+        "image": null,
+        "role": "USER",
+        "schoolId": "1",
+        "createdAt": "2026-05-11T08:42:24.135Z",
+        "updatedAt": "2026-05-11T08:42:24.135Z"
+      },
+      {
+        "id": "cmp147hbb0000jsvl77lb7nyy",
+        "email": "pratamarizki@gmail.com",
+        "name": "Rizki Pratama",
+        "className": null,
+        "image": null,
+        "role": "USER",
+        "schoolId": "1",
+        "createdAt": "2026-05-11T11:25:02.184Z",
+        "updatedAt": "2026-05-11T14:40:30.537Z"
+      },
+      {
+        "id": "admin_2",
+        "email": "admin@gmail.com",
+        "name": "Luthfi",
+        "className": null,
+        "image": null,
+        "role": "ADMIN",
+        "schoolId": "1",
+        "createdAt": "2026-05-12T11:06:12.183Z",
+        "updatedAt": "2026-05-12T04:07:05.603Z"
+      },
+      {
+        "id": "admin_1",
+        "email": "admin@muhpath.sch.id",
+        "name": "Luthfi Yusuf",
+        "className": "9B",
+        "image": null,
+        "role": "ADMIN",
+        "schoolId": "1",
+        "createdAt": "2026-05-07T21:01:39.103Z",
+        "updatedAt": "2026-05-11T14:38:34.710Z"
+      },
+      {
+        "id": "super_admin_1",
+        "email": "superadmin@muhpath.sch.id",
+        "name": "Super Administrator",
+        "className": null,
+        "image": null,
+        "role": "SUPER_ADMIN",
+        "schoolId": "1",
+        "createdAt": "2026-05-12T13:08:40.546Z",
+        "updatedAt": "2026-05-12T06:09:41.876Z"
+      },
+      {
+        "id": "cmp14wds70002jsvl40xyl1au",
+        "email": "luthfi170505@gmail.com",
+        "name": "Luthfi Yusuf",
+        "className": null,
+        "image": null,
+        "role": "USER",
+        "schoolId": null,
+        "createdAt": "2026-05-11T11:44:24.007Z",
+        "updatedAt": "2026-05-11T14:39:06.807Z"
+      },
+      {
+        "id": "cmpdsb81s0001q8vlmj0o02l3",
+        "email": "Galuhpranata@gmail.com",
+        "name": "Galuh",
+        "className": null,
+        "image": null,
+        "role": "USER",
+        "schoolId": "1",
+        "createdAt": "2026-05-20T08:13:01.696Z",
+        "updatedAt": "2026-05-20T08:13:01.696Z"
+      }
+    ],
+    "books": [
+      {
+        "id": "cmownk7tp00007cvl38qnmapk",
+        "title": "MATEMATIKA",
+        "author": "Dicky Susanto, dkk.",
+        "description": "Matematika sering kali dianggap pelajaran yang abstrak, sulit, dan\r\nkurang relevan dalam kehidupan. Padahal pada hakikatnya, banyak konsep\r\ndan prinsip matematika justru muncul di alam dan dekat dengan kehidupan\r\nsehari-hari.",
+        "coverUrl": "/uploads/1778228878143-Matematika-BS-KLS-VII-cover.png",
+        "fileUrl": "/uploads/1778228878099-Matematika-BS-KLS-VII.pdf",
+        "year": "2022",
+        "isRecommended": false,
+        "views": 0,
+        "schoolId": "1",
+        "isShared": true,
+        "createdAt": "2026-05-08T08:27:58.237Z",
+        "updatedAt": "2026-05-08T08:27:58.237Z",
+        "categories": [
+          {
+            "bookId": "cmownk7tp00007cvl38qnmapk",
+            "categoryId": "cmown29db000184vlyf9f8prc"
+          },
+          {
+            "bookId": "cmownk7tp00007cvl38qnmapk",
+            "categoryId": "cmown1zr4000084vlvk9ac5j7"
+          }
+        ]
+      },
+      {
+        "id": "cmownmhrj00017cvly2cpbeou",
+        "title": "BAHASA INDONESIA EDISI REVISI",
+        "author": "Yeti Islamawati, Maman",
+        "description": "Bahasa Indonesia juga berkedudukan sebagai bahasa nasional. Dalam\r\nkedudukan tersebut, bahasa Indonesia memiliki fungsi sebagai alat identitas\r\nbangsa, alat kebanggaan bangsa, alat pemersatu bangsa, dan alat pergaulan\r\nantardaerah di Indonesia. Jadi, kalian harus bangga berbahasa Indonesia.",
+        "coverUrl": "/uploads/1778228984393-Indonesia_BS_KLS_IX_Rev_Cover.png",
+        "fileUrl": "/uploads/1778228984384-Indonesia_BS_KLS_IX_Rev.pdf",
+        "year": "2025",
+        "isRecommended": false,
+        "views": 0,
+        "schoolId": "1",
+        "isShared": true,
+        "createdAt": "2026-05-08T08:29:44.431Z",
+        "updatedAt": "2026-05-08T08:29:44.431Z",
+        "categories": [
+          {
+            "bookId": "cmownmhrj00017cvly2cpbeou",
+            "categoryId": "cmown2etc000384vl0j1yc9dc"
+          },
+          {
+            "bookId": "cmownmhrj00017cvly2cpbeou",
+            "categoryId": "cmotz289o0001ugvl104i9t8q"
+          }
+        ]
+      },
+      {
+        "id": "cmownomq200027cvlpi3mh57s",
+        "title": "INFORMATIKA EDISI REVISI",
+        "author": "Erlangga, Erna Piantari, Khairur Rosyidi",
+        "description": "Buku teks utama yang terdiri atas buku siswa dan panduan guru,\r\ndisiapkan sebagai sumber belajar utama bagi peserta didik dan menjadi salah\r\nsatu referensi atau inspirasi bagi guru dalam merancang dan mengembangkan\r\npembelajaran sesuai karakteristik, potensi, dan kebutuhan peserta didik",
+        "coverUrl": "/uploads/1778229084137-Informatika_BS_IX_Rev.png",
+        "fileUrl": "/uploads/1778229084128-Informatika_BS_KLS_IX_Rev.pdf",
+        "year": "2025",
+        "isRecommended": false,
+        "views": 0,
+        "schoolId": "1",
+        "isShared": true,
+        "createdAt": "2026-05-08T08:31:24.170Z",
+        "updatedAt": "2026-05-08T08:31:24.170Z",
+        "categories": [
+          {
+            "bookId": "cmownomq200027cvlpi3mh57s",
+            "categoryId": "cmown2etc000384vl0j1yc9dc"
+          },
+          {
+            "bookId": "cmownomq200027cvlpi3mh57s",
+            "categoryId": "cmown351y000484vlxdlqgj7p"
+          }
+        ]
+      },
+      {
+        "id": "cmownr7x200047cvlryf7o9fd",
+        "title": "ILMU PENGETAHUAN ALAM EDISI REVISI",
+        "author": "Budiyanti Dwi Hardanie, Cece Sutia, Victoriani Inabuy, Sri Handayani Lestari, Okky Fajar Tri Maryana",
+        "description": "Selamat datang, para guru dalam buku panduan guru ini. Buku ini disusun khusus\r\nuntuk mendukung perjalanan mengajar para guru dalam mata pelajaran Ilmu\r\nPengetahuan Alam (IPA), dengan harapan dapat memberikan pedoman yang lebih\r\nterperinci dan komprehensif. ",
+        "coverUrl": "/uploads/1778229204919-IPA_BG_KLS_IX_Rev_Cover.png",
+        "fileUrl": "/uploads/1778229204892-IPA_BG_KLS_IX_Rev.pdf",
+        "year": "2025",
+        "isRecommended": false,
+        "views": 0,
+        "schoolId": "1",
+        "isShared": true,
+        "createdAt": "2026-05-08T08:33:24.950Z",
+        "updatedAt": "2026-05-08T08:33:24.950Z",
+        "categories": [
+          {
+            "bookId": "cmownr7x200047cvlryf7o9fd",
+            "categoryId": "cmownowlm00037cvl2m80y8lr"
+          },
+          {
+            "bookId": "cmownr7x200047cvlryf7o9fd",
+            "categoryId": "cmown1zr4000084vlvk9ac5j7"
+          }
+        ]
+      },
+      {
+        "id": "cmownt1ox00057cvl973k6x3t",
+        "title": "ILMU PENGETAHUAN SOSIAL",
+        "author": "M. Nursa’ban, dkk.",
+        "description": "Pemikiran dan capaian pembelajaran di atas menjadi landasan dalam\r\npengembangan buku siswa ini. Pembahasan dalam buku dikelompokkan\r\nmenjadi empat tema utama yang merepresentasikan capaian pembelajaran\r\nyang diharapkan dalam kurikulum. ",
+        "coverUrl": null,
+        "fileUrl": "/uploads/1778229290027-IPS-BS-K7.pdf",
+        "year": "2021",
+        "isRecommended": false,
+        "views": 0,
+        "schoolId": "1",
+        "isShared": true,
+        "createdAt": "2026-05-08T08:34:50.194Z",
+        "updatedAt": "2026-05-08T08:34:50.194Z",
+        "categories": [
+          {
+            "bookId": "cmownt1ox00057cvl973k6x3t",
+            "categoryId": "cmown29db000184vlyf9f8prc"
+          },
+          {
+            "bookId": "cmownt1ox00057cvl973k6x3t",
+            "categoryId": "cmotz2aex0002ugvltacncfbn"
+          }
+        ]
+      },
+      {
+        "id": "cmownv2mr00067cvl1rzkhoqm",
+        "title": "KODING DAN KECERDASAN ARTIFISIAL",
+        "author": "Indra Budi Aji, Iman Budiman, Des Erita Fenti",
+        "description": "Buku Koding dan Kecerdasan Artifisial untuk SMP/MTs Kelas 7 ini hadir\r\nuntuk menjawab rasa penasaranmu. Buku ini merupakan teman perjalananmu\r\nuntuk menjelajahi dunia teknologi, bukan sebagai pengguna pasif, melainkan\r\nsebagai pencipta dan inovator muda.",
+        "coverUrl": "/uploads/1778229384691-KKA_BS_KLS_7_Cover_.png",
+        "fileUrl": "/uploads/1778229384685-KKA_BS_KLS_7.pdf",
+        "year": "2025",
+        "isRecommended": false,
+        "views": 0,
+        "schoolId": "1",
+        "isShared": true,
+        "createdAt": "2026-05-08T08:36:24.723Z",
+        "updatedAt": "2026-05-08T08:36:24.723Z",
+        "categories": [
+          {
+            "bookId": "cmownv2mr00067cvl1rzkhoqm",
+            "categoryId": "cmown29db000184vlyf9f8prc"
+          },
+          {
+            "bookId": "cmownv2mr00067cvl1rzkhoqm",
+            "categoryId": "cmown351y000484vlxdlqgj7p"
+          }
+        ]
+      },
+      {
+        "id": "cmownws5l00077cvltw9fo478",
+        "title": "PENGEMBANGAN WICARA BAGI PESERTA DIDIK DENGAN HAMBATAN PENDENGARAN",
+        "author": "Sylvi Noor Aini, Putri Handriani",
+        "description": "Perkembangan pendidikan terus berjalan, termasuk di dalamnya mengenai\r\npenggunaan istilah “tunarungu” menjadi “hambatan pendengaran”. Hambatan\r\npendengaran memberikan dampak secara langsung (primer) dan tak langsung\r\n(sekunder). ",
+        "coverUrl": "/uploads/1778229464424-Pengembangan_Wicara_BG_Cover.png",
+        "fileUrl": "/uploads/1778229464411-Pengembangan_Wicara_BG.pdf",
+        "year": "2024",
+        "isRecommended": false,
+        "views": 0,
+        "schoolId": "1",
+        "isShared": true,
+        "createdAt": "2026-05-08T08:37:44.457Z",
+        "updatedAt": "2026-05-08T08:37:44.457Z",
+        "categories": [
+          {
+            "bookId": "cmownws5l00077cvltw9fo478",
+            "categoryId": "cmownowlm00037cvl2m80y8lr"
+          },
+          {
+            "bookId": "cmownws5l00077cvltw9fo478",
+            "categoryId": "cmotz289o0001ugvl104i9t8q"
+          }
+        ]
+      },
+      {
+        "id": "cmowohyy000087cvl9csjltxw",
+        "title": "ENGLISH FOR NUSANTARA",
+        "author": "Ika Lestari Damayanti, dkk.",
+        "description": "Beririsan dengan sorotan terhadap proyek penguatan Profil Pelajar\r\nPancasila, pembelajaran Bahasa Inggris umum di jenjang Sekolah Menengah\r\nmemberikan kesempatan bagi pelajar untuk mengeksplorasi pengalaman\r\nmereka yang berkaitan dengan diri sendiri, kebudayaan melalui makanan,\r\nlingkungan rumah, dan sekolah.",
+        "coverUrl": "/uploads/1778230452986-Inggris_BG_KLS_IX_Cover.png",
+        "fileUrl": "/uploads/1778230452942-Inggris_BG_KLS_IX.pdf",
+        "year": "2022",
+        "isRecommended": false,
+        "views": 0,
+        "schoolId": "1",
+        "isShared": true,
+        "createdAt": "2026-05-08T08:54:13.032Z",
+        "updatedAt": "2026-05-08T08:54:13.032Z",
+        "categories": [
+          {
+            "bookId": "cmowohyy000087cvl9csjltxw",
+            "categoryId": "cmown2etc000384vl0j1yc9dc"
+          },
+          {
+            "bookId": "cmowohyy000087cvl9csjltxw",
+            "categoryId": "cmownowlm00037cvl2m80y8lr"
+          },
+          {
+            "bookId": "cmowohyy000087cvl9csjltxw",
+            "categoryId": "cmotz289o0001ugvl104i9t8q"
+          }
+        ]
+      },
+      {
+        "id": "cmowoj30l00097cvl8zv9id29",
+        "title": "ENGLISH FOR NUSANTARA",
+        "author": "Ika Lestari Damayanti, dkk.",
+        "description": "Buku Peserta didik English for Nusantara sudah dikembangkan sesuai\r\ndengan Capaian Pembelajaran yang dimuat dalam Kurikulum Merdeka. Nanti\r\nkalian akan mempelajari Bahasa Inggris yang beranjak dari keterampilan\r\nberbahasa lisan menuju bahasa tulis. Keterampilan berbahasa yang difokuskan\r\npada buku ini meliputi menyimak, berbicara, membaca, memirsa, menulis dan\r\nmerepresentasikan yang disajikan secara terpadu dalam berbagai jenis teks",
+        "coverUrl": "/uploads/1778230504922-Inggris_BS_KLS_IX_Cover.png",
+        "fileUrl": "/uploads/1778230504881-Inggris_BS_KLS_IX.pdf",
+        "year": "2022",
+        "isRecommended": false,
+        "views": 0,
+        "schoolId": "1",
+        "isShared": true,
+        "createdAt": "2026-05-08T08:55:04.965Z",
+        "updatedAt": "2026-05-08T08:55:17.787Z",
+        "categories": [
+          {
+            "bookId": "cmowoj30l00097cvl8zv9id29",
+            "categoryId": "cmown2etc000384vl0j1yc9dc"
+          },
+          {
+            "bookId": "cmowoj30l00097cvl8zv9id29",
+            "categoryId": "cmotz289o0001ugvl104i9t8q"
+          }
+        ]
+      },
+      {
+        "id": "cmowom1h5000a7cvljku0olsw",
+        "title": "PENDIDIKAN AGAMA ISLAM DAN BUDI PEKERTI",
+        "author": "Iis Suryatini, Hasyim Asy’ari",
+        "description": "Buku Pendidikan Agama Islam dan Budi Pekerti ini disusun sesuai\r\ndengan Peta Jalan Pendidikan Nasional 2020–2035 bahwa peningkatan\r\nkualitas pendidikan nasional dilakukan dengan memperbaiki kurikulum\r\nnasional, pedagogi, dan penilaian.",
+        "coverUrl": "/uploads/1778230642904-Islam_BS_KLS_IX_Cover.png",
+        "fileUrl": "/uploads/1778230642829-Islam_BS_KLS_IX.pdf",
+        "year": "2022",
+        "isRecommended": false,
+        "views": 0,
+        "schoolId": "1",
+        "isShared": true,
+        "createdAt": "2026-05-08T08:57:22.937Z",
+        "updatedAt": "2026-05-08T08:57:22.937Z",
+        "categories": [
+          {
+            "bookId": "cmowom1h5000a7cvljku0olsw",
+            "categoryId": "cmown2etc000384vl0j1yc9dc"
+          },
+          {
+            "bookId": "cmowom1h5000a7cvljku0olsw",
+            "categoryId": "cmotz25qb0000ugvlomv52321"
+          }
+        ]
+      },
+      {
+        "id": "cmowouabz000e7cvldjez9m4y",
+        "title": "SENI RUPA EDISI REVISI",
+        "author": "Ardhana Riswarie, Vincent Albert Samoel",
+        "description": "Salah satu bentuk dukungan terhadap implementasi Kurikulum Merdeka\r\ndi satuan pendidikan ialah mengembangkan buku teks utama yang terdiri\r\natas buku siswa dan panduan guru. ",
+        "coverUrl": "/uploads/1778231027628-Seni_Rupa_BG_KLS_VII_Rev_Cover.png",
+        "fileUrl": "/uploads/1778231027589-Seni_Rupa_BG_KLS_VII_Rev.pdf",
+        "year": "2023",
+        "isRecommended": false,
+        "views": 0,
+        "schoolId": "1",
+        "isShared": true,
+        "createdAt": "2026-05-08T09:03:47.663Z",
+        "updatedAt": "2026-05-08T09:03:58.070Z",
+        "categories": [
+          {
+            "bookId": "cmowouabz000e7cvldjez9m4y",
+            "categoryId": "cmown29db000184vlyf9f8prc"
+          },
+          {
+            "bookId": "cmowouabz000e7cvldjez9m4y",
+            "categoryId": "cmowoue2a000f7cvl3f2cws4s"
+          }
+        ]
+      },
+      {
+        "id": "cmowor3i1000d7cvln57w5kbw",
+        "title": "PENDIDIKAN PANCASILA",
+        "author": "Yudha Dana Prahara, dkk.",
+        "description": "enulisan buku teks utama ini didasarkan pada fakta dan sejarah yang\r\nautentik. Buku ini diharapkan menjadi penuntun bagaimana memahami\r\ndan mengaktualisasikan nilai-nilai Pancasila secara kontekstual sehingga\r\nmengembalikan pemahaman yang benar tentang Pancasila. ",
+        "coverUrl": "/uploads/1778230878792-Pendidikan-Pancasila-BS-KLS-IX-Cover.png",
+        "fileUrl": "/uploads/1778230878784-Pendidikan-Pancasila-BS-KLS-IX.pdf",
+        "year": "2023",
+        "isRecommended": false,
+        "views": 0,
+        "schoolId": "1",
+        "isShared": true,
+        "createdAt": "2026-05-08T09:01:18.841Z",
+        "updatedAt": "2026-05-08T09:01:18.841Z",
+        "categories": [
+          {
+            "bookId": "cmowor3i1000d7cvln57w5kbw",
+            "categoryId": "cmown2etc000384vl0j1yc9dc"
+          },
+          {
+            "bookId": "cmowor3i1000d7cvln57w5kbw",
+            "categoryId": "cmowoph9u000c7cvliro2tcmy"
+          }
+        ]
+      },
+      {
+        "id": "cmowop865000b7cvl74hccuoz",
+        "title": "PENDIDIKAN PANCASILA",
+        "author": "Yayat Suryatna, dkk.",
+        "description": "Penulisan buku teks utama ini didasarkan pada fakta dan sejarah yang\r\nautentik. Buku ini diharapkan menjadi penuntun bagaimana memahami\r\ndan mengaktualisasikan nilai-nilai Pancasila secara kontekstual sehinggavi\r\nmengembalikan pemahaman yang benar tentang Pancasila.",
+        "coverUrl": "/uploads/1778230791503-Pendidikan-Pancasila-BG-KLS-VII-Cover.png",
+        "fileUrl": "/uploads/1778230791490-Pendidikan-Pancasila-BG-KLS-VII.pdf",
+        "year": "2023",
+        "isRecommended": false,
+        "views": 0,
+        "schoolId": "1",
+        "isShared": true,
+        "createdAt": "2026-05-08T08:59:51.581Z",
+        "updatedAt": "2026-05-08T09:01:24.771Z",
+        "categories": [
+          {
+            "bookId": "cmowop865000b7cvl74hccuoz",
+            "categoryId": "cmownowlm00037cvl2m80y8lr"
+          },
+          {
+            "bookId": "cmowop865000b7cvl74hccuoz",
+            "categoryId": "cmowoph9u000c7cvliro2tcmy"
+          },
+          {
+            "bookId": "cmowop865000b7cvl74hccuoz",
+            "categoryId": "cmown2etc000384vl0j1yc9dc"
+          }
+        ]
+      },
+      {
+        "id": "cmowoww1p000g7cvl8rx6xkud",
+        "title": "ILMU PENGETAHUAN SOSIAL",
+        "author": "Mohammad Rizky Satria, dkk.",
+        "description": "uku ini menyajikan panduan belajar terpadu melalui satuan tema\r\npembelajaran berkesinambungan. Tema pertama, “Manusia dan Perubahan”, mengkaji persoalan modernisasi dan pelestarian kearifan lokal di masyarakat; tema kedua, “Perkembangan Ekonomi Digital”, mengkaji literasi\r\nfinansial di tengah perkembangan sistem ekonomi terkini; tema ketiga,\r\n“Tantangan Pembangunan Indonesia”, mengkaji persoalan pembangunan\r\ndan cita-cita Indonesia menjadi negara maju, serta; tema keempat “Kerja\r\nSama Dunia”, mengkaji isu-isu global yang terjadi dalam konteks lokal.",
+        "coverUrl": "/uploads/1778231149083-IPS-BS-KLS-IX-Cover.png",
+        "fileUrl": "/uploads/1778231148998-IPS-BS-KLS-IX.pdf",
+        "year": "2022",
+        "isRecommended": false,
+        "views": 0,
+        "schoolId": "1",
+        "isShared": true,
+        "createdAt": "2026-05-08T09:05:49.117Z",
+        "updatedAt": "2026-05-08T09:06:01.437Z",
+        "categories": [
+          {
+            "bookId": "cmowoww1p000g7cvl8rx6xkud",
+            "categoryId": "cmown2etc000384vl0j1yc9dc"
+          },
+          {
+            "bookId": "cmowoww1p000g7cvl8rx6xkud",
+            "categoryId": "cmowox070000h7cvlfh3wb8gv"
+          }
+        ]
+      },
+      {
+        "id": "cmowoyrl2000i7cvl4vnwkrki",
+        "title": "SENI RUPA ",
+        "author": "Irma Nurul Fatimah, Fadia Alyani Kumala",
+        "description": "Buku Panduan Guru Seni Rupa Kelas IX bertujuan untuk memberikan\r\ngambaran terhadap alur Capaian Pembelajaran Kurikulum terbaru. Isi\r\nbuku ini terdiri dari dua bagian. Bagian pertama adalah bagian di mana\r\nguru bisa melihat tujuan, karakteristik, dan elemen pembelajaran Seni\r\nRupa, mengenal profil pelajar Pancasila, dan memahami capaian dari fase\r\nA hingga fase F. Panduan ini juga memaparkan tentang cara memantik\r\nkreativitas hingga membuat umpan balik. Bagian ini dibuat dengan cukup\r\ndetail dengan harapan dapat memberikan pemahaman akan gambaran\r\nbesar tujuan kurikulum dengan baik.",
+        "coverUrl": "/uploads/1778231236496-Seni-Rupa-BG-KLS-IX-Cover.png",
+        "fileUrl": "/uploads/1778231236442-Seni-Rupa-BG-KLS-IX.pdf",
+        "year": "2022",
+        "isRecommended": false,
+        "views": 0,
+        "schoolId": "1",
+        "isShared": true,
+        "createdAt": "2026-05-08T09:07:16.646Z",
+        "updatedAt": "2026-05-20T10:48:00.177Z",
+        "categories": [
+          {
+            "bookId": "cmowoyrl2000i7cvl4vnwkrki",
+            "categoryId": "cmown2etc000384vl0j1yc9dc"
+          },
+          {
+            "bookId": "cmowoyrl2000i7cvl4vnwkrki",
+            "categoryId": "cmownowlm00037cvl2m80y8lr"
+          },
+          {
+            "bookId": "cmowoyrl2000i7cvl4vnwkrki",
+            "categoryId": "cmowoue2a000f7cvl3f2cws4s"
+          }
+        ]
+      }
+    ],
+    "bookCategories": [
+      {
+        "bookId": "cmownk7tp00007cvl38qnmapk",
+        "categoryId": "cmown29db000184vlyf9f8prc"
+      },
+      {
+        "bookId": "cmownk7tp00007cvl38qnmapk",
+        "categoryId": "cmown1zr4000084vlvk9ac5j7"
+      },
+      {
+        "bookId": "cmownmhrj00017cvly2cpbeou",
+        "categoryId": "cmown2etc000384vl0j1yc9dc"
+      },
+      {
+        "bookId": "cmownmhrj00017cvly2cpbeou",
+        "categoryId": "cmotz289o0001ugvl104i9t8q"
+      },
+      {
+        "bookId": "cmownomq200027cvlpi3mh57s",
+        "categoryId": "cmown2etc000384vl0j1yc9dc"
+      },
+      {
+        "bookId": "cmownomq200027cvlpi3mh57s",
+        "categoryId": "cmown351y000484vlxdlqgj7p"
+      },
+      {
+        "bookId": "cmownr7x200047cvlryf7o9fd",
+        "categoryId": "cmownowlm00037cvl2m80y8lr"
+      },
+      {
+        "bookId": "cmownr7x200047cvlryf7o9fd",
+        "categoryId": "cmown1zr4000084vlvk9ac5j7"
+      },
+      {
+        "bookId": "cmownt1ox00057cvl973k6x3t",
+        "categoryId": "cmown29db000184vlyf9f8prc"
+      },
+      {
+        "bookId": "cmownt1ox00057cvl973k6x3t",
+        "categoryId": "cmotz2aex0002ugvltacncfbn"
+      },
+      {
+        "bookId": "cmownv2mr00067cvl1rzkhoqm",
+        "categoryId": "cmown29db000184vlyf9f8prc"
+      },
+      {
+        "bookId": "cmownv2mr00067cvl1rzkhoqm",
+        "categoryId": "cmown351y000484vlxdlqgj7p"
+      },
+      {
+        "bookId": "cmownws5l00077cvltw9fo478",
+        "categoryId": "cmownowlm00037cvl2m80y8lr"
+      },
+      {
+        "bookId": "cmownws5l00077cvltw9fo478",
+        "categoryId": "cmotz289o0001ugvl104i9t8q"
+      },
+      {
+        "bookId": "cmowohyy000087cvl9csjltxw",
+        "categoryId": "cmown2etc000384vl0j1yc9dc"
+      },
+      {
+        "bookId": "cmowohyy000087cvl9csjltxw",
+        "categoryId": "cmownowlm00037cvl2m80y8lr"
+      },
+      {
+        "bookId": "cmowohyy000087cvl9csjltxw",
+        "categoryId": "cmotz289o0001ugvl104i9t8q"
+      },
+      {
+        "bookId": "cmowoj30l00097cvl8zv9id29",
+        "categoryId": "cmown2etc000384vl0j1yc9dc"
+      },
+      {
+        "bookId": "cmowoj30l00097cvl8zv9id29",
+        "categoryId": "cmotz289o0001ugvl104i9t8q"
+      },
+      {
+        "bookId": "cmowom1h5000a7cvljku0olsw",
+        "categoryId": "cmown2etc000384vl0j1yc9dc"
+      },
+      {
+        "bookId": "cmowom1h5000a7cvljku0olsw",
+        "categoryId": "cmotz25qb0000ugvlomv52321"
+      },
+      {
+        "bookId": "cmowor3i1000d7cvln57w5kbw",
+        "categoryId": "cmown2etc000384vl0j1yc9dc"
+      },
+      {
+        "bookId": "cmowor3i1000d7cvln57w5kbw",
+        "categoryId": "cmowoph9u000c7cvliro2tcmy"
+      },
+      {
+        "bookId": "cmowop865000b7cvl74hccuoz",
+        "categoryId": "cmownowlm00037cvl2m80y8lr"
+      },
+      {
+        "bookId": "cmowop865000b7cvl74hccuoz",
+        "categoryId": "cmowoph9u000c7cvliro2tcmy"
+      },
+      {
+        "bookId": "cmowop865000b7cvl74hccuoz",
+        "categoryId": "cmown2etc000384vl0j1yc9dc"
+      },
+      {
+        "bookId": "cmowouabz000e7cvldjez9m4y",
+        "categoryId": "cmown29db000184vlyf9f8prc"
+      },
+      {
+        "bookId": "cmowouabz000e7cvldjez9m4y",
+        "categoryId": "cmowoue2a000f7cvl3f2cws4s"
+      },
+      {
+        "bookId": "cmowoww1p000g7cvl8rx6xkud",
+        "categoryId": "cmown2etc000384vl0j1yc9dc"
+      },
+      {
+        "bookId": "cmowoww1p000g7cvl8rx6xkud",
+        "categoryId": "cmowox070000h7cvlfh3wb8gv"
+      },
+      {
+        "bookId": "cmowoyrl2000i7cvl4vnwkrki",
+        "categoryId": "cmown2etc000384vl0j1yc9dc"
+      },
+      {
+        "bookId": "cmowoyrl2000i7cvl4vnwkrki",
+        "categoryId": "cmownowlm00037cvl2m80y8lr"
+      },
+      {
+        "bookId": "cmowoyrl2000i7cvl4vnwkrki",
+        "categoryId": "cmowoue2a000f7cvl3f2cws4s"
+      }
+    ],
+    "visitorLogs": []
+  }
+}

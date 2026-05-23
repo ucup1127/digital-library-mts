@@ -1,0 +1,20 @@
+// proxy.ts
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+
+export function proxy(request: NextRequest) {
+  const isLoggedIn = request.cookies.get('isLoggedIn')?.value;
+  const userRole = request.cookies.get('user_role')?.value;
+  const path = request.nextUrl.pathname;
+
+  // Redirect ke login jika belum login dan mengakses admin
+  if (path.startsWith('/admin') && (!isLoggedIn || userRole !== 'ADMIN')) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: '/admin/:path*',
+};

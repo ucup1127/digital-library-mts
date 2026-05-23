@@ -1,0 +1,94 @@
+// middleware.ts
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+
+// Halaman yang bisa diakses tanpa login
+const publicPaths = [
+  '/',
+  '/katalog',
+  '/katalog/:path*',
+  '/login/admin',
+  '/login/user',
+  '/register',
+  '/api/login',
+  '/api/register',
+  '/api/schools',
+  '/api/buku',
+  '/api/buku/:path*',
+];
+
+// Halaman admin (hanya bisa diakses admin)
+const adminPaths = [
+  '/admin',
+  '/admin/:path*',
+  '/api/admin',
+  '/api/admin/:path*',
+];
+
+// Cek apakah path termasuk dalam daftar
+function matchesPath(pathname: string, patterns: string[]): boolean {
+  return patterns.some(pattern => {
+    if (pattern.endsWith('/:path*')) {
+      const basePattern = pattern.replace('/:path*', '');
+      return pathname === basePattern || pathname.startsWith(basePattern + '/');
+    }
+    return pathname === pattern;
+  });
+}
+
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  
+  // Ambil token/session dari cookie atau header
+  const isLoggedIn = request.cookies.get('isLoggedIn')?.value === 'true';
+  const userRole = request.cookies.get('user_role')?.value;
+  
+  // 🔓 Halaman publik - semua orang bisa akses
+  if (matchesPath(pathname, publicPaths)) {
+    return NextResponse.next();
+  }
+  
+  // 🔒 Halaman admin - hanya ADMIN yang bisa akses
+  if (matchesPath(pathname, adminPaths)) {
+    if (!isLoggedIn) {
+      // Belum login, redirect ke login admin
+      const url = new URL('/login/admin', request.url);
+      url.searchParams.set('redirect', pathname);
+      return NextResponse.redirect(url);
+    }
+    
+    if (userRole !== 'ADMIN') {
+      // Login tapi bukan admin
+      return NextResponse.redirect(new URL('/login/user', request.url));
+    }
+    
+    return NextResponse.next();
+  }
+  
+  // 🔒 Halaman user private (akun, wishlist, dll)
+  if (pathname.startsWith('/akun') || pathname.startsWith('/wishlist')) {
+    if (!isLoggedIn) {
+      const url = new URL('/login/user', request.url);
+      url.searchParams.set('redirect', pathname);
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next();
+  }
+  
+  // Default: izinkan akses
+  return NextResponse.next();
+}
+
+// Konfigurasi middleware hanya berjalan di path tertentu
+export const config = {
+  matcher: [
+    /*
+     * Match semua path kecuali:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
+};

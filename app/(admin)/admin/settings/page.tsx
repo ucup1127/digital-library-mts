@@ -39,7 +39,7 @@ export default function SettingsPage() {
     toast.loading("Melakukan backup...", { id: "backup" });
     
     try {
-      const res = await fetch("/api/admin/auto-backup?token=rahasia_backup_12345");
+      const res = await fetch("/api/admin/trigger-backup", { method: "POST" });
       const data = await res.json();
       
       if (res.ok) {

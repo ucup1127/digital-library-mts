@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { unlink } from "fs/promises";
 import path from "path";
-import { cacheDel } from "@/lib/redis";
+// ❌ HAPUS baris ini: import { cacheDel } from "@/lib/redis";
 
 // GET - Ambil detail buku
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -35,6 +35,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   }
 }
 
+// PUT - Update buku lengkap (untuk edit)
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -68,8 +69,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       });
     }
     
-    // 🔥 HAPUS CACHE 🔥
-    await cacheDel(`books:*`);
+    // ❌ HAPUS baris ini: await cacheDel(`books:*`);
     
     return NextResponse.json({ 
       success: true, 
@@ -82,6 +82,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   }
 }
 
+// PATCH - Update sebagian (untuk keperluan lain)
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -106,8 +107,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       });
     }
     
-    // 🔥 HAPUS CACHE 🔥
-    await cacheDel(`books:*`);
+    // ❌ HAPUS baris ini: await cacheDel(`books:*`);
     
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -116,6 +116,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 }
 
+// DELETE - Hapus buku
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -136,8 +137,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
     await db.book.delete({ where: { id } });
     
-    // HAPUS CACHE
-    await cacheDel(`books:*`);
+    // ❌ HAPUS baris ini: await cacheDel(`books:*`);
     
     return NextResponse.json({ message: "Buku berhasil dihapus!" });
   } catch (error) {

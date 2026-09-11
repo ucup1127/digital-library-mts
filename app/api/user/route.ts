@@ -1,55 +1,76 @@
-// app/api/admin/users/route.ts
+// app/api/user/route.ts
+// FUNGSI: Untuk user biasa (siswa) mengelola profilnya sendiri
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import bcrypt from "bcrypt";
 
-export async function GET(request: Request) {
+// PATCH - Update profil user sendiri (nama, email, kelas)
+export async function PATCH(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const schoolId = searchParams.get("schoolId");
-    
-    const where: any = {};
-    
-    // ✅ Filter by school (kecuali untuk SUPER ADMIN nanti)
-    if (schoolId) {
-      where.schoolId = schoolId;
+    const { id, name, className, email } = await request.json();
+
+    if (!id) {
+      return NextResponse.json({ error: "ID User tidak ditemukan!" }, { status: 400 });
     }
-    
-    const users = await db.user.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
+
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name;
+    if (className !== undefined) updateData.className = className;
+    if (email !== undefined) updateData.email = email;
+
+    const updatedUser = await db.user.update({
+      where: { id },
+      data: updateData,
     });
-    
-    return NextResponse.json(users);
-  } catch (error) {
-    console.error("Error fetching users:", error);
-    return NextResponse.json([], { status: 500 });
+
+    return NextResponse.json({ 
+      message: "Profil berhasil diperbarui!", 
+      user: updatedUser 
+    });
+  } catch (error: any) {
+    console.error("ERROR_UPDATE_USER:", error.message);
+    return NextResponse.json({ error: "Gagal memperbarui profil." }, { status: 500 });
   }
 }
 
-export async function POST(request: Request) {
+// PUT - Ganti password user sendiri
+export async function PUT(request: Request) {
   try {
-    const { email, password, name, role, className, schoolId } = await request.json();
-    
-    if (!email || !password || !schoolId) {
+    const { id, currentPassword, newPassword } = await request.json();
+
+    if (!id || !currentPassword || !newPassword) {
       return NextResponse.json({ error: "Data tidak lengkap" }, { status: 400 });
     }
-    
-    const hashedPassword = await bcrypt.hash(password, 10);
-    
-    const user = await db.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        name,
-        role: role || "USER",
-        className,
-        schoolId, // ✅ wajib diisi
-      },
+
+    if (newPassword.length < 6) {
+      return NextResponse.json({ error: "Password minimal 6 karakter" }, { status: 400 });
+    }
+
+    // Cek user
+    const user = await db.user.findUnique({ where: { id } });
+
+    if (!user) {
+      return NextResponse.json({ error: "User tidak ditemukan" }, { status: 404 });
+    }
+
+    // Verifikasi password lama (dengan bcrypt)
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isPasswordValid) {
+      return NextResponse.json({ error: "Password saat ini salah!" }, { status: 401 });
+    }
+
+    // Hash password baru
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update password
+    const updatedUser = await db.user.update({
+      where: { id },
+      data: { password: hashedPassword },
     });
-    
-    return NextResponse.json(user, { status: 201 });
+
+    return NextResponse.json({ success: true, message: "Password berhasil diubah!" });
   } catch (error) {
-    console.error("Error creating user:", error);
-    return NextResponse.json({ error: "Gagal menambah user" }, { status: 500 });
+    console.error("Change password error:", error);
+    return NextResponse.json({ error: "Gagal mengubah password" }, { status: 500 });
   }
 }

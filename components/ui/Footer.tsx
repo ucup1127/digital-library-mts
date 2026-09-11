@@ -1,68 +1,164 @@
-// components/ui/Footer.tsx
+// components/Footer.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
 export default function Footer() {
-  const [schoolName, setSchoolName] = useState("");
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [schoolName, setSchoolName] = useState("MTs Muhammadiyah Patikraja");
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
-    const loggedIn = localStorage.getItem("isLoggedIn") === "true";
-    const name = localStorage.getItem("school_name") || "";
-    
-    setIsLoggedIn(loggedIn);
-    setSchoolName(name);
+    const name = localStorage.getItem("school_name");
+    if (name) setSchoolName(name);
   }, []);
 
-  const currentYear = new Date().getFullYear();
+  const quickLinks = [
+    { name: "Beranda", href: "/" },
+    { name: "Koleksi Buku", href: "/" },
+    { name: "Tentang", href: "/tentang" },
+    { name: "Galeri", href: "/galeri" },
+    { name: "Profil Sekolah", href: "/profil-sekolah" },
+  ];
+
+  const layanan = [
+    { name: "Peminjaman Buku", href: "/peminjaman" },
+    { name: "Baca Online", href: "/" },
+    { name: "Rekomendasi Buku", href: "/" },
+    { name: "Statistik Perpustakaan", href: "/statistik" },
+  ];
+
+  const kontak = [
+    { icon: "📍", text: "Jl. Raya Patikraja No. 123, Banyumas" },
+    { icon: "📞", text: "(0281) 1234567" },
+    { icon: "✉️", text: "perpustakaan@mtsmpatikraja.sch.id" },
+    { icon: "🕒", text: "Senin - Jumat: 07:30 - 15:30" },
+  ];
+
+  const sosialMedia = [
+    { name: "Facebook", icon: "📘", href: "#" },
+    { name: "Instagram", icon: "📷", href: "#" },
+    { name: "YouTube", icon: "▶️", href: "#" },
+    { name: "TikTok", icon: "🎵", href: "#" },
+  ];
 
   return (
-    <footer className="bg-gray-900 text-white mt-16">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        
-        {/* Judul Footer - dinamis sesuai sekolah */}
-        <div className="text-center mb-6">
-          <h3 className="font-bold text-sm uppercase tracking-wider text-gray-300">
-            {isLoggedIn && schoolName ? schoolName : "MUHPATHLIB"}
-          </h3>
-          <div className="w-12 h-0.5 bg-blue-600 mx-auto mt-2 rounded-full" />
-        </div>
+    <footer className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-gray-300 mt-auto">
+      {/* Main Footer */}
+      <div className="max-w-7xl mx-auto px-4 py-10 md:py-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          {/* Kolom 1 - Logo & Deskripsi */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
+                <span className="text-white text-lg">📚</span>
+              </div>
+              <div>
+                <h3 className="font-bold text-white text-sm">{schoolName}</h3>
+                <p className="text-[9px] text-gray-400">Perpustakaan Digital</p>
+              </div>
+            </div>
+            <p className="text-[10px] text-gray-400 leading-relaxed">
+              Perpustakaan digital yang menyediakan akses mudah ke ribuan koleksi buku, 
+              jurnal, dan sumber belajar lainnya untuk mendukung kegiatan belajar mengajar.
+            </p>
+            <div className="flex gap-2 pt-2">
+              {sosialMedia.map((medsos, idx) => (
+                <a
+                  key={idx}
+                  href={medsos.href}
+                  className="w-7 h-7 rounded-full bg-gray-700/50 flex items-center justify-center text-gray-400 hover:bg-blue-600 hover:text-white transition-all duration-300"
+                  aria-label={medsos.name}
+                >
+                  <span className="text-xs">{medsos.icon}</span>
+                </a>
+              ))}
+            </div>
+          </div>
 
-        {/* 2 Kolom: Layanan & Kontak */}
-        <div className="grid grid-cols-2 gap-8 max-w-md mx-auto">
-          
-          {/* Layanan */}
-          <div className="text-center">
-            <h4 className="font-bold text-[9px] uppercase tracking-wider text-gray-500 mb-3">
-              LAYANAN
+          {/* Kolom 2 - Link Cepat */}
+          <div>
+            <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-3 flex items-center gap-1">
+              <span>🔗</span> Link Cepat
             </h4>
             <ul className="space-y-1.5">
-              <li className="text-gray-400 text-[10px]">📖 Baca Online</li>
-              <li className="text-gray-400 text-[10px]">📥 Download PDF</li>
-              <li className="text-gray-400 text-[10px]">📚 Riwayat Baca</li>
-              <li className="text-gray-400 text-[10px]">⭐ Rekomendasi</li>
+              {quickLinks.map((link, idx) => (
+                <li key={idx}>
+                  <Link
+                    href={link.href}
+                    className="text-[10px] text-gray-400 hover:text-blue-400 transition-colors duration-200 flex items-center gap-1"
+                  >
+                    <span className="text-[8px]">›</span>
+                    {link.name}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
 
-          {/* Kontak */}
-          <div className="text-center">
-            <h4 className="font-bold text-[9px] uppercase tracking-wider text-gray-500 mb-3">
-              KONTAK
+          {/* Kolom 3 - Layanan */}
+          <div>
+            <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-3 flex items-center gap-1">
+              <span>⚡</span> Layanan
             </h4>
             <ul className="space-y-1.5">
-              <li className="text-gray-400 text-[10px]">📧 perpus@sch.id</li>
-              <li className="text-gray-400 text-[10px]">📱 (0281) 123456</li>
-              <li className="text-gray-400 text-[10px]">📍 Jl. Pendidikan No. 123</li>
+              {layanan.map((item, idx) => (
+                <li key={idx}>
+                  <Link
+                    href={item.href}
+                    className="text-[10px] text-gray-400 hover:text-blue-400 transition-colors duration-200 flex items-center gap-1"
+                  >
+                    <span className="text-[8px]">›</span>
+                    {item.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Kolom 4 - Kontak & Jam Operasional */}
+          <div>
+            <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-3 flex items-center gap-1">
+              <span>📍</span> Kontak & Jam
+            </h4>
+            <ul className="space-y-2">
+              {kontak.map((item, idx) => (
+                <li key={idx} className="flex items-start gap-2 text-[10px] text-gray-400">
+                  <span className="text-xs shrink-0">{item.icon}</span>
+                  <span className="leading-relaxed">{item.text}</span>
+                </li>
+              ))}
             </ul>
           </div>
         </div>
 
-        {/* Bottom Bar */}
-        <div className="border-t border-gray-800 mt-8 pt-4 text-center">
-          <p className="text-gray-500 text-[7px] uppercase tracking-wider">
-            © {currentYear} {isLoggedIn && schoolName ? schoolName : "MUHPATHLIB"} • Perpustakaan Digital
+        {/* Divider */}
+        <div className="border-t border-gray-700/50 my-8"></div>
+
+        {/* Bottom Footer */}
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-3 text-center">
+          <p className="text-[8px] text-gray-500 tracking-wide">
+            © {currentYear} {schoolName}. All rights reserved.
+          </p>
+          <div className="flex gap-4">
+            <Link href="/kebijakan-privasi" className="text-[8px] text-gray-500 hover:text-gray-400 transition">
+              Kebijakan Privasi
+            </Link>
+            <span className="text-[8px] text-gray-600">|</span>
+            <Link href="/syarat-ketentuan" className="text-[8px] text-gray-500 hover:text-gray-400 transition">
+              Syarat & Ketentuan
+            </Link>
+            <span className="text-[8px] text-gray-600">|</span>
+            <Link href="/bantuan" className="text-[8px] text-gray-500 hover:text-gray-400 transition">
+              Bantuan
+            </Link>
+          </div>
+        </div>
+
+        {/* Badge Kecil */}
+        <div className="text-center mt-4">
+          <p className="text-[6px] text-gray-600 uppercase tracking-[0.2em]">
+            Powered by Digital Library System
           </p>
         </div>
       </div>

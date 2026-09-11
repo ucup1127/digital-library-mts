@@ -1,124 +1,184 @@
 // app/(admin)/admin/profile/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import Swal from "sweetalert2";
+import { 
+  User, 
+  Mail, 
+  Shield, 
+  Calendar, 
+  Edit, 
+  Save, 
+  X,
+  LogOut,
+  Key,
+  CheckCircle,
+  Building,
+  UserCircle,
+  ChevronRight,
+  Sparkles
+} from "lucide-react";
+
+interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  className: string;
+  memberId: string;
+  createdAt: string;
+  schoolId: string;
+  schoolName: string;
+  schoolLogo: string;
+}
 
 export default function AdminProfilePage() {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [editMode, setEditMode] = useState(false);
+  const [saving, setSaving] = useState(false);
   
   const [formData, setFormData] = useState({
     name: "",
     email: "",
+    className: "",
   });
-  
-  const [passwordData, setPasswordData] = useState({
+
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
   });
+  const [changingPassword, setChangingPassword] = useState(false);
 
-  // Ambil data user dari localStorage
   useEffect(() => {
-    const name = localStorage.getItem("user_name");
-    const email = localStorage.getItem("user_email");
+    const fetchProfile = async () => {
+      const userId = localStorage.getItem("user_id");
+      const name = localStorage.getItem("user_name") || "Admin";
+      const email = localStorage.getItem("user_email") || "";
+      const role = localStorage.getItem("user_role") || "";
+      const schoolId = localStorage.getItem("school_id") || "";
+      const schoolName = localStorage.getItem("school_name") || "";
+      const schoolLogo = localStorage.getItem("school_logo") || "";
+      const memberId = localStorage.getItem("member_id") || "";
+      
+      let finalSchoolName = schoolName;
+      let finalSchoolLogo = schoolLogo;
+      
+      if (role === "SUPER_ADMIN") {
+        const selectedName = localStorage.getItem("selected_school_name");
+        const selectedLogo = localStorage.getItem("selected_school_logo") || "";
+        if (selectedName) {
+          finalSchoolName = selectedName;
+          finalSchoolLogo = selectedLogo;
+        }
+      }
+      
+      setProfile({
+        id: userId || "",
+        name: name,
+        email: email,
+        role: role,
+        className: "",
+        memberId: memberId,
+        createdAt: new Date().toISOString(),
+        schoolId: schoolId,
+        schoolName: finalSchoolName,
+        schoolLogo: finalSchoolLogo,
+      });
+      
+      setFormData({
+        name: name,
+        email: email,
+        className: "",
+      });
+      
+      setLoading(false);
+    };
     
-    setFormData({
-      name: name || "",
-      email: email || "",
-    });
+    fetchProfile();
   }, []);
 
-  const handleProfileUpdate = async (e: React.FormEvent) => {
+  const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!profile) return;
     
-    if (!formData.name.trim()) {
-      toast.error("Nama tidak boleh kosong!");
-      return;
-    }
-    
-    setIsLoading(true);
-    toast.loading("Menyimpan perubahan...", { id: "profile" });
+    setSaving(true);
+    toast.loading("Menyimpan perubahan...", { id: "save" });
     
     try {
-      const userId = localStorage.getItem("user_id");
       const res = await fetch("/api/user/update", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          id: userId,
+          id: profile.id,
           name: formData.name,
           email: formData.email,
+          className: formData.className,
         }),
       });
       
       const data = await res.json();
       
       if (res.ok) {
+        toast.success("✅ Profil berhasil diperbarui!", { id: "save" });
         localStorage.setItem("user_name", formData.name);
         localStorage.setItem("user_email", formData.email);
         
-        toast.success("✅ Profil berhasil diperbarui!", { id: "profile" });
-        
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
+        setProfile(prev => prev ? { ...prev, name: formData.name, email: formData.email } : null);
+        setEditMode(false);
       } else {
-        toast.error(data.error || "Gagal memperbarui profil", { id: "profile" });
+        toast.error(data.error || "Gagal memperbarui", { id: "save" });
       }
     } catch (error) {
       console.error("Error:", error);
-      toast.error("Terjadi kesalahan", { id: "profile" });
+      toast.error("Terjadi kesalahan", { id: "save" });
     } finally {
-      setIsLoading(false);
+      setSaving(false);
     }
   };
 
-  const handlePasswordChange = async (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      toast.error("Password baru tidak cocok!");
+    if (!passwordForm.newPassword || passwordForm.newPassword.length < 6) {
+      toast.error("Password baru minimal 6 karakter!");
       return;
     }
     
-    if (passwordData.newPassword.length < 6) {
-      toast.error("Password minimal 6 karakter!");
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error("Konfirmasi password tidak sesuai!");
       return;
     }
     
-    setIsChangingPassword(true);
+    if (!profile) return;
+    
+    setChangingPassword(true);
     toast.loading("Mengubah password...", { id: "password" });
     
     try {
-      const userId = localStorage.getItem("user_id");
       const res = await fetch("/api/user/change-password", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          id: userId,
-          currentPassword: passwordData.currentPassword,
-          newPassword: passwordData.newPassword,
+          id: profile.id,
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword,
         }),
       });
       
       const data = await res.json();
       
       if (res.ok) {
-        toast.success("🔒 Password berhasil diubah!", { id: "password" });
-        
-        setPasswordData({
-          currentPassword: "",
-          newPassword: "",
-          confirmPassword: "",
-        });
+        toast.success("✅ Password berhasil diubah!", { id: "password" });
+        setShowPasswordModal(false);
+        setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
       } else {
         toast.error(data.error || "Gagal mengubah password", { id: "password" });
       }
@@ -126,197 +186,437 @@ export default function AdminProfilePage() {
       console.error("Error:", error);
       toast.error("Terjadi kesalahan", { id: "password" });
     } finally {
-      setIsChangingPassword(false);
+      setChangingPassword(false);
     }
   };
 
+  // 🔥 SWEETALERT KONFIRMASI LOGOUT
+  const handleLogout = async () => {
+    const result = await Swal.fire({
+      title: "Konfirmasi Keluar",
+      html: `
+        <div class="text-left">
+          <p class="text-sm text-gray-600">Apakah Anda yakin ingin keluar dari sistem?</p>
+          <p class="text-xs text-gray-400 mt-2">Anda harus login kembali untuk mengakses dashboard.</p>
+        </div>
+      `,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Ya, Keluar",
+      cancelButtonText: "Batal",
+      reverseButtons: true,
+      customClass: {
+        popup: 'rounded-2xl',
+        confirmButton: 'px-4 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-xl transition',
+        cancelButton: 'px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition',
+      }
+    });
+
+    if (result.isConfirmed) {
+      try {
+        // Hapus semua cookie
+        document.cookie.split(';').forEach(cookie => {
+          const name = cookie.split('=')[0].trim();
+          document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
+        });
+        
+        // Hapus localStorage
+        localStorage.clear();
+        sessionStorage.clear();
+        
+        toast.success("👋 Anda berhasil keluar!");
+        
+        setTimeout(() => {
+          window.location.href = "/login/admin";
+        }, 500);
+      } catch (error) {
+        console.error("Logout error:", error);
+        toast.error("Gagal keluar sistem");
+      }
+    }
+  };
+
+  const getRoleBadge = (role: string) => {
+    switch (role) {
+      case "SUPER_ADMIN":
+        return "bg-purple-100 text-purple-700";
+      case "ADMIN":
+        return "bg-blue-100 text-blue-700";
+      default:
+        return "bg-green-100 text-green-700";
+    }
+  };
+
+  const getRoleText = (role: string) => {
+    switch (role) {
+      case "SUPER_ADMIN":
+        return "Super Admin";
+      case "ADMIN":
+        return "Admin Sekolah";
+      default:
+        return "User/Siswa";
+    }
+  };
+
+  const getInitials = () => {
+    if (!profile?.name) return "A";
+    const parts = profile.name.split(" ");
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-gray-400 text-sm font-medium">Memuat profil...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="text-center py-20">
+        <p className="text-gray-400">Gagal memuat profil</p>
+        <button
+          onClick={() => router.push("/admin")}
+          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm"
+        >
+          Kembali ke Dashboard
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Profil Admin</h1>
-        <p className="text-xs text-gray-400 mt-1">Kelola informasi akun Anda</p>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+            <User className="w-6 h-6 text-blue-600" />
+            Profil Saya
+          </h1>
+          <p className="text-xs text-gray-400 mt-0.5">Kelola informasi akun Anda</p>
+        </div>
+        {!editMode && (
+          <button
+            onClick={() => setEditMode(true)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition flex items-center gap-2 shadow-lg shadow-blue-200"
+          >
+            <Edit className="w-4 h-4" />
+            Edit Profil
+          </button>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Form Edit Profil */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center shadow-md">
-                <span className="text-lg font-bold text-white">
-                  {formData.name.charAt(0).toUpperCase()}
+      {/* ============================================= */}
+      {/* 🔥 CARD PROFIL - LOGO DI BANNER */}
+      {/* ============================================= */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        {/* Banner - Logo & Nama di area berwarna */}
+        <div className="relative bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 py-8 px-6">
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white rounded-full blur-3xl" />
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-white rounded-full blur-3xl" />
+          </div>
+          
+          <div className="relative z-10 flex flex-col sm:flex-row items-center gap-6">
+            {/* Avatar / Logo */}
+            <div className="w-24 h-24 rounded-full bg-white/20 backdrop-blur-sm border-4 border-white/30 shadow-xl flex items-center justify-center text-3xl font-bold text-white overflow-hidden flex-shrink-0">
+              {profile.schoolLogo ? (
+                <img src={profile.schoolLogo} alt={profile.schoolName} className="w-full h-full object-cover" />
+              ) : (
+                getInitials()
+              )}
+            </div>
+            
+            {/* Info di banner */}
+            <div className="text-center sm:text-left text-white">
+              <h2 className="text-2xl font-bold drop-shadow-md">{profile.name}</h2>
+              <p className="text-blue-100 text-sm drop-shadow-md flex items-center justify-center sm:justify-start gap-2">
+                <Building className="w-4 h-4" />
+                {profile.schoolName || "Perpustakaan Digital"}
+              </p>
+              <div className="flex items-center justify-center sm:justify-start gap-3 mt-1.5">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-white/20 backdrop-blur-sm rounded-full text-[10px] font-medium text-white">
+                  {profile.role === "SUPER_ADMIN" ? <Shield className="w-3 h-3" /> : <UserCircle className="w-3 h-3" />}
+                  {getRoleText(profile.role)}
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-green-400/30 backdrop-blur-sm rounded-full text-[10px] font-medium text-white">
+                  <CheckCircle className="w-3 h-3" />
+                  Aktif
                 </span>
               </div>
-              <div>
-                <h2 className="text-base font-bold text-gray-800">Informasi Profil</h2>
-                <p className="text-[8px] text-gray-400">Ubah nama dan email Anda</p>
-              </div>
             </div>
           </div>
-          
-          <form onSubmit={handleProfileUpdate} className="p-5 space-y-4">
-            <div>
-              <label className="block text-[10px] font-semibold text-gray-600 uppercase tracking-wider mb-1">
-                Nama Lengkap
-              </label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
-                placeholder="Nama Anda"
-                required
-              />
-            </div>
-            
-            <div>
-              <label className="block text-[10px] font-semibold text-gray-600 uppercase tracking-wider mb-1">
-                Email
-              </label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
-                placeholder="email@example.com"
-                required
-              />
-            </div>
-            
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-2.5 bg-blue-600 text-white rounded-lg text-[11px] font-semibold uppercase tracking-wider hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {isLoading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Menyimpan...
-                </>
-              ) : (
-                "💾 Simpan Perubahan"
-              )}
-            </button>
-          </form>
         </div>
 
-        {/* Form Ganti Password */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-amber-50 to-white">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-amber-600 flex items-center justify-center shadow-md">
-                <span className="text-lg">🔒</span>
+        {/* Content - Informasi detail di bawah banner */}
+        <div className="px-6 py-6">
+          {editMode ? (
+            /* ========== EDIT MODE ========== */
+            <form onSubmit={handleUpdateProfile} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Nama Lengkap</label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">Email</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
+                    required
+                  />
+                </div>
               </div>
-              <div>
-                <h2 className="text-base font-bold text-gray-800">Ganti Password</h2>
-                <p className="text-[8px] text-gray-400">Perbarui password akun Anda</p>
-              </div>
-            </div>
-          </div>
-          
-          <form onSubmit={handlePasswordChange} className="p-5 space-y-4">
-            <div>
-              <label className="block text-[10px] font-semibold text-gray-600 uppercase tracking-wider mb-1">
-                Password Saat Ini
-              </label>
-              <div className="relative">
-                <input
-                  type={showCurrentPassword ? "text" : "password"}
-                  value={passwordData.currentPassword}
-                  onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition pr-10"
-                  placeholder="Masukkan password lama"
-                  required
-                />
+
+              <div className="flex gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"
+                  onClick={() => {
+                    setEditMode(false);
+                    if (profile) {
+                      setFormData({
+                        name: profile.name,
+                        email: profile.email,
+                        className: profile.className || "",
+                      });
+                    }
+                  }}
+                  className="flex-1 py-2.5 bg-gray-100 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-200 transition flex items-center justify-center gap-2"
                 >
-                  {showCurrentPassword ? "🙈" : "👁️"}
+                  <X className="w-4 h-4" />
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex-1 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-medium hover:from-blue-700 hover:to-indigo-700 transition flex items-center justify-center gap-2 shadow-lg shadow-blue-200 disabled:opacity-50"
+                >
+                  {saving ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Menyimpan...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      Simpan Perubahan
+                    </>
+                  )}
                 </button>
               </div>
+            </form>
+          ) : (
+            /* ========== VIEW MODE ========== */
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-4">
+                <div className="border-b border-gray-100 pb-3">
+                  <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Nama Lengkap</p>
+                  <p className="text-sm font-medium text-gray-800 mt-0.5">{profile.name}</p>
+                </div>
+                <div className="border-b border-gray-100 pb-3">
+                  <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Email</p>
+                  <p className="text-sm font-medium text-gray-800 mt-0.5">{profile.email}</p>
+                </div>
+                <div className="border-b border-gray-100 pb-3">
+                  <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Role</p>
+                  <p className="text-sm mt-0.5">
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full ${getRoleBadge(profile.role)}`}>
+                      {profile.role === "SUPER_ADMIN" ? <Shield className="w-3 h-3" /> : <UserCircle className="w-3 h-3" />}
+                      {getRoleText(profile.role)}
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div className="border-b border-gray-100 pb-3">
+                  <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Sekolah</p>
+                  <p className="text-sm font-medium text-gray-800 mt-0.5 flex items-center gap-1.5">
+                    <Building className="w-4 h-4 text-gray-400" />
+                    {profile.schoolName || "Belum ditentukan"}
+                  </p>
+                </div>
+                <div className="border-b border-gray-100 pb-3">
+                  <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Bergabung</p>
+                  <p className="text-sm font-medium text-gray-800 mt-0.5 flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4 text-gray-400" />
+                    {new Date(profile.createdAt).toLocaleDateString("id-ID", {
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric"
+                    })}
+                  </p>
+                </div>
+                <div className="border-b border-gray-100 pb-3">
+                  <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Status</p>
+                  <p className="text-sm mt-0.5">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+                      <CheckCircle className="w-3 h-3" />
+                      Aktif
+                    </span>
+                  </p>
+                </div>
+              </div>
             </div>
-            
-            <div>
-              <label className="block text-[10px] font-semibold text-gray-600 uppercase tracking-wider mb-1">
-                Password Baru
-              </label>
-              <div className="relative">
+          )}
+        </div>
+      </div>
+
+      {/* ============================================= */}
+      {/* 🔥 QUICK ACTIONS */}
+      {/* ============================================= */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <button
+          onClick={() => setShowPasswordModal(true)}
+          className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition flex items-center gap-4 group"
+        >
+          <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center group-hover:scale-110 transition">
+            <Key className="w-5 h-5 text-amber-600" />
+          </div>
+          <div className="flex-1 text-left">
+            <h3 className="font-semibold text-gray-800">Ganti Password</h3>
+            <p className="text-[9px] text-gray-400">Perbarui password akun Anda</p>
+          </div>
+          <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-blue-500 group-hover:translate-x-1 transition" />
+        </button>
+
+        <button
+          onClick={handleLogout}
+          className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition flex items-center gap-4 group hover:border-red-200"
+        >
+          <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center group-hover:scale-110 transition">
+            <LogOut className="w-5 h-5 text-red-600" />
+          </div>
+          <div className="flex-1 text-left">
+            <h3 className="font-semibold text-gray-800 group-hover:text-red-600 transition">Keluar Sistem</h3>
+            <p className="text-[9px] text-gray-400">Logout dari akun Anda</p>
+          </div>
+          <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-red-500 group-hover:translate-x-1 transition" />
+        </button>
+      </div>
+
+      {/* ============================================= */}
+      {/* 🔥 MODAL GANTI PASSWORD */}
+      {/* ============================================= */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl animate-fade-in-up">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                <Key className="w-5 h-5 text-amber-600" />
+                Ganti Password
+              </h3>
+              <button
+                onClick={() => {
+                  setShowPasswordModal(false);
+                  setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+                }}
+                className="text-gray-400 hover:text-gray-600 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Password Saat Ini</label>
                 <input
-                  type={showNewPassword ? "text" : "password"}
-                  value={passwordData.newPassword}
-                  onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition pr-10"
+                  type="password"
+                  value={passwordForm.currentPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none transition"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Password Baru</label>
+                <input
+                  type="password"
+                  value={passwordForm.newPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none transition"
                   placeholder="Minimal 6 karakter"
                   required
+                  minLength={6}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowNewPassword(!showNewPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"
-                >
-                  {showNewPassword ? "🙈" : "👁️"}
-                </button>
               </div>
-            </div>
-            
-            <div>
-              <label className="block text-[10px] font-semibold text-gray-600 uppercase tracking-wider mb-1">
-                Konfirmasi Password Baru
-              </label>
-              <div className="relative">
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Konfirmasi Password Baru</label>
                 <input
-                  type={showConfirmPassword ? "text" : "password"}
-                  value={passwordData.confirmPassword}
-                  onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition pr-10"
-                  placeholder="Ulangi password baru"
+                  type="password"
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none transition"
                   required
                 />
+              </div>
+
+              <div className="flex gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"
+                  onClick={() => {
+                    setShowPasswordModal(false);
+                    setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+                  }}
+                  className="flex-1 py-2.5 bg-gray-100 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-200 transition"
                 >
-                  {showConfirmPassword ? "🙈" : "👁️"}
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={changingPassword}
+                  className="flex-1 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl text-sm font-medium hover:from-amber-700 hover:to-orange-700 transition flex items-center justify-center gap-2 shadow-lg shadow-amber-200 disabled:opacity-50"
+                >
+                  {changingPassword ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Memproses...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      Ganti Password
+                    </>
+                  )}
                 </button>
               </div>
-            </div>
-            
-            <button
-              type="submit"
-              disabled={isChangingPassword}
-              className="w-full py-2.5 bg-amber-600 text-white rounded-lg text-[11px] font-semibold uppercase tracking-wider hover:bg-amber-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {isChangingPassword ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Mengubah...
-                </>
-              ) : (
-                "🔐 Ubah Password"
-              )}
-            </button>
-          </form>
-        </div>
-      </div>
-
-      {/* Tips Keamanan */}
-      <div className="mt-6 bg-blue-50 rounded-xl p-4 border border-blue-100">
-        <div className="flex items-start gap-3">
-          <span className="text-lg">ℹ️</span>
-          <div>
-            <h3 className="text-sm font-bold text-blue-800">Tips Keamanan</h3>
-            <p className="text-xs text-blue-600 mt-1">
-              • Gunakan password yang kuat dan unik<br />
-              • Jangan bagikan password dengan siapapun<br />
-              • Ganti password secara berkala untuk keamanan akun Anda
-            </p>
+            </form>
           </div>
         </div>
-      </div>
+      )}
+
+      <style jsx>{`
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px) scale(0.98);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        .animate-fade-in-up {
+          animation: fadeInUp 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 }

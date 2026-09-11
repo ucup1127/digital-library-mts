@@ -8,9 +8,16 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get("start");
     const endDate = searchParams.get("end");
+    const schoolId = searchParams.get("schoolId");
     
     let where: any = {};
     
+    // Filter berdasarkan sekolah
+    if (schoolId) {
+      where.schoolId = schoolId;
+    }
+    
+    // Filter berdasarkan tanggal
     if (startDate && endDate) {
       where.createdAt = {
         gte: new Date(startDate),

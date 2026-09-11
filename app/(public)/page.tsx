@@ -14,7 +14,7 @@ export default async function Home({
   const categoryId = params.category;
   const searchQuery = params.q;
   const currentPage = parseInt(params.page || "1");
-  const itemsPerPage = 12; // 12 buku per halaman
+  const itemsPerPage = 12;
 
   const categories = await db.category.findMany() || [];
 
@@ -32,11 +32,9 @@ export default async function Home({
     ];
   }
 
-  // Hitung total buku untuk pagination
   const totalBooks = await db.book.count({ where });
   const totalPages = Math.ceil(totalBooks / itemsPerPage);
 
-  // Ambil buku dengan pagination
   const books = await db.book.findMany({
     where,
     include: {
@@ -50,29 +48,36 @@ export default async function Home({
   }) || [];
 
   return (
-    <div className="bg-white min-h-screen pb-16">
-      {/* Header */}
-      <div className="max-w-7xl mx-auto px-6 pt-3 pb-2 text-center">
-        <p className="text-[9px] text-gray-400 uppercase tracking-widest">
-          Selamat Datang di Perpustakaan Digital
-        </p>
-        <div className="w-12 h-0.5 bg-blue-600 mx-auto mt-1 rounded-full" />
+    <div className="bg-gray-50 min-h-screen pb-12 pt-10">
+
+      {/* ============================================= */}
+      {/* 🔥 SEARCH & FILTER */}
+      {/* ============================================= */}
+      <div className="max-w-7xl mx-auto px-4 -mt-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
+          <BookFilter categories={categories} />
+        </div>
       </div>
 
-      {/* Search + Filter */}
-      <div className="max-w-5xl mx-auto px-4 mb-6">
-        <BookFilter categories={categories} />
-      </div>
-
-      {/* Filter Kategori (Pill) */}
-      <div className="max-w-7xl mx-auto px-6 mb-6">
-        <div className="flex overflow-x-auto gap-2 pb-2 no-scrollbar justify-start lg:justify-center">
+      {/* ============================================= */}
+      {/* 🔥 CATEGORY FILTER */}
+      {/* ============================================= */}
+      <div className="max-w-7xl mx-auto px-4 mt-6">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+             Kategori
+          </h2>
+          <span className="text-[9px] text-gray-400">
+            {totalBooks} buku
+          </span>
+        </div>
+        <div className="flex overflow-x-auto gap-2 pb-2 no-scrollbar">
           <Link 
             href={`/?${searchQuery ? `q=${searchQuery}` : ""}`}
-            className={`flex-none px-4 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest transition-all ${
+            className={`flex-none px-4 py-1.5 rounded-full border text-[10px] font-medium transition-all ${
               !categoryId 
                 ? "bg-blue-600 border-blue-600 text-white shadow-sm" 
-                : "bg-white border-gray-200 text-gray-500 hover:border-blue-600 hover:text-blue-600"
+                : "bg-white border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600"
             }`}
           >
             Semua
@@ -81,10 +86,10 @@ export default async function Home({
             <Link 
               key={cat.id} 
               href={`/?category=${cat.id}&page=1${searchQuery ? `&q=${searchQuery}` : ""}`}
-              className={`flex-none px-4 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest transition-all ${
+              className={`flex-none px-4 py-1.5 rounded-full border text-[10px] font-medium transition-all whitespace-nowrap ${
                 categoryId === cat.id 
                   ? "bg-blue-600 border-blue-600 text-white shadow-sm" 
-                  : "bg-white border-gray-200 text-gray-500 hover:border-blue-600 hover:text-blue-600"
+                  : "bg-white border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600"
               }`}
             >
               {cat.name}
@@ -93,38 +98,56 @@ export default async function Home({
         </div>
       </div>
 
+      {/* ============================================= */}
+      {/* 🔥 RECENTLY READ */}
+      {/* ============================================= */}
       <RecentlyRead />
 
-      {/* Grid Buku */}
-      <div className="max-w-7xl mx-auto px-6">
+      {/* ============================================= */}
+      {/* 🔥 BOOK GRID */}
+      {/* ============================================= */}
+      <div className="max-w-7xl mx-auto px-4 mt-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+            Koleksi Buku
+          </h2>
+          {books.length > 0 && (
+            <span className="text-[9px] text-gray-400">
+              {books.length} dari {totalBooks} buku
+            </span>
+          )}
+        </div>
+
         {books.length === 0 ? (
-          <div className="text-center py-20">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
+            <div className="text-5xl mb-3">📚</div>
             <p className="text-gray-400 text-sm">Buku tidak ditemukan</p>
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 md:gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
               {books.map((book) => (
                 <Link href={`/buku/${book.id}`} key={book.id} className="group">
-                  <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-gray-100 shadow-sm group-hover:shadow-md transition-all">
+                  <div className="relative aspect-[2/3] rounded-xl overflow-hidden bg-gray-100 shadow-sm group-hover:shadow-md transition-all duration-300 group-hover:-translate-y-1">
                     {book.coverUrl ? (
                       <img 
                         src={book.coverUrl} 
                         alt={book.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        loading="lazy"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400 text-[8px] font-bold p-2 text-center">
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 text-gray-400 text-[10px] font-medium p-3 text-center">
                         {book.title}
                       </div>
                     )}
                     {book.categories[0]?.category && (
-                      <div className="absolute top-1 left-1 bg-black/60 backdrop-blur-sm text-white text-[6px] font-bold px-1.5 py-0.5 rounded-full">
+                      <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-sm text-white text-[6px] font-medium px-2 py-0.5 rounded-full">
                         {book.categories[0].category.name}
                       </div>
                     )}
                   </div>
-                  <h3 className="font-bold text-gray-800 text-[10px] md:text-xs mt-1.5 line-clamp-1 group-hover:text-blue-600 transition">
+                  <h3 className="font-medium text-gray-800 text-[10px] sm:text-xs mt-1.5 line-clamp-1 group-hover:text-blue-600 transition">
                     {book.title}
                   </h3>
                   <p className="text-[8px] text-gray-400 truncate">
@@ -136,7 +159,7 @@ export default async function Home({
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="mt-10">
+              <div className="mt-8">
                 <Pagination 
                   currentPage={currentPage}
                   totalPages={totalPages}

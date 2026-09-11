@@ -6,165 +6,193 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const schoolId = searchParams.get("schoolId");
-    const all = searchParams.get("all") === "true";
     
-    console.log("Stats request:", { schoolId, all });
+    console.log("📊 Dashboard Stats - schoolId:", schoolId);
     
-    let totalBooks, totalUsers, totalCategories, totalViews, popularBooks;
-    let monthlyStats: any[] = [];
-    let categoryStats: any[] = [];
+    // Filter untuk books, users, dll
+    const bookWhere: any = {};
+    const userWhere: any = { role: "USER" };
     
-    if (all) {
-      // SUPER_ADMIN: data dari semua sekolah
-      [totalBooks, totalUsers, totalCategories, totalViews, popularBooks] = await Promise.all([
-        db.book.count(),
-        db.user.count(),
-        db.category.count(),
-        db.book.aggregate({ _sum: { views: true } }),
-        db.book.findMany({
-          orderBy: { views: 'desc' },
-          take: 5,
-          select: { id: true, title: true, author: true, views: true }
-        }),
-      ]);
+    if (schoolId) {
+      bookWhere.schoolId = schoolId;
+      userWhere.schoolId = schoolId;
+    }
+    
+    // Total Buku Digital
+    const totalBooks = await db.book.count({ where: bookWhere });
+    
+    // Total User (siswa)
+    const totalUsers = await db.user.count({ where: userWhere });
+    
+    // Total Kategori (semua, tidak perlu filter schoolId karena kategori global)
+    const totalCategories = await db.category.count();
+    
+    // Total Views
+    const totalViewsAgg = await db.book.aggregate({
+      where: bookWhere,
+      _sum: { views: true },
+    });
+    const totalViews = totalViewsAgg._sum.views || 0;
+    
+    // ========== STATISTIK BUKU FISIK ==========
+    const bukuFisikWhere: any = {};
+    if (schoolId) {
+      bukuFisikWhere.schoolId = schoolId;
+    }
+    
+    const totalBukuFisik = await db.bukuFisik.count({ where: bukuFisikWhere });
+    
+    // Peminjaman dengan filter (join ke bukuFisik untuk filter schoolId)
+    const peminjamanWhere: any = {};
+    if (schoolId) {
+      peminjamanWhere.bukuFisik = { schoolId };
+    }
+    
+    const totalBukuFisikDipinjam = await db.peminjamanFisik.count({
+      where: {
+        ...peminjamanWhere,
+        status: { in: ["DIPINJAM", "TERLAMBAT"] },
+      },
+    });
+    
+    const totalPeminjamanAktif = await db.peminjamanFisik.count({
+      where: {
+        ...peminjamanWhere,
+        status: { in: ["DIPINJAM", "TERLAMBAT"] },
+      },
+    });
+    
+    const totalDendaBelumBayarAgg = await db.peminjamanFisik.aggregate({
+      where: {
+        ...peminjamanWhere,
+        status: "DIKEMBALIKAN",
+        denda: { gt: 0 },
+      },
+      _sum: { denda: true },
+    });
+    const totalDendaBelumBayar = totalDendaBelumBayarAgg._sum.denda || 0;
+    
+    // Status peminjaman
+    const dipinjam = await db.peminjamanFisik.count({
+      where: { ...peminjamanWhere, status: "DIPINJAM" },
+    });
+    const terlambat = await db.peminjamanFisik.count({
+      where: { ...peminjamanWhere, status: "TERLAMBAT" },
+    });
+    const dikembalikan = await db.peminjamanFisik.count({
+      where: { ...peminjamanWhere, status: "DIKEMBALIKAN" },
+    });
+    
+    const loanStatus = [
+      { name: "Dipinjam", value: dipinjam },
+      { name: "Terlambat", value: terlambat },
+      { name: "Dikembalikan", value: dikembalikan },
+    ];
+    
+    // Monthly stats (6 bulan terakhir)
+    const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+    const currentMonth = new Date().getMonth();
+    const monthlyStats = [];
+    
+    for (let i = 5; i >= 0; i--) {
+      const monthIndex = (currentMonth - i + 12) % 12;
+      const monthName = months[monthIndex];
+      const year = new Date().getFullYear();
+      const startDate = new Date(year, monthIndex, 1);
+      const endDate = new Date(year, monthIndex + 1, 0);
       
-      // Ambil statistik bulanan untuk chart (6 bulan terakhir)
-      const monthlyRaw = await db.$queryRaw`
-        SELECT 
-          TO_CHAR(DATE_TRUNC('month', "createdAt"), 'Mon') as month,
-          EXTRACT(MONTH FROM DATE_TRUNC('month', "createdAt")) as month_num,
-          COUNT(*) as books,
-          COALESCE(SUM(views), 0) as views
-        FROM "Book"
-        WHERE "createdAt" >= NOW() - INTERVAL '6 months'
-        GROUP BY DATE_TRUNC('month', "createdAt")
-        ORDER BY DATE_TRUNC('month', "createdAt") ASC
-      `;
-      
-      monthlyStats = (monthlyRaw as any[]).map((stat: any) => ({
-        month: stat.month,
-        books: Number(stat.books),
-        views: Number(stat.views)
-      }));
-      
-      // Ambil statistik kategori
-      const categoryRaw = await db.category.findMany({
-        include: {
-          books: true
+      const booksCount = await db.book.count({
+        where: {
+          ...bookWhere,
+          createdAt: { gte: startDate, lte: endDate },
         },
-        take: 6
       });
       
-      categoryStats = categoryRaw.map((cat: any) => ({
-        name: cat.name,
-        count: cat.books.length
-      })).sort((a, b) => b.count - a.count).slice(0, 5);
-      
-    } else if (schoolId) {
-      // Admin biasa: filter berdasarkan sekolah
-      [totalBooks, totalUsers, totalCategories, totalViews, popularBooks] = await Promise.all([
-        db.book.count({ where: { schoolId } }),
-        db.user.count({ where: { schoolId } }),
-        db.category.count(),
-        db.book.aggregate({ where: { schoolId }, _sum: { views: true } }),
-        db.book.findMany({
-          where: { schoolId },
-          orderBy: { views: 'desc' },
-          take: 5,
-          select: { id: true, title: true, author: true, views: true }
-        }),
-      ]);
-      
-      // Ambil statistik bulanan untuk chart (6 bulan terakhir) - filter by school
-      const monthlyRaw = await db.$queryRaw`
-        SELECT 
-          TO_CHAR(DATE_TRUNC('month', "createdAt"), 'Mon') as month,
-          EXTRACT(MONTH FROM DATE_TRUNC('month', "createdAt")) as month_num,
-          COUNT(*) as books,
-          COALESCE(SUM(views), 0) as views
-        FROM "Book"
-        WHERE "createdAt" >= NOW() - INTERVAL '6 months'
-        AND "schoolId" = ${schoolId}
-        GROUP BY DATE_TRUNC('month', "createdAt")
-        ORDER BY DATE_TRUNC('month', "createdAt") ASC
-      `;
-      
-      monthlyStats = (monthlyRaw as any[]).map((stat: any) => ({
-        month: stat.month,
-        books: Number(stat.books),
-        views: Number(stat.views)
-      }));
-      
-      // Ambil statistik kategori - filter by school
-      const booksWithCategories = await db.book.findMany({
-        where: { schoolId },
-        include: {
-          categories: {
-            include: { category: true }
-          }
-        }
+      const viewsCount = await db.book.aggregate({
+        where: {
+          ...bookWhere,
+          createdAt: { gte: startDate, lte: endDate },
+        },
+        _sum: { views: true },
       });
       
-      // Hitung jumlah buku per kategori
-      const categoryMap = new Map<string, number>();
-      for (const book of booksWithCategories) {
-        for (const bc of book.categories) {
-          const catName = bc.category.name;
-          categoryMap.set(catName, (categoryMap.get(catName) || 0) + 1);
-        }
-      }
+      const loansCount = await db.peminjamanFisik.count({
+        where: {
+          ...peminjamanWhere,
+          createdAt: { gte: startDate, lte: endDate },
+        },
+      });
       
-      categoryStats = Array.from(categoryMap.entries())
-        .map(([name, count]) => ({ name, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 5);
-    } else {
-      return NextResponse.json({ error: "SchoolId diperlukan" }, { status: 400 });
+      monthlyStats.push({
+        month: monthName,
+        books: booksCount,
+        views: viewsCount._sum.views || 0,
+        loans: loansCount,
+      });
     }
     
-    // Jika tidak ada data monthly, buat data dummy agar chart tetap tampil
-    if (monthlyStats.length === 0) {
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun'];
-      monthlyStats = months.map(month => ({
-        month,
-        books: 0,
-        views: 0
-      }));
-    }
+    // Buku populer
+    const popularBooks = await db.book.findMany({
+      where: bookWhere,
+      select: { id: true, title: true, author: true, views: true },
+      orderBy: { views: "desc" },
+      take: 5,
+    });
     
-    // Jika tidak ada data kategori, beri data kosong
-    if (categoryStats.length === 0) {
-      categoryStats = [{ name: "Belum ada data", count: 0 }];
-    }
+    // Kategori stats
+    const categoryStatsRaw = await db.bookCategory.groupBy({
+      by: ["categoryId"],
+      _count: { bookId: true },
+      where: {
+        book: bookWhere,
+      },
+    });
+    
+    const categoryIds = categoryStatsRaw.map(c => c.categoryId);
+    const categories = await db.category.findMany({
+      where: { id: { in: categoryIds } },
+    });
+    
+    const categoryStats = categoryStatsRaw.map(cat => {
+      const category = categories.find(c => c.id === cat.categoryId);
+      return {
+        name: category?.name || "Unknown",
+        count: cat._count.bookId,
+      };
+    });
     
     return NextResponse.json({
       totalBooks,
       totalUsers,
-      totalCategories: totalCategories || 0,
-      totalViews: totalViews._sum?.views || 0,
-      popularBooks: popularBooks || [],
+      totalCategories,
+      totalViews,
+      totalBukuFisik,
+      totalBukuFisikDipinjam,
+      totalPeminjamanAktif,
+      totalDendaBelumBayar,
+      loanStatus,
       monthlyStats,
+      popularBooks,
       categoryStats,
     });
   } catch (error) {
     console.error("Error fetching stats:", error);
-    // Return data kosong tapi tetap valid
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun'];
-    const monthlyStats = months.map(month => ({
-      month,
-      books: 0,
-      views: 0
-    }));
-    
-    return NextResponse.json({ 
-      error: "Gagal memuat statistik",
-      totalBooks: 0,
-      totalUsers: 0,
-      totalCategories: 0,
-      totalViews: 0,
-      popularBooks: [],
-      monthlyStats,
-      categoryStats: [{ name: "Belum ada data", count: 0 }]
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        totalBooks: 0,
+        totalUsers: 0,
+        totalCategories: 0,
+        totalViews: 0,
+        totalBukuFisik: 0,
+        totalBukuFisikDipinjam: 0,
+        totalPeminjamanAktif: 0,
+        totalDendaBelumBayar: 0,
+        loanStatus: [],
+        monthlyStats: [],
+        popularBooks: [],
+        categoryStats: [],
+      },
+      { status: 500 }
+    );
   }
 }

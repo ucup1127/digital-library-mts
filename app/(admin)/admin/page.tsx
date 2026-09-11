@@ -21,7 +21,8 @@ import {
   Award,
   ArrowRight,
   Sparkles,
-  Clock
+  Clock,
+  School
 } from "lucide-react";
 
 interface DashboardData {

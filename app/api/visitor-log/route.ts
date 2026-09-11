@@ -5,15 +5,21 @@ import { NextResponse } from "next/server";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { action, bookId, bookTitle, userId, userEmail, schoolId } = body;
+    const { action, bookId, bookTitle, userId, userEmail, schoolId, userRole } = body;
     
-    console.log("📝 Received log request:", { action, bookId, bookTitle });
+    console.log("📝 Received log request:", { action, bookId, bookTitle, userRole });
     
     if (!action) {
       return NextResponse.json({ error: "Action required" }, { status: 400 });
     }
     
-    // Catat ke VisitorLog
+    // 🔥 PENTING: JANGAN catat aktivitas SUPER_ADMIN
+    if (userRole === "SUPER_ADMIN") {
+      console.log("⏭️ Skipping log for SUPER_ADMIN");
+      return NextResponse.json({ success: true, skipped: true, reason: "SUPER_ADMIN" });
+    }
+    
+    // Catat ke VisitorLog (hanya untuk USER dan ADMIN biasa)
     const log = await db.visitorLog.create({
       data: {
         action: action,

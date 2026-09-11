@@ -14,9 +14,11 @@ model School {
   id        String   @id @default(cuid())
   name      String   @unique
   slug      String   @unique
-  logo      String? 
+  logo      String?
+  website   String?   // ✅ Website resmi sekolah (untuk redirect)
   books     Book[]
   users     User[]
+  profile   SchoolProfile? 
   createdAt DateTime @default(now())
 }
 
@@ -28,23 +30,79 @@ model Category {
 
   // Relasi ke BookCategory
   books     BookCategory[]
+  bukuFisik BukuFisikKategori[]
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String   @db.Text
-  name      String?  
-  className String?  
-  image     String?  
-  role      String   @default("USER") // USER, ADMIN, SUPER_ADMIN
-  schoolId  String?
-  school    School?   @relation(fields: [schoolId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  id           String   @id @default(cuid())
+  email        String   @unique
+  password     String   @db.Text
+  name         String?  
+  className    String?  
+  image        String?  
+  role         String   @default("USER")
+  schoolId     String?
+  school       School?  @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  memberId     String?  @unique
+  barcode      String?  @unique
+  
+  // 🔥 TAMBAHKAN INI
+  isActive     Boolean  @default(true)  // true = aktif, false = nonaktif
+  graduatedAt  DateTime? // tanggal lulus
+  
+  peminjamanFisik PeminjamanFisik[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
 
   @@index([schoolId])
   @@index([role])
+  @@index([barcode])
+  @@index([isActive])
+}
+
+model BukuFisik {
+  id           String   @id @default(cuid())
+  judul        String
+  penulis      String
+  penerbit     String?
+  tahun        String?
+  isbn         String?
+  lokasiRak    String?
+  stok         Int      @default(1)
+  stokTersedia Int      @default(1)
+  kondisi      String   @default("BAIK")
+  barcode      String   @unique
+  gambar       String?
+  deskripsi    String?  @db.Text
+  schoolId     String?  // ✅ Tambahkan: buku fisik per sekolah
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  peminjaman   PeminjamanFisik[]
+  kategoriBuku BukuFisikKategori[]
+
+  @@index([schoolId])
+  @@index([barcode])
+}
+
+model PeminjamanFisik {
+  id            String      @id @default(cuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bukuFisikId   String
+  bukuFisik     BukuFisik   @relation(fields: [bukuFisikId], references: [id], onDelete: Cascade)
+  tglPinjam     DateTime    @default(now())
+  tglKembali    DateTime
+  tglDikembalikan DateTime?
+  status        String      @default("DIPINJAM")
+  denda         Int         @default(0)
+  petugas       String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([bukuFisikId])
+  @@index([status])
+  @@index([tglKembali])
 }
 
 model Organization {
@@ -64,10 +122,18 @@ model Visitor {
 }
 
 model SchoolProfile {
-  id      String @id @default(cuid())
-  vision  String @db.Text
-  mission String @db.Text
-  history String @db.Text
+  id        String   @id @default(cuid())
+  schoolId  String   @unique
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  vision    String?  @db.Text
+  mission   String?  @db.Text
+  history   String?  @db.Text
+  address   String?  @db.Text
+  phone     String?
+  email     String?
+  website   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ==================== MODEL DENGAN RELASI ====================
@@ -82,16 +148,14 @@ model Book {
   year          String?
   isRecommended Boolean   @default(false)
   views         Int       @default(0)
-  schoolId      String
+  schoolId      String    // ✅ Wajib: buku digital per sekolah
   isShared      Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  // Relasi
-  school        School        @relation(fields: [schoolId], references: [id])
+  school        School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   categories    BookCategory[]
 
-  // Index
   @@index([title])
   @@index([author])
   @@index([schoolId])
@@ -100,7 +164,7 @@ model Book {
   @@index([title, author])
 }
 
-// Junction Table (HARUS SETELAH Book dan Category)
+// Junction Table
 model BookCategory {
   bookId     String
   categoryId String
@@ -111,6 +175,7 @@ model BookCategory {
   @@index([bookId])
   @@index([categoryId])
 }
+
 model VisitorLog {
   id         String   @id @default(cuid())
   userId     String?  
@@ -119,7 +184,7 @@ model VisitorLog {
   bookId     String?  
   bookTitle  String?  
   categoryId String?
-  schoolId   String? 
+  schoolId   String?   // ✅ Tambahkan: log per sekolah
   ipAddress  String?
   userAgent  String?
   sessionId  String
@@ -129,6 +194,7 @@ model VisitorLog {
   @@index([userId])
   @@index([action])
   @@index([sessionId])
+  @@index([schoolId])
 }
 
 model ActiveSession {
@@ -142,34 +208,36 @@ model ActiveSession {
   
   @@index([lastActive])
 }
+
 model SystemLog {
   id        String   @id @default(cuid())
   level     String   // ERROR, WARNING, INFO
   message   String   @db.Text
   stack     String?  @db.Text
-  path      String?  // URL path yang error
-  method    String?  // GET, POST, PUT, DELETE
-  userId    String?  // ID user yang login (jika ada)
-  userEmail String?  // Email user
-  userAgent String?  // Browser info
-  ipAddress String?  // IP address
+  path      String?
+  method    String?
+  userId    String?
+  userEmail String?
+  userAgent String?
+  ipAddress String?
   createdAt DateTime @default(now())
 
   @@index([createdAt])
   @@index([level])
 }
+
 model AdminLog {
   id          String   @id @default(cuid())
   adminId     String
   adminName   String
   adminEmail  String
   adminRole   String
-  schoolId    String?
-  action      String   // CREATE, UPDATE, DELETE, LOGIN, LOGOUT
-  targetType  String   // BOOK, USER, CATEGORY, SCHOOL, etc
+  schoolId    String?   // ✅ Bisa null untuk SUPER_ADMIN
+  action      String
+  targetType  String
   targetId    String?
   targetName  String?
-  changes     Json?    // Perubahan data (JSON)
+  changes     Json?
   ipAddress   String?
   userAgent   String?
   createdAt   DateTime @default(now())
@@ -179,9 +247,39 @@ model AdminLog {
   @@index([createdAt])
   @@index([action])
 }
+
 model Setting {
   id        String   @id @default(cuid())
   key       String   @unique
   value     String   @db.Text
+  schoolId  String?
   updatedAt DateTime @updatedAt
+
+  @@index([key])
+  @@index([schoolId])
+}
+
+model BukuFisikKategori {
+  bukuFisikId String
+  bukuFisik   BukuFisik @relation(fields: [bukuFisikId], references: [id], onDelete: Cascade)
+  kategoriId  String
+  kategori    Category  @relation(fields: [kategoriId], references: [id], onDelete: Cascade)
+
+  @@id([bukuFisikId, kategoriId])
+}
+
+// ==================== MODEL BARU UNTUK GALERI ====================
+
+model Gallery {
+  id          String   @id @default(cuid())
+  title       String
+  description String?  @db.Text
+  imageUrl    String
+  category    String   @default("kegiatan") // kegiatan, koleksi, fasilitas, acara
+  schoolId    String   // ✅ Wajib: galeri per sekolah
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([category])
 }

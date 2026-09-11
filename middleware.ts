@@ -2,84 +2,69 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// Halaman yang tetap bisa diakses saat maintenance
-const allowedPaths = [
-  '/login/admin',
-  '/login/user',
-  '/api/login',
-  '/api/settings',
-  '/maintenance',
-  '/api/system-log', // Izinkan system log API
-];
-
-// Fungsi untuk mencatat error ke system log (tanpa import karena middleware tidak bisa akses db langsung)
-async function logToSystemLog(level: string, message: string, context?: any) {
-  try {
-    // Panggil API internal untuk mencatat log
-    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-    await fetch(`${baseUrl}/api/system-log`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        level,
-        message,
-        path: context?.path,
-        method: context?.method,
-        userAgent: context?.userAgent,
-        ipAddress: context?.ip,
-      }),
-    }).catch(() => {});
-  } catch (error) {
-    // Silent fail, jangan ganggu request utama
-  }
-}
-
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const startTime = Date.now();
   
-  // Tambahkan header untuk tracking
-  const response = NextResponse.next();
-  response.headers.set('X-Request-Path', pathname);
-  response.headers.set('X-Request-Method', request.method);
-  
-  // 🔥 Catat request yang lambat (> 2 detik)
-  response.headers.set('X-Response-Time', `${Date.now() - startTime}ms`);
-  
-  // Schedule logging untuk request lambat (setelah response dikirim)
-  if (process.env.NODE_ENV === 'production') {
-    setTimeout(async () => {
-      const duration = Date.now() - startTime;
-      if (duration > 2000) {
-        await logToSystemLog('WARNING', `Slow request: ${duration}ms`, {
-          path: pathname,
-          method: request.method,
-          userAgent: request.headers.get('user-agent'),
-          ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
-        });
-      }
-    }, 0);
-  }
-  
-  // Cek maintenance mode via cookie (set dari API)
-  const isMaintenance = request.cookies.get('maintenance_mode')?.value === 'true';
+  // 🔥 Ambil cookie
   const isLoggedIn = request.cookies.get('isLoggedIn')?.value === 'true';
+  const userRole = request.cookies.get('user_role')?.value || '';
   
-  if (isMaintenance && !allowedPaths.some(path => pathname.startsWith(path))) {
-    // Jika admin sudah login, izinkan akses ke halaman admin
-    if (isLoggedIn && (pathname.startsWith('/admin') || pathname.startsWith('/api/admin'))) {
-      return response;
+  // 🔥 Cek apakah ini route admin
+  const isAdminRoute = pathname.startsWith('/admin') || pathname.startsWith('/api/admin');
+  
+  // 🔥 Cek apakah ini halaman login
+  const isLoginAdmin = pathname === '/login/admin';
+  const isLoginUser = pathname === '/login/user';
+  
+  // 🔥 Cek apakah ini halaman utama
+  const isHomePage = pathname === '/';
+  
+  // =============================================
+  // 🔥 PROTEKSI ROUTE ADMIN
+  // =============================================
+  if (isAdminRoute) {
+    // Jika belum login atau bukan admin, redirect ke login admin
+    if (!isLoggedIn || (userRole !== 'ADMIN' && userRole !== 'SUPER_ADMIN')) {
+      console.log(`⛔ Redirect admin: ${pathname} → /login/admin`);
+      return NextResponse.redirect(new URL('/login/admin', request.url));
     }
-    // Redirect ke halaman maintenance
-    const url = new URL('/maintenance', request.url);
-    return NextResponse.redirect(url);
   }
   
-  return response;
+  // =============================================
+  // 🔥 CEK SUDAH LOGIN TAPI AKSES LOGIN PAGE
+  // =============================================
+  if (isLoginAdmin && isLoggedIn) {
+    if (userRole === 'ADMIN' || userRole === 'SUPER_ADMIN') {
+      console.log(`✅ Redirect: ${pathname} → /admin`);
+      return NextResponse.redirect(new URL('/admin', request.url));
+    }
+    // 🔥 Jika user biasa akses login admin, redirect ke login user
+    if (userRole === 'USER') {
+      console.log(`✅ Redirect: ${pathname} → /login/user`);
+      return NextResponse.redirect(new URL('/login/user', request.url));
+    }
+  }
+  
+  if (isLoginUser && isLoggedIn) {
+    // 🔥 Jika user biasa akses login user, redirect ke home
+    if (userRole === 'USER') {
+      console.log(`✅ Redirect: ${pathname} → /`);
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+    // 🔥 Jika admin akses login user, redirect ke admin
+    if (userRole === 'ADMIN' || userRole === 'SUPER_ADMIN') {
+      console.log(`✅ Redirect: ${pathname} → /admin`);
+      return NextResponse.redirect(new URL('/admin', request.url));
+    }
+  }
+  
+  return NextResponse.next();
 }
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/admin/:path*',
+    '/api/admin/:path*',
+    '/login/:path*',
   ],
 };

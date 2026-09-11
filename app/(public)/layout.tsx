@@ -19,18 +19,15 @@ export default function PublicLayout({
 
   useEffect(() => {
     const checkMaintenance = async () => {
-      // Ambil role dari localStorage
       const role = localStorage.getItem("user_role") || "";
       setUserRole(role);
       
-      // Cek maintenance mode
       try {
         const res = await fetch("/api/settings?key=maintenance_mode");
         const data = await res.json();
         const maintenance = data.value === "true";
         setIsMaintenance(maintenance);
         
-        // Jika maintenance aktif dan user bukan admin/super_admin, DAN bukan di halaman admin
         if (maintenance && role !== "SUPER_ADMIN" && role !== "ADMIN" && !pathname.startsWith("/admin")) {
           router.push("/maintenance");
         }
@@ -52,12 +49,10 @@ export default function PublicLayout({
     );
   }
 
-  // Admin tetap bisa lihat halaman admin
   if (pathname.startsWith("/admin")) {
     return <>{children}</>;
   }
 
-  // Jika maintenance aktif dan user bukan admin, jangan render
   if (isMaintenance && userRole !== "SUPER_ADMIN" && userRole !== "ADMIN") {
     return null;
   }
@@ -65,7 +60,8 @@ export default function PublicLayout({
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
-      <main className="flex-1 pt-20">{children}</main>
+      {/* Hapus padding top yang berlebih */}
+      <main className="flex-1">{children}</main>
       <Footer />
     </div>
   );

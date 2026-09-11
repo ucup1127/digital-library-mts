@@ -37,14 +37,14 @@ export default function AdminLoginPage() {
       });
     }
     
-    document.cookie = 'isLoggedIn=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    document.cookie = 'user_role=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    document.cookie = 'user_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    document.cookie = 'user_name=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    document.cookie = 'school_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    document.cookie = 'school_name=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    document.cookie = 'selected_school_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    document.cookie = 'selected_school_name=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    //document.cookie = 'isLoggedIn=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    //document.cookie = 'user_role=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    //document.cookie = 'user_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    //document.cookie = 'user_name=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    //document.cookie = 'school_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    //document.cookie = 'school_name=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    //document.cookie = 'selected_school_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    //document.cookie = 'selected_school_name=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
     
     localStorage.removeItem("isLoggedIn");
     localStorage.removeItem("user_role");
@@ -84,16 +84,6 @@ export default function AdminLoginPage() {
     localStorage.setItem("selected_school_id", selectedSchoolId);
     localStorage.setItem("selected_school_name", selectedSchoolName);
     
-    const days = rememberMe ? 30 : 1;
-    const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toUTCString();
-    
-    document.cookie = `selected_school_id=${selectedSchoolId}; expires=${expires}; path=/; SameSite=Lax`;
-    document.cookie = `selected_school_name=${selectedSchoolName}; expires=${expires}; path=/; SameSite=Lax`;
-    document.cookie = `isLoggedIn=true; expires=${expires}; path=/; SameSite=Lax`;
-    document.cookie = `user_role=SUPER_ADMIN; expires=${expires}; path=/; SameSite=Lax`;
-    document.cookie = `user_id=${tempUserData?.id || ""}; expires=${expires}; path=/; SameSite=Lax`;
-    document.cookie = `user_name=${tempUserData?.name || "Super Admin"}; expires=${expires}; path=/; SameSite=Lax`;
-    
     toast.success(`Mode Sekolah: ${selectedSchoolName}`);
     setShowSchoolPicker(false);
     window.location.href = "/admin";
@@ -104,23 +94,23 @@ export default function AdminLoginPage() {
     setIsLoading(true);
 
     try {
-      const res = await fetch("/api/login", {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, role: "ADMIN" }),
+        body: JSON.stringify({ email, password, role: "ADMIN", rememberMe }),
       });
 
       const data = await res.json();
 
       if (res.ok && data.success && (data.user.role === "ADMIN" || data.user.role === "SUPER_ADMIN")) {
         
-        const days = rememberMe ? 30 : 1;
-        const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toUTCString();
+        //const days = rememberMe ? 30 : 1;
+        //const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toUTCString();
         
-        document.cookie = `isLoggedIn=true; expires=${expires}; path=/; SameSite=Lax`;
-        document.cookie = `user_role=${data.user.role}; expires=${expires}; path=/; SameSite=Lax`;
-        document.cookie = `user_id=${data.user.id}; expires=${expires}; path=/; SameSite=Lax`;
-        document.cookie = `user_name=${data.user.name || "Admin"}; expires=${expires}; path=/; SameSite=Lax`;
+        //document.cookie = `isLoggedIn=true; expires=${expires}; path=/; SameSite=Lax`;
+        //document.cookie = `user_role=${data.user.role}; expires=${expires}; path=/; SameSite=Lax`;
+        //document.cookie = `user_id=${data.user.id}; expires=${expires}; path=/; SameSite=Lax`;
+        //document.cookie = `user_name=${data.user.name || "Admin"}; expires=${expires}; path=/; SameSite=Lax`;
         
         localStorage.setItem("isLoggedIn", "true");
         localStorage.setItem("user_id", data.user.id);
@@ -136,10 +126,10 @@ export default function AdminLoginPage() {
           localStorage.removeItem("selected_school_id");
           localStorage.removeItem("selected_school_name");
           
-          document.cookie = 'school_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-          document.cookie = 'school_name=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-          document.cookie = 'selected_school_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-          document.cookie = 'selected_school_name=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+          //document.cookie = 'school_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+          //document.cookie = 'school_name=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+          //document.cookie = 'selected_school_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+          //document.cookie = 'selected_school_name=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
           
           await logAdminActivity({
             action: "LOGIN",
@@ -164,8 +154,6 @@ export default function AdminLoginPage() {
           localStorage.setItem("school_logo", data.user.schoolLogo || "");
           localStorage.setItem("school_website", data.user.schoolWebsite || "");
           
-          document.cookie = `school_id=${data.user.schoolId || ""}; expires=${expires}; path=/; SameSite=Lax`;
-          document.cookie = `school_name=${data.user.schoolName || ""}; expires=${expires}; path=/; SameSite=Lax`;
           
           await logAdminActivity({
             action: "LOGIN",

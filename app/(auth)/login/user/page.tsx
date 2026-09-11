@@ -26,15 +26,6 @@ export default function LoginUserPage() {
       });
     }
     
-    document.cookie = 'isLoggedIn=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    document.cookie = 'user_role=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    document.cookie = 'user_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    document.cookie = 'user_name=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    document.cookie = 'school_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    document.cookie = 'school_name=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    document.cookie = 'selected_school_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    document.cookie = 'selected_school_name=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    
     localStorage.removeItem("isLoggedIn");
     localStorage.removeItem("user_role");
     localStorage.removeItem("user_id");
@@ -50,24 +41,16 @@ export default function LoginUserPage() {
     setIsLoading(true);
 
     try {
-      const res = await fetch("/api/login", {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, role: "USER" }),
+        body: JSON.stringify({ email, password, role: "USER", rememberMe }),
       });
 
       const data = await res.json();
 
     if (res.ok && data.success && data.user.role === "USER") {
-      const days = rememberMe ? 30 : 1;
-      const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toUTCString();
-      
-      document.cookie = `isLoggedIn=true; expires=${expires}; path=/; SameSite=Lax`;
-      document.cookie = `user_role=${data.user.role}; expires=${expires}; path=/; SameSite=Lax`;
-      document.cookie = `user_id=${data.user.id}; expires=${expires}; path=/; SameSite=Lax`;
-      document.cookie = `user_name=${data.user.name || "Pengguna"}; expires=${expires}; path=/; SameSite=Lax`;
-      document.cookie = `school_id=${data.user.schoolId || ""}; expires=${expires}; path=/; SameSite=Lax`;
-      document.cookie = `school_name=${data.user.schoolName || ""}; expires=${expires}; path=/; SameSite=Lax`;
+      //document.cookie = `isLoggedIn=true; expires=${expires}; path=/; SameSite=Lax`;
         
         localStorage.setItem("isLoggedIn", "true");
         localStorage.setItem("user_id", data.user.id);

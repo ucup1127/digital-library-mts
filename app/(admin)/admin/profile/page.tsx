@@ -216,20 +216,17 @@ export default function AdminProfilePage() {
 
     if (result.isConfirmed) {
       try {
-        // Hapus semua cookie
-        document.cookie.split(';').forEach(cookie => {
-          const name = cookie.split('=')[0].trim();
-          document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
-        });
+        // Panggil API logout — hapus session di DB & clear cookie httpOnly
+        await fetch("/api/auth/logout", { method: "POST" });
         
-        // Hapus localStorage
+        // Hapus data client
         localStorage.clear();
         sessionStorage.clear();
         
         toast.success("👋 Anda berhasil keluar!");
         
         setTimeout(() => {
-          window.location.href = "/login/admin";
+          window.location.href = "/login/admin?logout=success";
         }, 500);
       } catch (error) {
         console.error("Logout error:", error);

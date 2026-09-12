@@ -15,6 +15,7 @@ export default function Navbar() {
   const [schoolLogo, setSchoolLogo] = useState("");
   const [schoolWebsite, setSchoolWebsite] = useState("https://mtsmuhammadiyahpatikraja.sch.id");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   useEffect(() => {
     const loggedIn = localStorage.getItem("isLoggedIn") === "true";
@@ -66,18 +67,29 @@ export default function Navbar() {
     return () => window.removeEventListener("schoolChanged", handleSchoolChange);
   }, []);
 
-  const handleLogout = () => {
-    document.cookie.split(';').forEach(cookie => {
-      const name = cookie.split('=')[0].trim();
-      document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
-    });
-    
+  const openLogoutConfirm = () => {
+    setShowLogoutModal(true);
+    setMobileMenuOpen(false);  // tutup mobile menu kalau lagi kebuka
+  };
+
+  const confirmLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+
     localStorage.clear();
     sessionStorage.clear();
-    
+
     setIsLoggedIn(false);
-    setMobileMenuOpen(false);
-    window.location.href = "/login/user";
+    setShowLogoutModal(false);
+
+    if (userRole === "ADMIN" || userRole === "SUPER_ADMIN") {
+      window.location.href = "/login/admin?logout=success";
+    } else {
+      window.location.href = "/login/user?logout=success";
+    }
   };
 
   const navLinks = [
@@ -189,7 +201,7 @@ export default function Navbar() {
                     {(userRole === "ADMIN" || userRole === "SUPER_ADMIN") && (
                       <Link href="/admin" className="block px-4 py-2 text-xs text-gray-700 hover:bg-gray-50 transition">⚙️ Admin Panel</Link>
                     )}
-                    <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 transition border-t border-gray-100">
+                    <button onClick={openLogoutConfirm} className="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 transition border-t border-gray-100">
                       🚪 Logout
                     </button>
                   </div>
@@ -276,7 +288,7 @@ export default function Navbar() {
                 </Link>
               )}
               <button
-                onClick={handleLogout}
+                onClick={openLogoutConfirm}
                 className="w-full text-left px-3 py-2.5 rounded-lg text-sm text-red-600 hover:bg-red-50"
               >
                 🚪 Logout
@@ -296,6 +308,36 @@ export default function Navbar() {
 
       {/* Spacer agar konten tidak tertutup navbar */}
       <div className="h-12 sm:h-14"></div>
+      {/* Modal Konfirmasi Logout */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-3xl">🚪</span>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900">Konfirmasi Keluar</h3>
+              <p className="text-sm text-gray-500 mt-2">
+                Apakah Anda yakin ingin keluar dari sistem?
+              </p>
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setShowLogoutModal(false)}
+                  className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={confirmLogout}
+                  className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 transition"
+                >
+                  Ya, Keluar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

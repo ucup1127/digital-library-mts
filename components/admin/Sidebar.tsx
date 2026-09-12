@@ -103,36 +103,40 @@ export default function Sidebar({
   };
 
   const handleLogout = async () => {
-    setIsLoggingOut(true);
+  setIsLoggingOut(true);
+  
+  try {
+    // 1. Log aktivitas logout (sebelum session dihapus)
+    await logAdminActivity({
+      action: "LOGOUT",
+      targetType: "ADMIN",
+      targetId: userId,
+      targetName: userName,
+    }).catch(() => {});
     
-    try {
-      await logAdminActivity({
-        action: "LOGOUT",
-        targetType: "ADMIN",
-        targetId: userId,
-        targetName: userName,
-      }).catch(() => {});
-      
-      const cookies = document.cookie.split(';');
-      for (let i = 0; i < cookies.length; i++) {
-        const cookie = cookies[i];
-        const eqPos = cookie.indexOf('=');
-        const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
-        document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;';
-      }
-      
-      localStorage.clear();
-      sessionStorage.clear();
-      
-      window.location.replace("/login/admin");
-      
-    } catch (error) {
-      console.error("Logout error:", error);
-      toast.error("Gagal keluar sistem");
-      setIsLoggingOut(false);
-      setIsLogoutModalOpen(false);
+    // 2. Panggil API logout — hapus session di DB & clear cookie httpOnly
+    const res = await fetch("/api/auth/logout", {
+      method: "POST",
+    });
+    
+    if (!res.ok) {
+      throw new Error("Gagal logout dari server");
     }
-  };
+    
+    // 3. Bersihkan data client (localStorage & sessionStorage)
+    localStorage.clear();
+    sessionStorage.clear();
+    
+    // 4. Redirect ke halaman login
+    window.location.replace("/login/admin?logout=success");
+    
+  } catch (error) {
+    console.error("Logout error:", error);
+    toast.error("Gagal keluar sistem");
+    setIsLoggingOut(false);
+    setIsLogoutModalOpen(false);
+  }
+};
 
   const getInitials = () => {
     const parts = userName.split(" ");

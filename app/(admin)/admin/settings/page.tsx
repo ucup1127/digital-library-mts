@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 
+
 export default function SettingsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -13,16 +14,28 @@ export default function SettingsPage() {
   const [userRole, setUserRole] = useState("");
 
   // Cek role user
-  useEffect(() => {
-    const role = localStorage.getItem("user_role");
-    if (role !== "SUPER_ADMIN") {
-      toast.error("Akses ditolak. Hanya Super Admin!");
+ useEffect(() => {
+  const checkRole = async () => {
+    try {
+      const res = await fetch("/api/auth/me");
+      const data = await res.json();
+      
+      if (!data.user || data.user.role !== "SUPER_ADMIN") {
+        toast.error("Akses ditolak. Hanya Super Admin!");
+        router.push("/admin");
+        return;
+      }
+      
+      setUserRole(data.user.role);
+      fetchMaintenanceStatus();
+    } catch (error) {
+      console.error("Error checking role:", error);
       router.push("/admin");
-      return;
     }
-    setUserRole(role);
-    fetchMaintenanceStatus();
-  }, [router]);
+  };
+  
+  checkRole();
+}, [router]);
 
   const fetchMaintenanceStatus = async () => {
     try {

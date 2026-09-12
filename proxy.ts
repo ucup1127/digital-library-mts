@@ -1,46 +1,69 @@
 // proxy.ts
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Ambil session token dari cookie httpOnly
-  const sessionToken = request.cookies.get('session_token')?.value;
-
-  const isAdminRoute =
-    pathname.startsWith('/admin') || pathname.startsWith('/api/admin');
-  const isLoginAdmin = pathname === '/login/admin';
-  const isLoginUser = pathname === '/login/user';
-
-  // =============================================
-  // PROTEKSI ROUTE ADMIN
-  // =============================================
-  if (isAdminRoute) {
-    if (!sessionToken) {
-      console.log(`⛔ Redirect admin: ${pathname} → /login/admin`);
-      return NextResponse.redirect(new URL('/login/admin', request.url));
-    }
-    // Validasi token dilakukan di API route / server component
-    // (middleware nggak bisa akses DB karena Edge Runtime)
+  // Skip static files & API
+  if (
+    pathname.startsWith("/api/") ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/favicon") ||
+    pathname.includes(".")
+  ) {
+    return NextResponse.next();
   }
 
-  // =============================================
+  const sessionToken = request.cookies.get("session_token")?.value;
+  const isMaintenance =
+    request.cookies.get("maintenance_mode")?.value === "true";
+
+  // 🔥 DEBUG LOG
+  console.log(
+    `[PROXY] path=${pathname} maintenance=${isMaintenance} session=${!!sessionToken}`
+  );
+
+  // Route yang DIPERBOLEHKAN saat maintenance ON
+  const isMaintenancePage = pathname === "/maintenance";
+  const isLoginAdmin = pathname.startsWith("/login/admin");
+  const isAdminRoute = pathname.startsWith("/admin");
+  const isLoginUser = pathname.startsWith("/login/user");
+
+  // ============================================
+  // MAINTENANCE MODE
+  // ============================================
+  if (isMaintenance) {
+    console.log(
+      `[PROXY] maintenance check: page=${isMaintenancePage} loginAdmin=${isLoginAdmin} admin=${isAdminRoute} loginUser=${isLoginUser}`
+    );
+
+    // Kalau BUKAN halaman yang dikecualikan → redirect ke /maintenance
+    if (!isMaintenancePage && !isLoginAdmin && !isAdminRoute) {
+      console.log(`🔧 Maintenance: ${pathname} → /maintenance`);
+      return NextResponse.redirect(new URL("/maintenance", request.url));
+    }
+  }
+
+  // ============================================
+  // PROTEKSI ROUTE ADMIN
+  // ============================================
+  if (isAdminRoute && !sessionToken) {
+    console.log(`⛔ Redirect admin: ${pathname} → /login/admin`);
+    return NextResponse.redirect(new URL("/login/admin", request.url));
+  }
+
+  // ============================================
   // JIKA SUDAH LOGIN, JANGAN AKSES LOGIN PAGE
-  // =============================================
+  // ============================================
   if ((isLoginAdmin || isLoginUser) && sessionToken) {
-    // Redirect ke /admin — biar server component yang validasi
-    // Kalau ternyata bukan admin, bakal di-redirect balik
-    return NextResponse.redirect(new URL('/admin', request.url));
+    console.log(`✅ Redirect login → /admin (sudah login)`);
+    return NextResponse.redirect(new URL("/admin", request.url));
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: [
-    '/admin/:path*',
-    '/api/admin/:path*',
-    '/login/:path*',
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|uploads).*)"],
 };

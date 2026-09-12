@@ -18,34 +18,53 @@ export default function Navbar() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   useEffect(() => {
-    const loggedIn = localStorage.getItem("isLoggedIn") === "true";
-    const name = localStorage.getItem("user_name") || "";
-    const role = localStorage.getItem("user_role") || "";
-    
-    // 🔥 AMBIL DATA SEKOLAH DARI LOCALSTORAGE
-    let school = localStorage.getItem("school_name") || "Perpustakaan Digital";
-    let logo = localStorage.getItem("school_logo") || "";
-    let website = localStorage.getItem("school_website") || "https://mtsmuhammadiyahpatikraja.sch.id";
-    
-    // 🔥 Jika SUPER_ADMIN dan ada selected_school_name, pakai itu
-    if (role === "SUPER_ADMIN") {
-      const selectedName = localStorage.getItem("selected_school_name");
-      const selectedLogo = localStorage.getItem("selected_school_logo") || "";
-      const selectedWebsite = localStorage.getItem("selected_school_website") || "https://mtsmuhammadiyahpatikraja.sch.id";
-      
-      if (selectedName) {
-        school = selectedName;
-        logo = selectedLogo;
-        website = selectedWebsite;
+    const fetchData = async () => {
+      // 1. Ambil data user dari session server
+      try {
+        const meRes = await fetch("/api/auth/me");
+        const meData = await meRes.json();
+
+        if (meData.user) {
+          setIsLoggedIn(true);
+          setUserName(meData.user.name || "");
+          setUserRole(meData.user.role || "");
+        } else {
+          setIsLoggedIn(false);
+        }
+      } catch (error) {
+        console.error("Error fetching user:", error);
+        setIsLoggedIn(false);
       }
-    }
-    
-    setIsLoggedIn(loggedIn);
-    setUserName(name);
-    setUserRole(role);
-    setSchoolName(school);
-    setSchoolLogo(logo);
-    setSchoolWebsite(website);
+
+      // 2. Ambil data sekolah dari API publik
+      try {
+        const schoolRes = await fetch("/api/public/school-info");
+        const schoolData = await schoolRes.json();
+
+        // Kalau SUPER_ADMIN dan ada selected_school_name di localStorage, pakai itu
+        if (userRole === "SUPER_ADMIN") {
+          const selectedName = localStorage.getItem("selected_school_name");
+          const selectedLogo = localStorage.getItem("selected_school_logo");
+          const selectedWebsite = localStorage.getItem("selected_school_website");
+          if (selectedName) {
+            setSchoolName(selectedName);
+            setSchoolLogo(selectedLogo || "");
+            setSchoolWebsite(selectedWebsite || "https://mtsmuhammadiyahpatikraja.sch.id");
+            return;
+          }
+        }
+
+        setSchoolName(schoolData.name || "Perpustakaan Digital");
+        setSchoolLogo(schoolData.logo || "");
+        setSchoolWebsite(
+          schoolData.website || "https://mtsmuhammadiyahpatikraja.sch.id"
+        );
+      } catch (error) {
+        console.error("Error fetching school:", error);
+      }
+    };
+
+    fetchData();
   }, []);
 
   // 🔥 DENGARKAN EVENT schoolChanged (untuk SUPER_ADMIN)

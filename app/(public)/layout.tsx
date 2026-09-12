@@ -17,29 +17,38 @@ export default function PublicLayout({
   const [isChecking, setIsChecking] = useState(true);
   const [userRole, setUserRole] = useState("");
 
-  useEffect(() => {
-    const checkMaintenance = async () => {
-      const role = localStorage.getItem("user_role") || "";
+ useEffect(() => {
+  const checkMaintenance = async () => {
+    try {
+      // 1. Cek role dari session server
+      const meRes = await fetch("/api/auth/me");
+      const meData = await meRes.json();
+      const role = meData.user?.role || "";
       setUserRole(role);
-      
-      try {
-        const res = await fetch("/api/settings?key=maintenance_mode");
-        const data = await res.json();
-        const maintenance = data.value === "true";
-        setIsMaintenance(maintenance);
-        
-        if (maintenance && role !== "SUPER_ADMIN" && role !== "ADMIN" && !pathname.startsWith("/admin")) {
-          router.push("/maintenance");
-        }
-      } catch (error) {
-        console.error("Error checking maintenance:", error);
-      } finally {
-        setIsChecking(false);
+
+      // 2. Cek maintenance mode
+      const res = await fetch("/api/settings?key=maintenance_mode");
+      const data = await res.json();
+      const maintenance = data.value === "true";
+      setIsMaintenance(maintenance);
+
+      if (
+        maintenance &&
+        role !== "SUPER_ADMIN" &&
+        role !== "ADMIN" &&
+        !pathname.startsWith("/admin")
+      ) {
+        router.push("/maintenance");
       }
-    };
-    
-    checkMaintenance();
-  }, [router, pathname]);
+    } catch (error) {
+      console.error("Error checking maintenance:", error);
+    } finally {
+      setIsChecking(false);
+    }
+  };
+
+  checkMaintenance();
+}, [router, pathname]);
 
   if (isChecking) {
     return (

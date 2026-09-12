@@ -23,6 +23,7 @@ import {
   LogOut,
   ChevronRight,
   Shield,
+  Wrench
 } from "lucide-react";
 
 interface SidebarProps {
@@ -68,6 +69,7 @@ export default function Sidebar({
     { name: "Kelola Sekolah", href: "/admin/sekolah", icon: School },
     { name: "Admin Log", href: "/admin/admin-log", icon: ClipboardList },
     { name: "System Log", href: "/admin/system-log", icon: Settings },
+    { name: "Pengaturan", href: "/admin/settings", icon: Wrench },
   ];
 
   const allMenu = userRole === "SUPER_ADMIN" 

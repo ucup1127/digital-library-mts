@@ -1,66 +1,54 @@
 // components/admin/Sidebar.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { logAdminActivity } from "@/lib/admin-log";
-import { 
-  LayoutDashboard, 
-  BookOpen, 
-  Library, 
-  FolderTree, 
-  Users, 
-  RefreshCw, 
-  FileText, 
-  Images, 
-  Info, 
-  School, 
-  ClipboardList, 
-  Settings, 
+import type { AdminUser } from "@/app/(admin)/admin/AdminLayoutClient";
+import {
+  LayoutDashboard,
+  BookOpen,
+  Library,
+  FolderTree,
+  Users,
+  RefreshCw,
+  FileText,
+  Images,
+  Info,
+  School,
+  ClipboardList,
+  Settings,
   LogOut,
   ChevronRight,
   Shield,
-  Menu
 } from "lucide-react";
 
 interface SidebarProps {
-  userRole?: string;
+  user: AdminUser;
   selectedSchoolId?: string;
   selectedSchoolName?: string;
   onOpenSchoolPicker?: () => void;
 }
 
-export default function Sidebar({ 
-  userRole = "", 
-  selectedSchoolId = "", 
+export default function Sidebar({
+  user,
+  selectedSchoolId = "",
   selectedSchoolName = "",
-  onOpenSchoolPicker 
+  onOpenSchoolPicker,
 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [userName, setUserName] = useState("Admin");
-  const [role, setRole] = useState("");
-  const [schoolName, setSchoolName] = useState("");
-  const [schoolLogo, setSchoolLogo] = useState("");
-  const [userId, setUserId] = useState("");
 
-  useEffect(() => {
-    const name = localStorage.getItem("user_name");
-    const roleLocal = localStorage.getItem("user_role");
-    const school = localStorage.getItem("school_name");
-    const logo = localStorage.getItem("school_logo");
-    const id = localStorage.getItem("user_id"); 
-    
-    if (name) setUserName(name);
-    if (roleLocal) setRole(roleLocal);
-    if (school) setSchoolName(school);
-    if (logo) setSchoolLogo(logo);
-    if (id) setUserId(id);
-  }, []);
+  // 🔥 Langsung pakai user dari props — nggak perlu localStorage
+  const userName = user.name || "Admin";
+  const userRole = user.role;
+  const schoolName = user.schoolName || "";
+  const schoolLogo = user.schoolLogo || "";
+  const userId = user.userId;
 
   // Menu untuk semua admin (dengan icon dari lucide-react)
   const menu = [

@@ -54,47 +54,65 @@ export default function AdminDashboard() {
   const [selectedSchoolName, setSelectedSchoolName] = useState("");
 
   useEffect(() => {
-    const now = new Date();
-    const formattedDate = now.toLocaleDateString('id-ID', { 
-      weekday: 'long', 
-      day: 'numeric', 
-      month: 'long', 
-      year: 'numeric' 
-    });
-    setCurrentDate(formattedDate);
-    
-    const hour = now.getHours();
-    if (hour < 12) setGreeting("Selamat Pagi");
-    else if (hour < 15) setGreeting("Selamat Siang");
-    else if (hour < 18) setGreeting("Selamat Sore");
-    else setGreeting("Selamat Malam");
+  const now = new Date();
+  const formattedDate = now.toLocaleDateString('id-ID', { 
+    weekday: 'long', 
+    day: 'numeric', 
+    month: 'long', 
+    year: 'numeric' 
+  });
+  setCurrentDate(formattedDate);
+  
+  const hour = now.getHours();
+  if (hour < 12) setGreeting("Selamat Pagi");
+  else if (hour < 15) setGreeting("Selamat Siang");
+  else if (hour < 18) setGreeting("Selamat Sore");
+  else setGreeting("Selamat Malam");
 
-    const isLoggedIn = localStorage.getItem("isLoggedIn");
-    const role = localStorage.getItem("user_role") || "";
-    const school = localStorage.getItem("school_name") || "";
-    const name = localStorage.getItem("user_name") || "Admin";
-    
-    if (isLoggedIn !== "true" || (role !== "ADMIN" && role !== "SUPER_ADMIN")) {
+  // 🔥 Ambil user dari session server, bukan localStorage
+  const fetchUser = async () => {
+    try {
+      const res = await fetch("/api/auth/me");
+      const data = await res.json();
+      
+      if (!data.user) {
+        router.push("/login/admin");
+        return;
+      }
+      
+      const role = data.user.role;
+      setUserRole(role);
+      setUserName(data.user.name || "Admin");
+      
+      if (role === "SUPER_ADMIN") {
+        // SUPER_ADMIN pakai sekolah yang dipilih (dari localStorage, sementara)
+        const savedSchoolId = localStorage.getItem("selected_school_id") || "";
+        const savedSchoolName = localStorage.getItem("selected_school_name") || "";
+        setSelectedSchoolId(savedSchoolId);
+        setSelectedSchoolName(savedSchoolName);
+      } else {
+        // ADMIN pakai sekolah dari session
+        const schoolId = data.user.schoolId || "";
+        setSelectedSchoolId(schoolId);
+        // Ambil nama sekolah dari API (kalau perlu)
+        if (schoolId) {
+          try {
+            const schoolRes = await fetch(`/api/schools/${schoolId}`);
+            const schoolData = await schoolRes.json();
+            setSchoolName(schoolData.name || "");
+          } catch (e) {
+            console.error("Error fetching school:", e);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching user:", error);
       router.push("/login/admin");
-      return;
     }
-    
-    setUserRole(role);
-    setSchoolName(school);
-    setUserName(name);
-    
-    if (role === "SUPER_ADMIN") {
-      const savedSchoolId = localStorage.getItem("selected_school_id") || "";
-      const savedSchoolName = localStorage.getItem("selected_school_name") || "";
-      setSelectedSchoolId(savedSchoolId);
-      setSelectedSchoolName(savedSchoolName);
-    } else {
-      const schoolId = localStorage.getItem("school_id") || "";
-      const schoolNameLocal = localStorage.getItem("school_name") || "";
-      setSelectedSchoolId(schoolId);
-      setSelectedSchoolName(schoolNameLocal);
-    }
-  }, [router]);
+  };
+
+  fetchUser();
+}, [router]);
 
   useEffect(() => {
     const handleSchoolChange = (event: any) => {
@@ -122,11 +140,8 @@ export default function AdminDashboard() {
       let url = "/api/admin/stats";
       const params = new URLSearchParams();
       
-      if (userRole === "SUPER_ADMIN" && schoolId) {
+      if (schoolId) {
         params.append("schoolId", schoolId);
-      } else if (userRole === "ADMIN") {
-        const adminSchoolId = localStorage.getItem("school_id") || "";
-        params.append("schoolId", adminSchoolId);
       }
       
       if (params.toString()) {

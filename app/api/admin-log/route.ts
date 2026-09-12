@@ -1,26 +1,41 @@
 // app/api/admin-log/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { getSession } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
+    // 🔥 Ambil user dari session server — bukan dari body
+    const session = await getSession();
+
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
-    const { adminId, adminName, adminEmail, adminRole, schoolId, action, targetType, targetId, targetName, changes, ipAddress, userAgent } = body;
+    const { action, targetType, targetId, targetName, changes } = body;
+
+    if (!action || !targetType) {
+      return NextResponse.json(
+        { error: "action dan targetType wajib diisi" },
+        { status: 400 }
+      );
+    }
 
     const log = await db.adminLog.create({
       data: {
-        adminId,
-        adminName,
-        adminEmail,
-        adminRole,
-        schoolId,
+        adminId: session.userId,
+        adminName: session.name || "Unknown",
+        adminEmail: session.email,
+        adminRole: session.role,
+        schoolId: session.schoolId,
         action,
         targetType,
         targetId,
         targetName,
         changes: changes || {},
-        ipAddress,
-        userAgent,
+        ipAddress: request.headers.get("x-forwarded-for") || "unknown",
+        userAgent: request.headers.get("user-agent") || "unknown",
       },
     });
 

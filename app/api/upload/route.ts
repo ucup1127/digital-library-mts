@@ -24,14 +24,40 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Tidak ada file yang diupload" }, { status: 400 });
     }
 
-    // Validasi tipe file
-    if (!file.type.startsWith("image/")) {
-      return NextResponse.json({ error: "Hanya file gambar yang diperbolehkan" }, { status: 400 });
-    }
+    // Validasi tipe file berdasarkan `type`
+    const isImage = file.type.startsWith("image/");
+    const isPdf = file.type === "application/pdf";
 
-    // Validasi ukuran (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      return NextResponse.json({ error: "Ukuran file maksimal 5MB" }, { status: 400 });
+    if (type === "book") {
+      // File buku harus PDF
+      if (!isPdf) {
+        return NextResponse.json(
+          { error: "File buku harus berformat PDF" },
+          { status: 400 }
+        );
+      }
+      // PDF bisa lebih besar — max 50MB
+      if (file.size > 50 * 1024 * 1024) {
+        return NextResponse.json(
+          { error: "Ukuran file PDF maksimal 50MB" },
+          { status: 400 }
+        );
+      }
+    } else {
+      // Cover, gallery, logo → harus gambar
+      if (!isImage) {
+        return NextResponse.json(
+          { error: "Hanya file gambar yang diperbolehkan" },
+          { status: 400 }
+        );
+      }
+      // Gambar max 5MB
+      if (file.size > 5 * 1024 * 1024) {
+        return NextResponse.json(
+          { error: "Ukuran file maksimal 5MB" },
+          { status: 400 }
+        );
+      }
     }
 
     const bytes = await file.arrayBuffer();

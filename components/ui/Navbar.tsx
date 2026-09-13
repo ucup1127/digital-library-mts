@@ -19,18 +19,23 @@ export default function Navbar() {
 
   useEffect(() => {
     const fetchData = async () => {
+      let fetchedRole = ""; 
+
       // 1. Ambil data user dari session server
       try {
         const meRes = await fetch("/api/auth/me");
         const meData = await meRes.json();
 
-        if (meData.user) {
-          setIsLoggedIn(true);
-          setUserName(meData.user.name || "");
-          setUserRole(meData.user.role || "");
-        } else {
-          setIsLoggedIn(false);
-        }
+        let fetchedRole = "";
+
+      if (meData.user) {
+        fetchedRole = meData.user.role || "";
+        setIsLoggedIn(true);
+        setUserName(meData.user.name || "");
+        setUserRole(fetchedRole);
+      } else {
+        setIsLoggedIn(false);
+      }
       } catch (error) {
         console.error("Error fetching user:", error);
         setIsLoggedIn(false);
@@ -42,7 +47,7 @@ export default function Navbar() {
         const schoolData = await schoolRes.json();
 
         // Kalau SUPER_ADMIN dan ada selected_school_name di localStorage, pakai itu
-        if (userRole === "SUPER_ADMIN") {
+        if (fetchedRole === "SUPER_ADMIN") {
           const selectedName = localStorage.getItem("selected_school_name");
           const selectedLogo = localStorage.getItem("selected_school_logo");
           const selectedWebsite = localStorage.getItem("selected_school_website");

@@ -1,7 +1,7 @@
 // app/api/admin-log/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { getSession, requireAdmin, AuthError } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
@@ -41,6 +41,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, log });
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
     console.error("Error saving admin log:", error);
     return NextResponse.json({ error: "Gagal menyimpan log" }, { status: 500 });
   }
@@ -48,6 +54,7 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
+    const session = await requireAdmin();
     const { searchParams } = new URL(request.url);
     const action = searchParams.get("action");
     const targetType = searchParams.get("targetType");
@@ -58,6 +65,11 @@ export async function GET(request: Request) {
     const where: any = {};
     if (action && action !== "all") where.action = action;
     if (targetType && targetType !== "all") where.targetType = targetType;
+
+    // 🔥 Filter schoolId — admin cuma lihat log sekolahnya
+    if (session.role !== "SUPER_ADMIN" && session.schoolId) {
+      where.schoolId = session.schoolId;
+    }
 
     const [logs, total] = await Promise.all([
       db.adminLog.findMany({
@@ -78,6 +90,12 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
     console.error("Error fetching admin logs:", error);
     return NextResponse.json({ error: "Gagal mengambil log" }, { status: 500 });
   }

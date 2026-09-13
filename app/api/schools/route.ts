@@ -1,10 +1,12 @@
 // app/api/schools/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { requireAdmin, requireSuperAdmin, AuthError } from "@/lib/auth";
 
 // GET - Ambil semua sekolah
 export async function GET() {
   try {
+    await requireAdmin();
     const schools = await db.school.findMany({
       select: {
         id: true,
@@ -34,15 +36,19 @@ export async function GET() {
     }));
     
     return NextResponse.json(formattedSchools);
-  } catch (error) {
-    console.error("Error fetching schools:", error);
-    return NextResponse.json([], { status: 500 });
-  }
-}
+    } catch (error) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+        console.error("Error fetching schools:", error);
+        return NextResponse.json([], { status: 500 });
+      }
+    }
 
 // POST - Tambah sekolah baru
 export async function POST(request: Request) {
   try {
+    await requireSuperAdmin(); 
     const { name, slug, logo } = await request.json();
     
     if (!name || !slug) {
@@ -66,8 +72,11 @@ export async function POST(request: Request) {
     });
     
     return NextResponse.json(school, { status: 201 });
-  } catch (error) {
-    console.error("Error creating school:", error);
-    return NextResponse.json({ error: "Gagal menambahkan sekolah" }, { status: 500 });
-  }
-}
+    } catch (error) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+        console.error("Error creating school:", error);
+        return NextResponse.json({ error: "Gagal menambahkan sekolah" }, { status: 500 });
+      }
+    }

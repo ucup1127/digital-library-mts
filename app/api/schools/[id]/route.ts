@@ -1,6 +1,7 @@
 // app/api/schools/[id]/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { requireSuperAdmin, AuthError } from "@/lib/auth";
 
 // GET - Ambil detail sekolah
 export async function GET(
@@ -35,6 +36,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireSuperAdmin();
     const { id } = await params;
     const body = await request.json();
     const { name, slug, logo } = body;
@@ -53,11 +55,14 @@ export async function PUT(
     });
     
     return NextResponse.json(updatedSchool);
-  } catch (error) {
-    console.error("Update school error:", error);
-    return NextResponse.json({ error: "Gagal memperbarui sekolah" }, { status: 500 });
-  }
-}
+    } catch (error) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+        console.error("Update school error:", error);
+        return NextResponse.json({ error: "Gagal memperbarui sekolah" }, { status: 500 });
+      }
+    }
 
 // DELETE - Hapus sekolah
 export async function DELETE(
@@ -65,6 +70,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireSuperAdmin(); 
     const { id } = await params;
     
     const school = await db.school.findUnique({
@@ -89,8 +95,11 @@ export async function DELETE(
       deletedUsers: school.users.length,
       deletedBooks: school.books.length,
     });
-  } catch (error) {
-    console.error("Delete school error:", error);
-    return NextResponse.json({ error: "Gagal menghapus sekolah" }, { status: 500 });
-  }
-}
+    } catch (error) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+        console.error("Delete school error:", error);
+        return NextResponse.json({ error: "Gagal menghapus sekolah" }, { status: 500 });
+      }
+    }

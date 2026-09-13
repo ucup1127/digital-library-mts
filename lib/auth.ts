@@ -150,6 +150,17 @@ export async function requireAdmin(): Promise<SessionData> {
   return session;
 }
 
+export async function requireSuperAdmin(): Promise<SessionData> {
+  const session = await getSession();
+  if (!session) {
+    throw new AuthError("Unauthorized", 401);
+  }
+  if (session.role !== "SUPER_ADMIN") {
+    throw new AuthError("Forbidden — Hanya Super Admin", 403);
+  }
+  return session;
+}
+
 /**
  * Custom error untuk auth.
  */

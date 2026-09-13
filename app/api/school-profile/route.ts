@@ -1,6 +1,7 @@
 // app/api/school-profile/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { requireAdmin, AuthError } from "@/lib/auth";
 
 // GET - Ambil profil sekolah
 export async function GET(request: Request) {
@@ -75,6 +76,7 @@ export async function GET(request: Request) {
 // POST - Update atau buat profil sekolah
 export async function POST(request: Request) {
   try {
+    const session = await requireAdmin();  // ← tambah ini
     const body = await request.json();
     console.log("SchoolProfile POST - body:", body);
     
@@ -82,6 +84,14 @@ export async function POST(request: Request) {
     
     if (!schoolId) {
       return NextResponse.json({ error: "SchoolId diperlukan" }, { status: 400 });
+    }
+    
+    // 🔥 Cek schoolId — ADMIN cuma bisa update sekolahnya sendiri
+    if (session.role !== "SUPER_ADMIN" && session.schoolId !== schoolId) {
+      return NextResponse.json(
+        { error: "Tidak bisa update profil sekolah lain" },
+        { status: 403 }
+      );
     }
     
     // Cek apakah sekolah ada
@@ -122,11 +132,14 @@ export async function POST(request: Request) {
     console.log("Profile updated successfully");
     
     return NextResponse.json(profile);
-  } catch (error) {
-    console.error("Error updating school profile:", error);
-    return NextResponse.json({ 
-      error: "Gagal update profil sekolah",
-      details: error instanceof Error ? error.message : String(error)
-    }, { status: 500 });
-  }
-}
+    } catch (error) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+        console.error("Error updating school profile:", error);
+        return NextResponse.json({ 
+          error: "Gagal update profil sekolah",
+          details: error instanceof Error ? error.message : String(error)
+        }, { status: 500 });
+      }
+    }

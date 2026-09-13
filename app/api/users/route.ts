@@ -1,9 +1,11 @@
 // app/api/users/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { requireAdmin, AuthError } from "@/lib/auth";
 
 export async function GET(request: Request) {
   try {
+    await requireAdmin();
     const { searchParams } = new URL(request.url);
     const barcode = searchParams.get("barcode");
     const search = searchParams.get("search");
@@ -70,8 +72,11 @@ export async function GET(request: Request) {
     }
     
     return NextResponse.json({ users: [] });
-  } catch (error) {
-    console.error("Error fetching users:", error);
-    return NextResponse.json({ error: "Gagal memuat user" }, { status: 500 });
-  }
-}
+    } catch (error) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+        console.error("Error fetching users:", error);
+        return NextResponse.json({ error: "Gagal memuat user" }, { status: 500 });
+      }
+    }

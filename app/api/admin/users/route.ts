@@ -2,9 +2,11 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
+import { requireAdmin, AuthError } from "@/lib/auth";
 
 export async function GET(request: Request) {
   try {
+    await requireAdmin();
     const { searchParams } = new URL(request.url);
     const schoolId = searchParams.get("schoolId");
     const search = searchParams.get("search") || "";
@@ -79,23 +81,44 @@ export async function GET(request: Request) {
         totalItems,
       },
     });
-  } catch (error) {
-    console.error("Error fetching users:", error);
-    return NextResponse.json(
-      { users: [], pagination: { currentPage: 1, pageSize: 10, totalPages: 1, totalItems: 0 } },
-      { status: 500 }
-    );
-  }
-}
+      } catch (error) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+        console.error("Error fetching users:", error);
+        return NextResponse.json(
+          { users: [], pagination: { currentPage: 1, pageSize: 10, totalPages: 1, totalItems: 0 } },
+          { status: 500 }
+        );
+      }
+    }
 
 export async function POST(request: Request) {
   try {
+    const session = await requireAdmin();  // ← tambah ini
+    
     const { email, password, name, role, className, schoolId } = await request.json();
     
     console.log("📝 MEMBUAT USER BARU:", { email, name, role, schoolId });
     
     if (!email || !password || !schoolId) {
       return NextResponse.json({ error: "Data tidak lengkap" }, { status: 400 });
+    }
+    
+    // 🔥 BATASI ROLE — cegah bikin SUPER_ADMIN
+    if (role === "SUPER_ADMIN") {
+      return NextResponse.json(
+        { error: "Tidak bisa membuat Super Admin" },
+        { status: 403 }
+      );
+    }
+    
+    // 🔥 Cuma SUPER_ADMIN yang bisa bikin ADMIN
+    if (role === "ADMIN" && session.role !== "SUPER_ADMIN") {
+      return NextResponse.json(
+        { error: "Hanya Super Admin yang bisa membuat Admin" },
+        { status: 403 }
+      );
     }
     
     const existingUser = await db.user.findUnique({ where: { email } });
@@ -121,30 +144,46 @@ export async function POST(request: Request) {
     const hashedPassword = await bcrypt.hash(password, 10);
     
     const user = await db.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        name,
-        role: role || "USER",
-        className: className || "",
-        schoolId,
-        memberId,
-        barcode: memberId, // barcode = memberId
-        isActive: true, // 🔥 User baru aktif
-      },
-    });
+    data: {
+      email,
+      password: hashedPassword,
+      name,
+      role: role || "USER",
+      className: className || "",
+      schoolId,
+      memberId,
+      barcode: memberId,
+      isActive: true,
+    },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      className: true,
+      schoolId: true,
+      memberId: true,
+      barcode: true,
+      isActive: true,
+      createdAt: true,
+    },
+  });
     
     console.log("✅ USER BERHASIL DIBUAT:", user.id, "memberId:", user.memberId);
     
     return NextResponse.json(user, { status: 201 });
   } catch (error) {
-    console.error("Error creating user:", error);
-    return NextResponse.json({ error: "Gagal menambah user" }, { status: 500 });
+      if (error instanceof AuthError) {
+        return NextResponse.json({ error: error.message }, { status: error.status });
+      }
+      console.error("Error creating user:", error);
+      return NextResponse.json({ error: "Gagal menambah user" }, { status: 500 });
+    }
   }
-}
 
 export async function DELETE(request: Request) {
   try {
+    await requireAdmin();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     const permanent = searchParams.get("permanent") === "true";
@@ -177,8 +216,11 @@ export async function DELETE(request: Request) {
       message: "User berhasil dinonaktifkan",
       user 
     });
-  } catch (error) {
-    console.error("Error deactivating user:", error);
-    return NextResponse.json({ error: "Gagal menonaktifkan user" }, { status: 500 });
+   } catch (error) {
+      if (error instanceof AuthError) {
+        return NextResponse.json({ error: error.message }, { status: error.status });
+      }
+      console.error("Error deactivating user:", error);
+      return NextResponse.json({ error: "Gagal menonaktifkan user" }, { status: 500 });
+    }
   }
-}

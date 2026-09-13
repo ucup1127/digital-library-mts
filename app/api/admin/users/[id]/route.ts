@@ -2,6 +2,7 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
+import { requireAdmin, AuthError } from "@/lib/auth";
 
 // 🔥 PATCH - Aktifkan / Nonaktifkan user (Soft Delete)
 export async function PATCH(
@@ -9,6 +10,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireAdmin();
     const { id } = await params;
     const body = await req.json();
     const { isActive } = body;
@@ -20,21 +22,36 @@ export async function PATCH(
     }
     
     const user = await db.user.update({
-      where: { id },
-      data: {
-        isActive,
-        graduatedAt: isActive ? null : new Date(),
-      },
-    });
+    where: { id },
+    data: {
+      isActive,
+      graduatedAt: isActive ? null : new Date(),
+    },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      className: true,
+      schoolId: true,
+      memberId: true,
+      barcode: true,
+      isActive: true,
+      createdAt: true,
+    },
+  });
     
     console.log("✅ User status updated:", user.id, "isActive:", user.isActive);
     
     return NextResponse.json(user);
-  } catch (error) {
-    console.error("Error updating user status:", error);
-    return NextResponse.json({ error: "Gagal update status user" }, { status: 500 });
-  }
-}
+    } catch (error) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+        console.error("Error updating user status:", error);
+        return NextResponse.json({ error: "Gagal update status user" }, { status: 500 });
+      }
+    }
 
 // PUT - Update user (edit profile)
 export async function PUT(
@@ -42,6 +59,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireAdmin(); 
     const { id } = await params;
     const body = await req.json();
     const { name, email, role, className, password } = body;
@@ -80,18 +98,33 @@ export async function PUT(
     }
     
     const updatedUser = await db.user.update({
-      where: { id },
-      data: updateData,
-    });
+    where: { id },
+    data: updateData,
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      className: true,
+      schoolId: true,
+      memberId: true,
+      barcode: true,
+      isActive: true,
+      createdAt: true,
+    },
+  });
     
     console.log("✅ User updated:", updatedUser.id);
     
     return NextResponse.json(updatedUser);
-  } catch (error) {
-    console.error("Error updating user:", error);
-    return NextResponse.json({ error: "Gagal memperbarui user" }, { status: 500 });
-  }
-}
+    } catch (error) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+        console.error("Error updating user:", error);
+        return NextResponse.json({ error: "Gagal memperbarui user" }, { status: 500 });
+      }
+    }
 
 // GET - Ambil detail user
 export async function GET(
@@ -99,6 +132,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireAdmin(); 
     const { id } = await params;
     
     const user = await db.user.findUnique({
@@ -122,8 +156,11 @@ export async function GET(
     }
     
     return NextResponse.json(user);
-  } catch (error) {
-    console.error("Error fetching user:", error);
-    return NextResponse.json({ error: "Gagal memuat user" }, { status: 500 });
-  }
-}
+    } catch (error) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+        console.error("Error fetching user:", error);
+        return NextResponse.json({ error: "Gagal memuat user" }, { status: 500 });
+      }
+    }

@@ -1,6 +1,7 @@
 // app/api/buku-fisik/[id]/kategori/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { requireAdmin, AuthError } from "@/lib/auth";
 
 // GET - Ambil kategori buku fisik
 export async function GET(
@@ -28,6 +29,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireAdmin();
     const { id } = await params;
     const { kategoriIds } = await req.json();
     
@@ -47,11 +49,14 @@ export async function POST(
     }
     
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Error updating kategori:", error);
-    return NextResponse.json({ error: "Gagal update kategori" }, { status: 500 });
-  }
-}
+    } catch (error) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+        console.error("Error updating kategori:", error);
+        return NextResponse.json({ error: "Gagal update kategori" }, { status: 500 });
+      }
+    }
 
 // PUT - Update kategori (sama seperti POST)
 export async function PUT(

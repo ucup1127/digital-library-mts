@@ -1,6 +1,7 @@
 // app/api/buku/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { requireAdmin, AuthError } from "@/lib/auth";
 
 export async function GET(request: Request) {
   try {
@@ -17,6 +18,12 @@ export async function GET(request: Request) {
     
     if (schoolId) {
       where.schoolId = schoolId;
+    } else {
+      // Kalau nggak ada schoolId, return kosong
+      return NextResponse.json({
+        books: [],
+        pagination: { currentPage: page, totalPages: 0, totalItems: 0 },
+      });
     }
     
     if (search) {
@@ -90,6 +97,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    await requireAdmin();  
     const body = await request.json();
     const { title, author, description, coverUrl, fileUrl, year, schoolId, categories } = body;
     
@@ -122,6 +130,9 @@ export async function POST(request: Request) {
     
     return NextResponse.json(book, { status: 201 });
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error("Error creating book:", error);
     return NextResponse.json({ error: "Gagal menambah buku" }, { status: 500 });
   }

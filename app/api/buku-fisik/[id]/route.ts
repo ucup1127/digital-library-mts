@@ -1,12 +1,14 @@
 // app/api/buku-fisik/[id]/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { requireAdmin, AuthError } from "@/lib/auth";
 
 export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireAdmin();
     const { id } = await params;
     
     // Hapus kategori terlebih dahulu
@@ -17,11 +19,14 @@ export async function DELETE(
     await db.bukuFisik.delete({ where: { id } });
     
     return NextResponse.json({ message: "Buku berhasil dihapus" });
-  } catch (error) {
-    console.error("Error deleting buku fisik:", error);
-    return NextResponse.json({ error: "Gagal menghapus" }, { status: 500 });
-  }
-}
+    } catch (error) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+        console.error("Error deleting buku fisik:", error);
+        return NextResponse.json({ error: "Gagal menghapus" }, { status: 500 });
+      }
+    }
 
 // PUT - Update buku fisik
 export async function PUT(
@@ -29,6 +34,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireAdmin();
     const { id } = await params;
     const body = await req.json();
     const { judul, penulis, penerbit, tahun, isbn, lokasiRak, stok, deskripsi } = body;
@@ -58,8 +64,11 @@ export async function PUT(
     });
     
     return NextResponse.json(updated);
-  } catch (error) {
-    console.error("Error updating buku fisik:", error);
-    return NextResponse.json({ error: "Gagal memperbarui" }, { status: 500 });
-  }
-}
+    } catch (error) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+        console.error("Error updating buku fisik:", error);
+        return NextResponse.json({ error: "Gagal memperbarui" }, { status: 500 });
+      }
+    }

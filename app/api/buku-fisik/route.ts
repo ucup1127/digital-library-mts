@@ -1,6 +1,7 @@
 // app/api/buku-fisik/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { requireAdmin, AuthError } from "@/lib/auth";
 
 // GET - Ambil daftar buku fisik dengan pagination dan filter schoolId
 export async function GET(request: Request) {
@@ -72,6 +73,7 @@ export async function GET(request: Request) {
 // POST - Tambah buku fisik (versi sederhana)
 export async function POST(request: Request) {
   try {
+    await requireAdmin();
     const body = await request.json();
     const { judul, penulis, penerbit, tahun, isbn, lokasiRak, stok, deskripsi, schoolId } = body;
     
@@ -115,8 +117,11 @@ export async function POST(request: Request) {
     console.log("✅ Buku Fisik created:", bukuFisik.id, "barcode:", barcode);
     
     return NextResponse.json(bukuFisik, { status: 201 });
-  } catch (error) {
-    console.error("Error creating buku fisik:", error);
-    return NextResponse.json({ error: "Gagal menambah buku: " + (error as Error).message }, { status: 500 });
-  }
-}
+    } catch (error) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+        console.error("Error creating buku fisik:", error);
+        return NextResponse.json({ error: "Gagal menambah buku: " + (error as Error).message }, { status: 500 });
+      }
+    }

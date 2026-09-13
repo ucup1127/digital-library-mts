@@ -2,6 +2,7 @@
 import { writeFile, mkdir } from "fs/promises";
 import { NextResponse } from "next/server";
 import path from "path";
+import { requireAuth, AuthError } from "@/lib/auth";
 
 // Nonaktifkan body parser untuk menangani form-data
 export const config = {
@@ -12,6 +13,7 @@ export const config = {
 
 export async function POST(request: Request) {
   try {
+    await requireAuth();
     console.log("📤 Upload API called");
     
     const formData = await request.formData();
@@ -88,12 +90,14 @@ export async function POST(request: Request) {
     console.log("✅ File saved:", publicPath);
     
     return NextResponse.json({ success: true, url: publicPath });
-  } catch (error) {
+    } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error("Upload error:", error);
     return NextResponse.json({ error: "Upload gagal: " + String(error) }, { status: 500 });
   }
 }
-
 // Untuk OPTIONS request (CORS)
 export async function OPTIONS() {
   return new NextResponse(null, {

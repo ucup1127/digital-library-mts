@@ -3,9 +3,11 @@ import { writeFile, mkdir } from "fs/promises";
 import { NextResponse } from "next/server";
 import path from "path";
 import { db } from "@/lib/db";
+import { requireAdmin, AuthError } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
+    const session = await requireAdmin(); 
     const formData = await request.formData();
     const file = formData.get("logo") as File;
     const schoolId = formData.get("schoolId") as string;
@@ -59,7 +61,10 @@ export async function POST(request: Request) {
       success: true, 
       logoPath: publicPath 
     });
-  } catch (error) {
+    } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error("Upload error:", error);
     return NextResponse.json({ 
       error: error instanceof Error ? error.message : "Gagal upload logo" 

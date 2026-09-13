@@ -2,9 +2,11 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { logAdminActivity } from "@/lib/admin-log";
+import { requireAdmin, AuthError } from "@/lib/auth";
 
 export async function GET() {
   try {
+    await requireAdmin();  
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
@@ -60,8 +62,11 @@ export async function GET() {
       overdueCount: overdueLoans.length,
       overdueLoans,
     });
-  } catch (error) {
-    console.error("Error checking overdue:", error);
-    return NextResponse.json({ error: "Gagal mengecek overdue" }, { status: 500 });
+    } catch (error) {
+      if (error instanceof AuthError) {
+        return NextResponse.json({ error: error.message }, { status: error.status });
+      }
+      console.error("Error checking overdue:", error);
+      return NextResponse.json({ error: "Gagal mengecek overdue" }, { status: 500 });
+    }
   }
-}

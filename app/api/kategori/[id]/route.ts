@@ -1,6 +1,7 @@
 // app/api/kategori/[id]/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { requireAdmin, AuthError } from "@/lib/auth";
 
 // DELETE: Hapus kategori berdasarkan ID
 export async function DELETE(
@@ -8,6 +9,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireAdmin(); 
     const { id } = await params;
     
     // Cek apakah kategori memiliki buku
@@ -31,8 +33,11 @@ export async function DELETE(
     });
     
     return NextResponse.json({ message: "Kategori berhasil dihapus" });
-  } catch (error) {
-    console.error("Error deleting category:", error);
-    return NextResponse.json({ error: "Gagal menghapus kategori" }, { status: 500 });
-  }
-}
+    } catch (error) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+        console.error("Error deleting category:", error);
+        return NextResponse.json({ error: "Gagal menghapus kategori" }, { status: 500 });
+      }
+    }

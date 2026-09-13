@@ -1,6 +1,7 @@
 // app/api/kategori/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { requireAdmin, AuthError } from "@/lib/auth";
 
 // GET: Ambil semua kategori
 export async function GET() {
@@ -18,6 +19,7 @@ export async function GET() {
 // POST: Tambah kategori baru
 export async function POST(request: Request) {
   try {
+    await requireAdmin(); 
     const body = await request.json();
     const { name } = body;
     
@@ -39,8 +41,11 @@ export async function POST(request: Request) {
     });
     
     return NextResponse.json(newCategory, { status: 201 });
-  } catch (error) {
-    console.error("Error creating category:", error);
-    return NextResponse.json({ error: "Gagal menambah kategori" }, { status: 500 });
-  }
-}
+    } catch (error) {
+        if (error instanceof AuthError) {
+          return NextResponse.json({ error: error.message }, { status: error.status });
+        }
+        console.error("Error creating category:", error);
+        return NextResponse.json({ error: "Gagal menambah kategori" }, { status: 500 });
+      }
+    }

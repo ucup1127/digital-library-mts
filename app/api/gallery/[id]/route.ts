@@ -1,6 +1,7 @@
 // app/api/gallery/[id]/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { requireAdmin, AuthError } from "@/lib/auth";
 
 // PUT - Update galeri
 export async function PUT(
@@ -8,6 +9,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireAdmin();
     const { id } = await params;
     const body = await req.json();
     const { title, description, category } = body;
@@ -26,7 +28,10 @@ export async function PUT(
     });
     
     return NextResponse.json(updated);
-  } catch (error) {
+    } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error("Error updating gallery:", error);
     return NextResponse.json({ error: "Gagal memperbarui" }, { status: 500 });
   }
@@ -43,7 +48,10 @@ export async function DELETE(
     await db.gallery.delete({ where: { id } });
     
     return NextResponse.json({ success: true });
-  } catch (error) {
+      } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error("Error deleting gallery:", error);
     return NextResponse.json({ error: "Gagal menghapus" }, { status: 500 });
   }

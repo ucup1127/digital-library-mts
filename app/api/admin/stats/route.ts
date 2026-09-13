@@ -1,9 +1,11 @@
 // app/api/admin/stats/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { requireAdmin, AuthError } from "@/lib/auth";  
 
 export async function GET(request: Request) {
   try {
+    await requireAdmin();  
     const { searchParams } = new URL(request.url);
     const schoolId = searchParams.get("schoolId");
     
@@ -175,7 +177,13 @@ export async function GET(request: Request) {
       popularBooks,
       categoryStats,
     });
-  } catch (error) {
+    } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
     console.error("Error fetching stats:", error);
     return NextResponse.json(
       {

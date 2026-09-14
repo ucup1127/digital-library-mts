@@ -8,7 +8,6 @@ import toast from "react-hot-toast";
 import { logAdminActivity } from "@/lib/admin-log";
 import { Eye, EyeOff, Shield, ArrowRight, Sparkles, ChevronRight, Lock, Users, BookOpen } from "lucide-react";
 
-// 🔥 Komponen utama — dipisah biar bisa dibungkus Suspense
 function AdminLoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -17,8 +16,7 @@ function AdminLoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  
-  // State untuk modal pilih sekolah (untuk SUPER_ADMIN)
+
   const [showSchoolPicker, setShowSchoolPicker] = useState(false);
   const [schools, setSchools] = useState<{ id: string; name: string; logo?: string }[]>([]);
   const [selectedSchoolId, setSelectedSchoolId] = useState("");
@@ -27,7 +25,7 @@ function AdminLoginForm() {
   const [searchSchool, setSearchSchool] = useState("");
   const [loadingSchools, setLoadingSchools] = useState(false);
 
-  // 🔥 Bersihkan cookie saat halaman login dimuat
+  // 🔥 Bersihkan localStorage saat halaman login dimuat
   useEffect(() => {
     const logout = searchParams.get("logout");
     if (logout === "success") {
@@ -37,16 +35,7 @@ function AdminLoginForm() {
         icon: "👋",
       });
     }
-    
-    //document.cookie = 'isLoggedIn=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    //document.cookie = 'user_role=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    //document.cookie = 'user_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    //document.cookie = 'user_name=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    //document.cookie = 'school_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    //document.cookie = 'school_name=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    //document.cookie = 'selected_school_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    //document.cookie = 'selected_school_name=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    
+
     localStorage.removeItem("isLoggedIn");
     localStorage.removeItem("user_role");
     localStorage.removeItem("user_id");
@@ -81,10 +70,10 @@ function AdminLoginForm() {
       toast.error("Silakan pilih sekolah terlebih dahulu!");
       return;
     }
-    
+
     localStorage.setItem("selected_school_id", selectedSchoolId);
     localStorage.setItem("selected_school_name", selectedSchoolName);
-    
+
     toast.success(`Mode Sekolah: ${selectedSchoolName}`);
     setShowSchoolPicker(false);
     window.location.href = "/admin";
@@ -104,21 +93,12 @@ function AdminLoginForm() {
       const data = await res.json();
 
       if (res.ok && data.success && (data.user.role === "ADMIN" || data.user.role === "SUPER_ADMIN")) {
-        
-        //const days = rememberMe ? 30 : 1;
-        //const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toUTCString();
-        
-        //document.cookie = `isLoggedIn=true; expires=${expires}; path=/; SameSite=Lax`;
-        //document.cookie = `user_role=${data.user.role}; expires=${expires}; path=/; SameSite=Lax`;
-        //document.cookie = `user_id=${data.user.id}; expires=${expires}; path=/; SameSite=Lax`;
-        //document.cookie = `user_name=${data.user.name || "Admin"}; expires=${expires}; path=/; SameSite=Lax`;
-        
         localStorage.setItem("isLoggedIn", "true");
         localStorage.setItem("user_id", data.user.id);
         localStorage.setItem("user_name", data.user.name || "Admin");
         localStorage.setItem("user_email", data.user.email);
         localStorage.setItem("user_role", data.user.role);
-        
+
         if (data.user.role === "SUPER_ADMIN") {
           localStorage.removeItem("school_id");
           localStorage.removeItem("school_name");
@@ -126,48 +106,41 @@ function AdminLoginForm() {
           localStorage.removeItem("school_logo");
           localStorage.removeItem("selected_school_id");
           localStorage.removeItem("selected_school_name");
-          
-          //document.cookie = 'school_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-          //document.cookie = 'school_name=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-          //document.cookie = 'selected_school_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-          //document.cookie = 'selected_school_name=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-          
+
           await logAdminActivity({
             action: "LOGIN",
             targetType: "ADMIN",
             targetId: data.user.id,
             targetName: data.user.name || "Super Admin",
           });
-          
+
           toast.success(`✅ Login berhasil! Selamat datang, Super Admin`, {
             duration: 1500,
             position: "top-center",
           });
-          
+
           await fetchSchools();
           setTempUserData(data.user);
           setShowSchoolPicker(true);
-        } 
-        else if (data.user.role === "ADMIN") {
+        } else if (data.user.role === "ADMIN") {
           localStorage.setItem("school_id", data.user.schoolId || "");
           localStorage.setItem("school_name", data.user.schoolName || "");
           localStorage.setItem("school_slug", data.user.schoolSlug || "");
           localStorage.setItem("school_logo", data.user.schoolLogo || "");
           localStorage.setItem("school_website", data.user.schoolWebsite || "");
-          
-          
+
           await logAdminActivity({
             action: "LOGIN",
             targetType: "ADMIN",
             targetId: data.user.id,
             targetName: data.user.name || "Admin",
           });
-          
+
           toast.success(`Selamat datang, ${data.user.name || "Admin"}! 🎉`, {
             duration: 1500,
             position: "top-center",
           });
-          
+
           setTimeout(() => {
             window.location.href = "/admin";
           }, 1000);
@@ -189,15 +162,13 @@ function AdminLoginForm() {
     }
   };
 
-  const filteredSchools = schools.filter(school =>
+  const filteredSchools = schools.filter((school) =>
     school.name.toLowerCase().includes(searchSchool.toLowerCase())
   );
 
   return (
     <div className="min-h-screen flex">
-      {/* ============================================= */}
-      {/* 🔥 SISI KIRI - GAMBAR / GRAFIS (UNGU/INDIGO) */}
-      {/* ============================================= */}
+      {/* SISI KIRI */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-600 to-violet-600">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-0 left-0 w-full h-full" style={{
@@ -251,13 +222,10 @@ function AdminLoginForm() {
         </div>
       </div>
 
-      {/* ============================================= */}
-      {/* 🔥 SISI KANAN - FORM LOGIN ADMIN */}
-      {/* ============================================= */}
+      {/* SISI KANAN */}
       <div className="flex-1 flex items-center justify-center p-6 bg-gradient-to-br from-indigo-50 via-white to-purple-50">
         <div className="w-full max-w-md">
           <div className="bg-white rounded-3xl shadow-2xl border border-gray-100/50 p-8 md:p-10">
-            {/* Logo & Title */}
             <div className="text-center mb-6">
               <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-lg shadow-indigo-200 mb-4">
                 <BookOpen className="w-7 h-7 text-white" />
@@ -277,7 +245,6 @@ function AdminLoginForm() {
               </div>
             </div>
 
-            {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
@@ -357,7 +324,6 @@ function AdminLoginForm() {
               </button>
             </form>
 
-            {/* Divider */}
             <div className="relative my-5">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-gray-200"></div>
@@ -367,7 +333,6 @@ function AdminLoginForm() {
               </div>
             </div>
 
-            {/* Link User */}
             <Link
               href="/login/user"
               className="w-full py-3 bg-gray-50 border border-gray-200 text-gray-700 rounded-xl font-medium text-sm hover:bg-gray-100 hover:border-gray-300 transition-all flex items-center justify-center gap-2 group"
@@ -376,7 +341,6 @@ function AdminLoginForm() {
               <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
 
-            {/* Back to Home */}
             <div className="mt-4 text-center">
               <Link
                 href="/"
@@ -387,16 +351,13 @@ function AdminLoginForm() {
             </div>
           </div>
 
-          {/* Footer */}
           <div className="text-center mt-5">
             <span className="text-[10px] text-gray-400">© {new Date().getFullYear()} MUHAPATI • Admin Panel</span>
           </div>
         </div>
       </div>
 
-      {/* ============================================= */}
-      {/* 🔥 MODAL PILIH SEKOLAH (SUPER_ADMIN) */}
-      {/* ============================================= */}
+      {/* MODAL PILIH SEKOLAH (SUPER_ADMIN) */}
       {showSchoolPicker && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-white rounded-xl max-w-md w-full max-h-[80vh] overflow-hidden shadow-xl">
@@ -405,17 +366,17 @@ function AdminLoginForm() {
                 <h2 className="font-bold text-gray-800">Pilih Sekolah</h2>
                 <p className="text-[9px] text-gray-400">Pilih sekolah yang akan dikelola</p>
               </div>
-              <button 
+              <button
                 onClick={() => {
                   setShowSchoolPicker(false);
                   window.location.href = "/admin";
-                }} 
+                }}
                 className="text-gray-400 hover:text-gray-600"
               >
                 ✕
               </button>
             </div>
-            
+
             <div className="p-4">
               <input
                 type="text"
@@ -426,7 +387,7 @@ function AdminLoginForm() {
                 autoFocus
               />
             </div>
-            
+
             <div className="overflow-y-auto max-h-96">
               {loadingSchools ? (
                 <div className="p-8 text-center">
@@ -460,7 +421,7 @@ function AdminLoginForm() {
                 ))
               )}
             </div>
-            
+
             <div className="p-4 border-t border-gray-100">
               <button
                 onClick={confirmSchoolSelection}
@@ -479,6 +440,7 @@ function AdminLoginForm() {
     </div>
   );
 }
+
 // 🔥 Wrapper dengan Suspense — wajib untuk useSearchParams()
 export default function AdminLoginPage() {
   return (

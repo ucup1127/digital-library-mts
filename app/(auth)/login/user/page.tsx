@@ -192,12 +192,6 @@ function LoginUserForm() {
                   <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">
                     Password
                   </label>
-                  <Link
-                    href="/lupa-password"
-                    className="text-[10px] text-blue-500 hover:text-blue-600 transition hover:underline"
-                  >
-                    Lupa password?
-                  </Link>
                 </div>
                 <div className="relative">
                   <input

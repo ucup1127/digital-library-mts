@@ -1,14 +1,15 @@
 // app/(auth)/login/admin/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { logAdminActivity } from "@/lib/admin-log";
 import { Eye, EyeOff, Shield, ArrowRight, Sparkles, ChevronRight, Lock, Users, BookOpen } from "lucide-react";
 
-export default function AdminLoginPage() {
+// 🔥 Komponen utama — dipisah biar bisa dibungkus Suspense
+function AdminLoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
@@ -476,5 +477,22 @@ export default function AdminLoginPage() {
         </div>
       )}
     </div>
+  );
+}
+// 🔥 Wrapper dengan Suspense — wajib untuk useSearchParams()
+export default function AdminLoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-gray-400 text-sm font-medium">Memuat...</p>
+          </div>
+        </div>
+      }
+    >
+      <AdminLoginForm />
+    </Suspense>
   );
 }

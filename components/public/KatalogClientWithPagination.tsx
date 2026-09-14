@@ -201,7 +201,6 @@ export default function KatalogClientWithPagination({ categories = [] }: { categ
             <Pagination 
               currentPage={pagination.currentPage}
               totalPages={pagination.totalPages}
-              totalItems={pagination.totalItems}
             />
           </>
         )}

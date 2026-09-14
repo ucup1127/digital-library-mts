@@ -1,13 +1,13 @@
 // app/(auth)/login/user/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { Eye, EyeOff, BookOpen, ArrowRight, Sparkles, ChevronRight, Library, GraduationCap } from "lucide-react";
 
-export default function LoginUserPage() {
+function LoginUserForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
@@ -25,7 +25,7 @@ export default function LoginUserPage() {
         icon: "👋",
       });
     }
-    
+
     localStorage.removeItem("isLoggedIn");
     localStorage.removeItem("user_role");
     localStorage.removeItem("user_id");
@@ -49,9 +49,7 @@ export default function LoginUserPage() {
 
       const data = await res.json();
 
-    if (res.ok && data.success && data.user.role === "USER") {
-      //document.cookie = `isLoggedIn=true; expires=${expires}; path=/; SameSite=Lax`;
-        
+      if (res.ok && data.success && data.user.role === "USER") {
         localStorage.setItem("isLoggedIn", "true");
         localStorage.setItem("user_id", data.user.id);
         localStorage.setItem("user_name", data.user.name || "Pengguna");
@@ -62,12 +60,12 @@ export default function LoginUserPage() {
         localStorage.setItem("school_slug", data.user.schoolSlug || "");
         localStorage.setItem("school_logo", data.user.schoolLogo || "");
         localStorage.setItem("school_website", data.user.schoolWebsite || "");
-        
+
         toast.success(`Selamat datang, ${data.user.name || "Pengguna"}! 🎉`, {
           duration: 1500,
           position: "top-center",
         });
-        
+
         setTimeout(() => {
           window.location.href = "/";
         }, 1000);
@@ -94,7 +92,6 @@ export default function LoginUserPage() {
       {/* 🔥 SISI KIRI - GAMBAR / GRAFIS */}
       {/* ============================================= */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600">
-        {/* Pattern Background */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-0 left-0 w-full h-full" style={{
             backgroundImage: `radial-gradient(circle at 20% 50%, rgba(255,255,255,0.1) 0%, transparent 50%)`,
@@ -103,9 +100,7 @@ export default function LoginUserPage() {
           <div className="absolute top-20 left-20 w-64 h-64 bg-white/5 rounded-full blur-2xl" />
         </div>
 
-        {/* Konten Kiri */}
         <div className="relative z-10 flex flex-col items-center justify-center w-full px-12 text-center text-white">
-          {/* Ilustrasi / Grafis */}
           <div className="mb-8">
             <div className="relative">
               <div className="w-32 h-32 bg-white/10 backdrop-blur-sm rounded-3xl flex items-center justify-center border border-white/20 shadow-2xl">
@@ -126,7 +121,6 @@ export default function LoginUserPage() {
             Perpustakaan di ujung jari Anda.
           </p>
 
-          {/* Statistik */}
           <div className="grid grid-cols-3 gap-4 mt-8 w-full max-w-xs">
             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 text-center border border-white/10">
               <p className="text-2xl font-bold">5000+</p>
@@ -142,7 +136,6 @@ export default function LoginUserPage() {
             </div>
           </div>
 
-          {/* Quotes */}
           <div className="mt-8 p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/10 max-w-sm">
             <p className="text-sm italic text-blue-100">
               "Membaca adalah jendela dunia. Mari jelajahi dunia melalui buku."
@@ -157,9 +150,7 @@ export default function LoginUserPage() {
       {/* ============================================= */}
       <div className="flex-1 flex items-center justify-center p-6 bg-gradient-to-br from-blue-50 via-white to-indigo-50">
         <div className="w-full max-w-md">
-          {/* Card Form (tanpa backdrop blur agar lebih clean) */}
           <div className="bg-white rounded-3xl shadow-2xl border border-gray-100/50 p-8 md:p-10">
-            {/* Logo & Title */}
             <div className="text-center mb-8">
               <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-lg shadow-blue-200 mb-4">
                 <BookOpen className="w-7 h-7 text-white" />
@@ -179,7 +170,6 @@ export default function LoginUserPage() {
               </div>
             </div>
 
-            {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
@@ -267,7 +257,6 @@ export default function LoginUserPage() {
               </button>
             </form>
 
-            {/* Divider */}
             <div className="relative my-5">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-gray-200"></div>
@@ -277,7 +266,6 @@ export default function LoginUserPage() {
               </div>
             </div>
 
-            {/* Link Daftar */}
             <Link
               href="/register"
               className="w-full py-3 bg-gray-50 border border-gray-200 text-gray-700 rounded-xl font-medium text-sm hover:bg-gray-100 hover:border-gray-300 transition-all flex items-center justify-center gap-2 group"
@@ -286,7 +274,6 @@ export default function LoginUserPage() {
               <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
 
-            {/* Admin Link */}
             <div className="mt-4 text-center">
               <Link
                 href="/login/admin"
@@ -298,7 +285,6 @@ export default function LoginUserPage() {
             </div>
           </div>
 
-          {/* Footer */}
           <div className="text-center mt-5">
             <Link
               href="/"
@@ -312,5 +298,23 @@ export default function LoginUserPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// 🔥 Wrapper dengan Suspense — wajib untuk useSearchParams()
+export default function LoginUserPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-gray-400 text-sm font-medium">Memuat...</p>
+          </div>
+        </div>
+      }
+    >
+      <LoginUserForm />
+    </Suspense>
   );
 }

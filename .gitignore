@@ -23,6 +23,8 @@
 # misc
 .DS_Store
 *.pem
+*.tmp
+*.bak
 
 # debug
 npm-debug.log*
@@ -41,13 +43,18 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# prisma
 /app/generated/prisma
 
+# uploads
 /public/uploads/*
 !/public/uploads/.gitkeep
-.vercel
 
+# backup files (mengandung data user)
 backups/
 *.backup.json
-.env.local
-.env*.local
+
+# temporary files
+file-kosong.txt
+dependency-usage.txt
+struktur-*.txt

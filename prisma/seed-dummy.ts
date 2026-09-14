@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import "dotenv/config";
+import bcrypt from "bcrypt";
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -11,17 +12,21 @@ const pool = new Pool({
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
+// Password default — bisa di-override via env
+const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || "admin123";
+const USER_PASSWORD = process.env.SEED_USER_PASSWORD || "user123";
+
 // Data dummy
 const categories = [
-  "Fiksi", "Sains", "Sejarah", "Agama", "Teknologi", 
+  "Fiksi", "Sains", "Sejarah", "Agama", "Teknologi",
   "Bahasa", "Seni", "Olahraga", "Psikologi", "Filsafat",
   "Ekonomi", "Politik", "Pendidikan", "Kesehatan", "Hukum"
 ];
 
 const judulBuku = [
-  "Matematika", "Bahasa Indonesia", "Bahasa Inggris", "Ilmu Pengetahuan Alam", 
-  "Ilmu Pengetahuan Sosial", "Sejarah Indonesia", "Pendidikan Agama Islam", 
-  "Pendidikan Pancasila", "Seni Budaya", "Pendidikan Jasmani", "Fisika", 
+  "Matematika", "Bahasa Indonesia", "Bahasa Inggris", "Ilmu Pengetahuan Alam",
+  "Ilmu Pengetahuan Sosial", "Sejarah Indonesia", "Pendidikan Agama Islam",
+  "Pendidikan Pancasila", "Seni Budaya", "Pendidikan Jasmani", "Fisika",
   "Kimia", "Biologi", "Ekonomi", "Geografi", "Sosiologi", "Antropologi",
   "Filsafat", "Logika", "Statistika", "Kalkulus", "Aljabar", "Geometri"
 ];
@@ -43,7 +48,7 @@ async function main() {
   let school = await prisma.school.findUnique({
     where: { id: sekolahId }
   });
-  
+
   if (!school) {
     school = await prisma.school.create({
       data: {
@@ -70,26 +75,26 @@ async function main() {
       console.log(`   Created: ${catName}`);
     }
   }
-  
+
   const allCategories = await prisma.category.findMany();
   console.log(`✅ Categories done! Total: ${allCategories.length}\n`);
 
   // 3. Buat Users
   console.log("👤 Creating users...");
-  
+
   // Admin User
   await prisma.user.upsert({
     where: { email: "admin@muhpath.sch.id" },
     update: {},
     create: {
       email: "admin@muhpath.sch.id",
-      password: "admin123",
+      password: await bcrypt.hash(ADMIN_PASSWORD, 10),
       name: "Administrator",
       role: "ADMIN",
       schoolId: sekolahId
     }
   });
-  console.log("✅ Admin user: admin@muhpath.sch.id / admin123");
+  console.log(`✅ Admin user: admin@muhpath.sch.id / ${ADMIN_PASSWORD}`);
 
   // Regular User
   await prisma.user.upsert({
@@ -97,57 +102,61 @@ async function main() {
     update: {},
     create: {
       email: "user@example.com",
-      password: "user123",
+      password: await bcrypt.hash(USER_PASSWORD, 10),  // 🔥 Hash!
       name: "User Biasa",
       role: "USER",
       schoolId: sekolahId
     }
   });
-  console.log("✅ Regular user: user@example.com / user123\n");
+  console.log(`✅ Regular user: user@example.com / ${USER_PASSWORD}\n`);
 
   // 4. Generate Books
   console.log("📖 Generating books...");
-  
+
   const existingBooks = await prisma.book.count();
   console.log(`   Existing books: ${existingBooks}`);
-  
+
   const targetBooks = 150;
   const booksToAdd = targetBooks - existingBooks;
-  
+
   if (booksToAdd <= 0) {
     console.log(`   Already have ${existingBooks} books\n`);
   } else {
     console.log(`   Adding ${booksToAdd} new books...\n`);
-    
-    const books = [];
+
     for (let i = 1; i <= booksToAdd; i++) {
       const randomCategory = allCategories[Math.floor(Math.random() * allCategories.length)];
       const randomJudul = judulBuku[i % judulBuku.length] + " " + Math.floor(i / judulBuku.length + 1);
       const randomPenulis = penulis[Math.floor(Math.random() * penulis.length)];
       const randomTahun = 2015 + Math.floor(Math.random() * 10);
       const randomViews = Math.floor(Math.random() * 500);
-      
-      books.push({
-        title: randomJudul,
-        author: randomPenulis,
-        description: `Buku ini membahas tentang ${randomJudul.toLowerCase()} secara mendalam.`,
-        year: randomTahun.toString(),
-        categoryId: randomCategory.id,
-        schoolId: sekolahId,
-        views: randomViews,
-        coverUrl: null,
-        fileUrl: null,
-        isShared: true,
+
+      // 🔥 Bikin book + relasi BookCategory sekaligus
+      await prisma.book.create({
+        data: {
+          title: randomJudul,
+          author: randomPenulis,
+          description: `Buku ini membahas tentang ${randomJudul.toLowerCase()} secara mendalam.`,
+          year: randomTahun.toString(),
+          schoolId: sekolahId,
+          views: randomViews,
+          coverUrl: null,
+          fileUrl: null,
+          isShared: true,
+          categories: {
+            create: {
+              categoryId: randomCategory.id,
+            },
+          },
+        },
       });
-    }
-    
-    for (let i = 0; i < books.length; i += 50) {
-      const batch = books.slice(i, i + 50);
-      await prisma.book.createMany({ data: batch });
-      console.log(`   📚 Inserted ${i + batch.length} of ${books.length} books...`);
+
+      if (i % 50 === 0) {
+        console.log(`   📚 Inserted ${i} of ${booksToAdd} books...`);
+      }
     }
   }
-  
+
   // Final Stats
   const finalBooks = await prisma.book.count();
   const finalCategories = await prisma.category.count();
@@ -163,8 +172,8 @@ async function main() {
   console.log(`📊 Total Views: ${totalViews._sum.views || 0}`);
   console.log("=".repeat(50));
   console.log("\n🔐 LOGIN CREDENTIALS:");
-  console.log("   ADMIN: admin@muhpath.sch.id / admin123");
-  console.log("   USER:  user@example.com / user123");
+  console.log(`   ADMIN: admin@muhpath.sch.id / ${ADMIN_PASSWORD}`);
+  console.log(`   USER:  user@example.com / ${USER_PASSWORD}`);
   console.log("\n📖 Buka dashboard: http://localhost:3000/admin");
 }
 

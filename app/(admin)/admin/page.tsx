@@ -52,6 +52,7 @@ export default function AdminDashboard() {
   
   const [selectedSchoolId, setSelectedSchoolId] = useState("");
   const [selectedSchoolName, setSelectedSchoolName] = useState("");
+  const [isBackingUp, setIsBackingUp] = useState(false);
 
   useEffect(() => {
   const now = new Date();
@@ -159,13 +160,36 @@ export default function AdminDashboard() {
     }
   };
 
-  useEffect(() => {
+    useEffect(() => {
     if (selectedSchoolId || userRole === "ADMIN") {
       fetchDashboard(selectedSchoolId);
     } else if (userRole === "SUPER_ADMIN" && !selectedSchoolId) {
       setLoading(false);
     }
   }, [selectedSchoolId, userRole]);
+
+  const handleManualBackup = async () => {
+    if (isBackingUp) return;
+
+    setIsBackingUp(true);
+    toast.loading("Melakukan backup...", { id: "backup" });
+
+    try {
+      const res = await fetch("/api/admin/trigger-backup", { method: "POST" });
+      const data = await res.json();
+
+      if (res.ok) {
+        toast.success(`✅ ${data.message}`, { id: "backup" });
+      } else {
+        toast.error(data.error || "Gagal backup", { id: "backup" });
+      }
+    } catch (error) {
+      console.error("Backup error:", error);
+      toast.error("Terjadi kesalahan saat backup", { id: "backup" });
+    } finally {
+      setIsBackingUp(false);
+    }
+  };
 
   if (userRole === "SUPER_ADMIN" && !selectedSchoolId) {
     return (
@@ -407,7 +431,20 @@ export default function AdminDashboard() {
         <QuickAction href="/admin/buku-fisik" title="Kelola Buku Fisik" icon={Library} color="indigo" />
         <QuickAction href="/admin/peminjaman-fisik" title="Peminjaman" icon={RefreshCw} color="amber" />
         <QuickAction href="/admin/kategori" title="Kelola Kategori" icon={FolderTree} color="green" />
-        <QuickAction href="/admin/settings" title="Backup DB" icon={Sparkles} color="purple" />
+        <button
+          onClick={handleManualBackup}
+          disabled={isBackingUp}
+          className="p-3 rounded-xl bg-purple-50 text-purple-600 hover:bg-purple-100 transition-all text-center group hover:shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isBackingUp ? (
+            <div className="w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          ) : (
+            <Sparkles className="w-5 h-5 mx-auto group-hover:scale-110 transition-transform" />
+          )}
+          <p className="text-[8px] font-semibold uppercase tracking-wider mt-1 leading-tight">
+            {isBackingUp ? "Menyimpan..." : "Backup DB"}
+          </p>
+        </button>
       </div>
     </div>
   );

@@ -2,9 +2,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import Sidebar from "@/components/admin/Sidebar";
 import IdleLogout from "@/components/IdleLogout";
+import { Menu } from "lucide-react";
 
 export interface AdminUser {
   userId: string;
@@ -24,14 +24,13 @@ interface Props {
 }
 
 export default function AdminLayoutClient({ user, isMaintenance, children }: Props) {
-  const router = useRouter();
   const [selectedSchoolId, setSelectedSchoolId] = useState("");
   const [selectedSchoolName, setSelectedSchoolName] = useState("");
   const [showSchoolPicker, setShowSchoolPicker] = useState(false);
   const [schools, setSchools] = useState<{ id: string; name: string }[]>([]);
   const [searchSchool, setSearchSchool] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Load selected school dari localStorage (untuk SUPER_ADMIN)
   useEffect(() => {
     if (user.role === "SUPER_ADMIN") {
       const savedId = localStorage.getItem("selected_school_id") || "";
@@ -74,6 +73,7 @@ export default function AdminLayoutClient({ user, isMaintenance, children }: Pro
   return (
     <IdleLogout>
       <div className="flex min-h-screen bg-gray-50">
+        {/* 🔥 Sidebar — terima isOpen & onClose */}
         <Sidebar
           user={user}
           selectedSchoolId={selectedSchoolId}
@@ -82,33 +82,55 @@ export default function AdminLayoutClient({ user, isMaintenance, children }: Pro
             fetchSchools();
             setShowSchoolPicker(true);
           }}
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
         />
-        <main className="flex-1 ml-64 p-8 min-h-screen bg-gray-50">
-          {user.role === "SUPER_ADMIN" && selectedSchoolName && (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-6 flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <span className="text-sm">🏫</span>
-                <p className="text-xs text-blue-700">
-                  <strong>Mode Sekolah:</strong> {selectedSchoolName}
-                </p>
+
+        {/* 🔥 Main content — margin 0 di mobile, ml-64 di desktop */}
+        <div className="flex-1 lg:ml-64 min-h-screen bg-gray-50">
+          {/* 🔥 Header mobile — hamburger button */}
+          <div className="lg:hidden sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 shadow-sm">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="p-2 -ml-2 rounded-lg hover:bg-gray-100 text-gray-600 transition"
+              aria-label="Buka menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <h1 className="font-bold text-sm text-gray-800 truncate">
+              {user.role === "SUPER_ADMIN" ? "Super Admin" : (user.schoolName || "Admin Panel")}
+            </h1>
+          </div>
+
+          {/* 🔥 Content — padding responsive */}
+          <main className="p-4 lg:p-8">
+            {/* Banner mode sekolah (SUPER_ADMIN) */}
+            {user.role === "SUPER_ADMIN" && selectedSchoolName && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 lg:mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">🏫</span>
+                  <p className="text-xs text-blue-700">
+                    <strong>Mode Sekolah:</strong> {selectedSchoolName}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    fetchSchools();
+                    setShowSchoolPicker(true);
+                  }}
+                  className="text-[10px] text-blue-600 hover:underline text-left sm:text-right"
+                >
+                  Ganti Sekolah
+                </button>
               </div>
-              <button
-                onClick={() => {
-                  fetchSchools();
-                  setShowSchoolPicker(true);
-                }}
-                className="text-[10px] text-blue-600 hover:underline"
-              >
-                Ganti Sekolah
-              </button>
-            </div>
-          )}
-          {children}
-        </main>
+            )}
+            {children}
+          </main>
+        </div>
 
         {/* Modal Pilih Sekolah untuk SUPER_ADMIN */}
         {showSchoolPicker && user.role === "SUPER_ADMIN" && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50">
             <div className="bg-white rounded-xl max-w-md w-full max-h-[80vh] overflow-hidden shadow-xl">
               <div className="p-4 border-b border-gray-100 flex justify-between items-center">
                 <h2 className="font-bold text-gray-800">Pilih Sekolah</h2>

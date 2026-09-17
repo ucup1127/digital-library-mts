@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import toast from "react-hot-toast";
 import { logAdminActivity } from "@/lib/admin-log";
 import type { AdminUser } from "@/app/(admin)/admin/AdminLayoutClient";
@@ -23,7 +23,8 @@ import {
   LogOut,
   ChevronRight,
   Shield,
-  Wrench
+  Wrench,
+  X,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -31,6 +32,8 @@ interface SidebarProps {
   selectedSchoolId?: string;
   selectedSchoolName?: string;
   onOpenSchoolPicker?: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
 export default function Sidebar({
@@ -38,20 +41,19 @@ export default function Sidebar({
   selectedSchoolId = "",
   selectedSchoolName = "",
   onOpenSchoolPicker,
+  isOpen = false,
+  onClose,
 }: SidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // 🔥 Langsung pakai user dari props — nggak perlu localStorage
   const userName = user.name || "Admin";
   const userRole = user.role;
   const schoolName = user.schoolName || "";
   const schoolLogo = user.schoolLogo || "";
   const userId = user.userId;
 
-  // Menu untuk semua admin (dengan icon dari lucide-react)
   const menu = [
     { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
     { name: "Buku Digital", href: "/admin/buku", icon: BookOpen },
@@ -64,7 +66,6 @@ export default function Sidebar({
     { name: "Tentang", href: "/admin/tentang", icon: Info },
   ];
 
-  // Menu khusus SUPER_ADMIN
   const superAdminMenu = [
     { name: "Kelola Sekolah", href: "/admin/sekolah", icon: School },
     { name: "Admin Log", href: "/admin/admin-log", icon: ClipboardList },
@@ -72,61 +73,48 @@ export default function Sidebar({
     { name: "Pengaturan", href: "/admin/settings", icon: Wrench },
   ];
 
-  const allMenu = userRole === "SUPER_ADMIN" 
-    ? [...menu, ...superAdminMenu] 
+  const allMenu = userRole === "SUPER_ADMIN"
+    ? [...menu, ...superAdminMenu]
     : menu;
 
   const isActive = (href: string) => {
-    if (href === "/admin") {
-      return pathname === "/admin";
-    }
-    if (href === "/admin/buku") {
-      return pathname === "/admin/buku" || pathname?.startsWith("/admin/buku/");
-    }
-    if (href === "/admin/buku-fisik") {
-      return pathname === "/admin/buku-fisik" || pathname?.startsWith("/admin/buku-fisik/");
-    }
-    if (href === "/admin/peminjaman-fisik") {
-      return pathname === "/admin/peminjaman-fisik" || pathname?.startsWith("/admin/peminjaman-fisik/");
-    }
+    if (href === "/admin") return pathname === "/admin";
+    if (href === "/admin/buku") return pathname === "/admin/buku" || pathname?.startsWith("/admin/buku/");
+    if (href === "/admin/buku-fisik") return pathname === "/admin/buku-fisik" || pathname?.startsWith("/admin/buku-fisik/");
+    if (href === "/admin/peminjaman-fisik") return pathname === "/admin/peminjaman-fisik" || pathname?.startsWith("/admin/peminjaman-fisik/");
     return pathname?.startsWith(href);
   };
 
   const handleLogout = async () => {
-  setIsLoggingOut(true);
-  
-  try {
-    // 1. Log aktivitas logout (sebelum session dihapus)
-    await logAdminActivity({
-      action: "LOGOUT",
-      targetType: "ADMIN",
-      targetId: userId,
-      targetName: userName,
-    }).catch(() => {});
-    
-    // 2. Panggil API logout — hapus session di DB & clear cookie httpOnly
-    const res = await fetch("/api/auth/logout", {
-      method: "POST",
-    });
-    
-    if (!res.ok) {
-      throw new Error("Gagal logout dari server");
+    setIsLoggingOut(true);
+
+    try {
+      await logAdminActivity({
+        action: "LOGOUT",
+        targetType: "ADMIN",
+        targetId: userId,
+        targetName: userName,
+      }).catch(() => {});
+
+      const res = await fetch("/api/auth/logout", { method: "POST" });
+      if (!res.ok) throw new Error("Gagal logout dari server");
+
+      localStorage.clear();
+      sessionStorage.clear();
+
+      window.location.replace("/login/admin?logout=success");
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("Gagal keluar sistem");
+      setIsLoggingOut(false);
+      setIsLogoutModalOpen(false);
     }
-    
-    // 3. Bersihkan data client (localStorage & sessionStorage)
-    localStorage.clear();
-    sessionStorage.clear();
-    
-    // 4. Redirect ke halaman login
-    window.location.replace("/login/admin?logout=success");
-    
-  } catch (error) {
-    console.error("Logout error:", error);
-    toast.error("Gagal keluar sistem");
-    setIsLoggingOut(false);
-    setIsLogoutModalOpen(false);
-  }
-};
+  };
+
+  const handleMenuClick = () => {
+    // Tutup sidebar di mobile setelah klik menu
+    if (onClose) onClose();
+  };
 
   const getInitials = () => {
     const parts = userName.split(" ");
@@ -134,13 +122,39 @@ export default function Sidebar({
     return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
   };
 
-  const displaySchoolName = userRole === "SUPER_ADMIN" 
+  const displaySchoolName = userRole === "SUPER_ADMIN"
     ? (selectedSchoolName || "Pilih Sekolah")
     : (schoolName || "Sekolah");
 
   return (
     <>
-      <aside className="w-64 bg-white border-r border-gray-200 fixed h-full z-10 shadow-sm flex flex-col">
+      {/* 🔥 Overlay — cuma muncul di mobile saat sidebar terbuka */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* 🔥 Sidebar — slide in/out di mobile, tetap di desktop */}
+      <aside
+        className={`
+          w-64 bg-white border-r border-gray-200 fixed h-full z-50 shadow-sm flex flex-col
+          transition-transform duration-300 ease-in-out
+          ${isOpen ? "translate-x-0" : "-translate-x-full"}
+          lg:translate-x-0
+        `}
+      >
+        {/* 🔥 Tombol Close — cuma di mobile */}
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition lg:hidden"
+          aria-label="Tutup menu"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
         {/* Header */}
         <div className="p-4 border-b border-gray-100">
           <div className="flex items-center gap-3">
@@ -166,7 +180,11 @@ export default function Sidebar({
 
         {/* Profile Section */}
         <div className="p-4 border-b border-gray-100">
-          <Link href="/admin/profile" className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 transition group">
+          <Link
+            href="/admin/profile"
+            onClick={handleMenuClick}
+            className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 transition group"
+          >
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm">
               <span className="text-sm font-bold text-white">{getInitials()}</span>
             </div>
@@ -219,6 +237,7 @@ export default function Sidebar({
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={handleMenuClick}
                 className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${
                   active
                     ? "bg-blue-600 text-white shadow-md shadow-blue-200"
@@ -235,7 +254,7 @@ export default function Sidebar({
 
         {/* Logout Button */}
         <div className="p-4 border-t border-gray-100 mt-auto">
-          <button 
+          <button
             onClick={() => setIsLogoutModalOpen(true)}
             className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all duration-200"
           >
@@ -247,8 +266,8 @@ export default function Sidebar({
 
       {/* Modal Konfirmasi Logout */}
       {isLogoutModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl animate-fade-in-up">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
             <div className="text-center">
               <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-red-200">
                 <LogOut className="w-8 h-8 text-red-600" />
@@ -283,22 +302,6 @@ export default function Sidebar({
           </div>
         </div>
       )}
-
-      <style jsx>{`
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px) scale(0.98);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-        .animate-fade-in-up {
-          animation: fadeInUp 0.3s ease-out;
-        }
-      `}</style>
     </>
   );
 }

@@ -95,16 +95,16 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const session = await requireAdmin();  // ← tambah ini
-    
+    const session = await requireAdmin();
+
     const { email, password, name, role, className, schoolId } = await request.json();
-    
+
     console.log("📝 MEMBUAT USER BARU:", { email, name, role, schoolId });
-    
+
     if (!email || !password || !schoolId) {
       return NextResponse.json({ error: "Data tidak lengkap" }, { status: 400 });
     }
-    
+
     // 🔥 BATASI ROLE — cegah bikin SUPER_ADMIN
     if (role === "SUPER_ADMIN") {
       return NextResponse.json(
@@ -112,7 +112,7 @@ export async function POST(request: Request) {
         { status: 403 }
       );
     }
-    
+
     // 🔥 Cuma SUPER_ADMIN yang bisa bikin ADMIN
     if (role === "ADMIN" && session.role !== "SUPER_ADMIN") {
       return NextResponse.json(
@@ -120,66 +120,90 @@ export async function POST(request: Request) {
         { status: 403 }
       );
     }
-    
+
     const existingUser = await db.user.findUnique({ where: { email } });
     if (existingUser) {
       return NextResponse.json({ error: "Email sudah terdaftar!" }, { status: 400 });
     }
-    
-    // 🔥 Generate memberId otomatis
-    const lastUser = await db.user.findFirst({
-      where: { schoolId },
-      orderBy: { memberId: "desc" },
+
+    // 🔥 Generate memberId otomatis — robust
+    const allUsers = await db.user.findMany({
+      where: {
+        schoolId,
+        memberId: { not: null },
+      },
+      select: { memberId: true },
     });
-    
-    let memberId = "MTS001";
-    if (lastUser && lastUser.memberId) {
-      const lastNumber = parseInt(lastUser.memberId.replace(/\D/g, ""));
-      const newNumber = lastNumber + 1;
-      memberId = `MTS${String(newNumber).padStart(3, "0")}`;
+
+    let maxNumber = 0;
+    for (const u of allUsers) {
+      if (u.memberId) {
+        const num = parseInt(u.memberId.replace(/\D/g, ""), 10);
+        if (!isNaN(num) && num > maxNumber) {
+          maxNumber = num;
+        }
+      }
     }
-    
-    console.log(`📌 Generated memberId: ${memberId}`);
-    
+
+    const newNumber = maxNumber + 1;
+    let memberId = `MTS${String(newNumber).padStart(3, "0")}`;
+
+    // Retry kalau masih duplikat
+    let attempts = 0;
+    const maxAttempts = 5;
+    while (attempts < maxAttempts) {
+      const existing = await db.user.findFirst({
+        where: { memberId, schoolId },
+        select: { id: true },
+      });
+
+      if (!existing) break;
+
+      attempts++;
+      memberId = `MTS${String(newNumber + attempts).padStart(3, "0")}`;
+    }
+
+    console.log(`📌 Generated memberId: ${memberId} (max was ${maxNumber})`);
+
     const hashedPassword = await bcrypt.hash(password, 10);
-    
+
     const user = await db.user.create({
-    data: {
-      email,
-      password: hashedPassword,
-      name,
-      role: role || "USER",
-      className: className || "",
-      schoolId,
-      memberId,
-      barcode: memberId,
-      isActive: true,
-    },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-      className: true,
-      schoolId: true,
-      memberId: true,
-      barcode: true,
-      isActive: true,
-      createdAt: true,
-    },
-  });
-    
+      data: {
+        email,
+        password: hashedPassword,
+        name,
+        role: role || "USER",
+        className: className || "",
+        schoolId,
+        memberId,
+        barcode: memberId,
+        isActive: true,
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        className: true,
+        schoolId: true,
+        memberId: true,
+        barcode: true,
+        isActive: true,
+        createdAt: true,
+      },
+    });
+
     console.log("✅ USER BERHASIL DIBUAT:", user.id, "memberId:", user.memberId);
-    
+
     return NextResponse.json(user, { status: 201 });
   } catch (error) {
-      if (error instanceof AuthError) {
-        return NextResponse.json({ error: error.message }, { status: error.status });
-      }
-      console.error("Error creating user:", error);
-      return NextResponse.json({ error: "Gagal menambah user" }, { status: 500 });
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
     }
+    console.error("Error creating user:", error);
+    return NextResponse.json({ error: "Gagal menambah user" }, { status: 500 });
   }
+}
 
 export async function DELETE(request: Request) {
   try {

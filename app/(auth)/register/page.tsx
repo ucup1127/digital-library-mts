@@ -25,7 +25,7 @@ export default function RegisterPage() {
   useEffect(() => {
     const fetchSchools = async () => {
       try {
-        const res = await fetch("/api/schools");
+        const res = await fetch("/api/public/schools");
         const data = await res.json();
         console.log("Schools loaded:", data);
         setSchools(data);

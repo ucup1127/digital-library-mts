@@ -30,13 +30,30 @@ export default function AdminLogPage() {
   const itemsPerPage = 20;
 
   // Cek role (hanya SUPER_ADMIN)
-  useEffect(() => {
-    const role = localStorage.getItem("user_role");
-    if (role !== "SUPER_ADMIN") {
-      toast.error("Akses ditolak. Hanya Super Admin!");
-      router.push("/admin");
+  // Cek role (hanya SUPER_ADMIN)
+useEffect(() => {
+  const checkRole = async () => {
+    try {
+      const res = await fetch("/api/auth/me");
+      const data = await res.json();
+      
+      if (!data.user) {
+        router.push("/login/admin");
+        return;
+      }
+      
+      if (data.user.role !== "SUPER_ADMIN") {
+        toast.error("Akses ditolak. Hanya Super Admin!");
+        router.push("/admin");
+      }
+    } catch (error) {
+      console.error("Error checking role:", error);
+      router.push("/login/admin");
     }
-  }, [router]);
+  };
+  
+  checkRole();
+}, [router]);
 
   const fetchLogs = async () => {
     setLoading(true);

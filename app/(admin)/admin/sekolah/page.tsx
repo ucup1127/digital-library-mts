@@ -27,23 +27,32 @@ export default function KelolaSekolahPage() {
 
   // Cek role user
   useEffect(() => {
-    const role = localStorage.getItem("user_role");
-    const isLoggedIn = localStorage.getItem("isLoggedIn");
-    
-    if (isLoggedIn !== "true") {
+  const checkRole = async () => {
+    try {
+      const res = await fetch("/api/auth/me");
+      const data = await res.json();
+      
+      if (!data.user) {
+        router.push("/login/admin");
+        return;
+      }
+      
+      if (data.user.role !== "SUPER_ADMIN") {
+        toast.error("Akses ditolak. Hanya Super Admin yang bisa mengakses halaman ini!");
+        router.push("/admin");
+        return;
+      }
+      
+      setIsSuperAdmin(true);
+      fetchSchools();
+    } catch (error) {
+      console.error("Error checking role:", error);
       router.push("/login/admin");
-      return;
     }
-    
-    if (role !== "SUPER_ADMIN") {
-      toast.error("Akses ditolak. Hanya Super Admin yang bisa mengakses halaman ini!");
-      router.push("/admin");
-      return;
-    }
-    
-    setIsSuperAdmin(true);
-    fetchSchools();
-  }, [router]);
+  };
+  
+  checkRole();
+}, [router]);
 
   const fetchSchools = async () => {
     try {

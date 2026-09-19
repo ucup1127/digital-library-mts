@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 
 interface SystemLog {
   id: string;
@@ -14,12 +16,38 @@ interface SystemLog {
 }
 
 export default function SystemLogPage() {
+  const router = useRouter();
   const [logs, setLogs] = useState<SystemLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [levelFilter, setLevelFilter] = useState("all");
   const [totalItems, setTotalItems] = useState(0);
   const [isAutoRefresh, setIsAutoRefresh] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+
+  // 🔥 Cek role — cuma SUPER_ADMIN
+  useEffect(() => {
+    const checkRole = async () => {
+      try {
+        const res = await fetch("/api/auth/me");
+        const data = await res.json();
+        
+        if (!data.user) {
+          router.push("/login/admin");
+          return;
+        }
+        
+        if (data.user.role !== "SUPER_ADMIN") {
+          toast.error("Akses ditolak. Hanya Super Admin!");
+          router.push("/admin");
+        }
+      } catch (error) {
+        console.error("Error checking role:", error);
+        router.push("/login/admin");
+      }
+    };
+    
+    checkRole();
+  }, [router]);
 
   const fetchLogs = async () => {
     try {

@@ -53,18 +53,21 @@ export default function GaleriPage() {
 
   const fetchGallery = async () => {
     const schoolId = localStorage.getItem("school_id");
-    
+
     if (!schoolId) {
       setError("Data sekolah tidak ditemukan");
       setLoading(false);
       return;
     }
-    
+
     try {
-      const res = await fetch(`/api/gallery?schoolId=${schoolId}`);
+      const res = await fetch(`/api/gallery?schoolId=${schoolId}&limit=100`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      setImages(Array.isArray(data) ? data : []);
+
+      // 🔥 API return { images: [...], pagination: {...} }
+      const imagesData = data.images || (Array.isArray(data) ? data : []);
+      setImages(imagesData);
     } catch (error) {
       console.error("Error fetching gallery:", error);
       setError("Gagal memuat galeri");

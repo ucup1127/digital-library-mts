@@ -1,24 +1,28 @@
 // app/api/visitor-log/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { getSession } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { action, bookId, bookTitle, userId, userEmail, schoolId, userRole } = body;
-    
-    console.log("📝 Received log request:", { action, bookId, bookTitle, userRole });
-    
+    const { action, bookId, bookTitle, userId, userEmail, schoolId } = body;
+
+    console.log("📝 Received log request:", { action, bookId, bookTitle });
+
     if (!action) {
       return NextResponse.json({ error: "Action required" }, { status: 400 });
     }
-    
-    // 🔥 PENTING: JANGAN catat aktivitas SUPER_ADMIN
-    if (userRole === "SUPER_ADMIN") {
+
+    // 🔥 Cek session dari SERVER — bukan dari body (client bisa palsukan)
+    const session = await getSession();
+
+    // 🔥 SKIP kalau SUPER_ADMIN — aktivitasnya jangan tercatat
+    if (session?.role === "SUPER_ADMIN") {
       console.log("⏭️ Skipping log for SUPER_ADMIN");
       return NextResponse.json({ success: true, skipped: true, reason: "SUPER_ADMIN" });
     }
-    
+
     // Catat ke VisitorLog (hanya untuk USER dan ADMIN biasa)
     const log = await db.visitorLog.create({
       data: {
@@ -31,9 +35,9 @@ export async function POST(request: Request) {
         sessionId: "web-session",
       },
     });
-    
+
     console.log("✅ Log saved:", log.id);
-    
+
     // Update views buku jika action READ
     if (action === "READ" && bookId) {
       await db.book.update({
@@ -42,13 +46,16 @@ export async function POST(request: Request) {
       });
       console.log("✅ Book views updated:", bookId);
     }
-    
+
     return NextResponse.json({ success: true, log });
   } catch (error) {
     console.error("❌ Error in visitor-log:", error);
-    return NextResponse.json({ 
-      error: "Failed to log activity", 
-      details: error instanceof Error ? error.message : String(error)
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: "Failed to log activity",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
   }
 }

@@ -1,54 +1,62 @@
 // app/api/track/route.ts
 import { db } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
+import { getSession } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getSession();
+
+    // 🔥 SKIP kalau SUPER_ADMIN
+    if (session?.role === "SUPER_ADMIN") {
+      return NextResponse.json({ success: true, skipped: true });
+    }
+
     const body = await request.json();
     const { path, userAgent, ip } = body;
-    
-    let action = 'view_page';
-    let bookId = null;
-    let bookTitle = null;
-    
+
+    let action = "view_page";
+    let bookId: string | null = null;
+    let bookTitle: string | null = null;
+
     // Extract book ID dari path
     const bookMatch = path?.match(/\/katalog\/([^\/]+)/);
     if (bookMatch) {
-      action = 'view_book';
-      bookId = bookMatch[1];
-      
+      action = "view_book";
+      const extractedId = bookMatch[1];  // ← FIX
+      bookId = extractedId;
+
       try {
-        // Ambil judul buku
         const book = await db.book.findUnique({
-          where: { id: bookId },
-          select: { title: true }
+          where: { id: extractedId },  // ← FIX
+          select: { title: true },
         });
-        bookTitle = book?.title;
+        bookTitle = book?.title || null;
       } catch (err) {
-        console.error('Error fetching book:', err);
+        console.error("Error fetching book:", err);
       }
     }
-    
-    // Simpan log dengan try-catch agar tidak mengganggu response
+
+    // Simpan log
     try {
       await db.visitorLog.create({
         data: {
           action,
           bookId,
           bookTitle,
-          ipAddress: ip,
-          userAgent,
-          sessionId: request.cookies.get('session-id')?.value || 'unknown',
-          createdAt: new Date()
-        }
+          ipAddress: ip || request.headers.get("x-forwarded-for") || "unknown",
+          userAgent: userAgent || request.headers.get("user-agent") || "unknown",
+          sessionId: request.cookies.get("session-id")?.value || "unknown",
+          createdAt: new Date(),
+        },
       });
     } catch (err) {
-      console.error('Error saving visitor log:', err);
+      console.error("Error saving visitor log:", err);
     }
-    
+
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Track API error:', error);
-    return NextResponse.json({ error: 'Failed' }, { status: 500 });
+    console.error("Track API error:", error);
+    return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
 }

@@ -1,8 +1,16 @@
+// app/(admin)/admin/system-log/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import {
+  Settings,
+  AlertCircle,
+  AlertTriangle,
+  Info,
+  RefreshCw,
+} from "lucide-react";
 
 interface SystemLog {
   id: string;
@@ -24,18 +32,18 @@ export default function SystemLogPage() {
   const [isAutoRefresh, setIsAutoRefresh] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
-  // 🔥 Cek role — cuma SUPER_ADMIN
+  // Cek role — cuma SUPER_ADMIN
   useEffect(() => {
     const checkRole = async () => {
       try {
         const res = await fetch("/api/auth/me");
         const data = await res.json();
-        
+
         if (!data.user) {
           router.push("/login/admin");
           return;
         }
-        
+
         if (data.user.role !== "SUPER_ADMIN") {
           toast.error("Akses ditolak. Hanya Super Admin!");
           router.push("/admin");
@@ -45,7 +53,7 @@ export default function SystemLogPage() {
         router.push("/login/admin");
       }
     };
-    
+
     checkRole();
   }, [router]);
 
@@ -63,12 +71,11 @@ export default function SystemLogPage() {
     }
   };
 
-  // 🔥 AUTO REFRESH SETIAP 10 DETIK
   useEffect(() => {
     fetchLogs();
-    
+
     if (!isAutoRefresh) return;
-    
+
     const interval = setInterval(fetchLogs, 10000);
     return () => clearInterval(interval);
   }, [levelFilter, isAutoRefresh]);
@@ -76,11 +83,26 @@ export default function SystemLogPage() {
   const getLevelBadge = (level: string) => {
     switch (level) {
       case "ERROR":
-        return <span className="px-2 py-1 text-[9px] font-bold rounded-full bg-red-100 text-red-700">❌ ERROR</span>;
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-medium bg-red-100 text-red-700 rounded-full">
+            <AlertCircle className="w-3 h-3" />
+            ERROR
+          </span>
+        );
       case "WARNING":
-        return <span className="px-2 py-1 text-[9px] font-bold rounded-full bg-yellow-100 text-yellow-700">⚠️ WARNING</span>;
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-medium bg-yellow-100 text-yellow-700 rounded-full">
+            <AlertTriangle className="w-3 h-3" />
+            WARNING
+          </span>
+        );
       default:
-        return <span className="px-2 py-1 text-[9px] font-bold rounded-full bg-blue-100 text-blue-700">ℹ️ INFO</span>;
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-medium bg-blue-100 text-blue-700 rounded-full">
+            <Info className="w-3 h-3" />
+            INFO
+          </span>
+        );
     }
   };
 
@@ -91,7 +113,10 @@ export default function SystemLogPage() {
   if (loading && logs.length === 0) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
-        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-gray-400 text-sm font-medium">Memuat log...</p>
+        </div>
       </div>
     );
   }
@@ -100,79 +125,85 @@ export default function SystemLogPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">System Log</h1>
-        <p className="text-xs text-gray-400 mt-1">Catatan error dan aktivitas sistem (Khusus Super Admin)</p>
+        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+          <Settings className="w-6 h-6 text-purple-600" />
+          System Log
+        </h1>
+        <p className="text-xs text-gray-400 mt-0.5">
+          Catatan error dan aktivitas sistem (Khusus Super Admin)
+        </p>
       </div>
 
       {/* Filter & Auto Refresh */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-wrap justify-between items-center gap-3">
-        <div className="flex items-center gap-3">
-          <label className="text-xs font-medium text-gray-600">Filter Level:</label>
-          <select
-            value={levelFilter}
-            onChange={(e) => setLevelFilter(e.target.value)}
-            className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-          >
-            <option value="all">Semua Level</option>
-            <option value="ERROR">ERROR</option>
-            <option value="WARNING">WARNING</option>
-            <option value="INFO">INFO</option>
-          </select>
-        </div>
-        
-        <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={isAutoRefresh}
-              onChange={(e) => setIsAutoRefresh(e.target.checked)}
-              className="w-4 h-4 text-blue-600 rounded"
-            />
-            <span className="text-[10px] text-gray-600">Auto Refresh (10 detik)</span>
-          </label>
-          
-          <button
-            onClick={() => fetchLogs()}
-            className="px-3 py-1 text-[9px] bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition"
-          >
-            🔄 Refresh
-          </button>
-          
-          <div className="text-[9px] text-gray-400">
-            Total {totalItems} log | Last update: {lastRefresh.toLocaleTimeString("id-ID")}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+        <div className="flex flex-wrap justify-between items-center gap-3">
+          <div className="flex items-center gap-3">
+            <label className="text-xs font-semibold text-gray-700">Filter Level:</label>
+            <select
+              value={levelFilter}
+              onChange={(e) => setLevelFilter(e.target.value)}
+              className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none bg-white"
+            >
+              <option value="all">Semua Level</option>
+              <option value="ERROR">ERROR</option>
+              <option value="WARNING">WARNING</option>
+              <option value="INFO">INFO</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isAutoRefresh}
+                onChange={(e) => setIsAutoRefresh(e.target.checked)}
+                className="w-4 h-4 text-purple-600 rounded"
+              />
+              <span className="text-xs text-gray-600">Auto Refresh (10s)</span>
+            </label>
+
+            <button
+              onClick={() => fetchLogs()}
+              className="px-3 py-2 text-xs bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition flex items-center gap-1.5 font-medium"
+            >
+              <RefreshCw className="w-3 h-3" />
+              Refresh
+            </button>
+
+            <div className="text-[10px] text-gray-400">
+              Total {totalItems} log | Update: {lastRefresh.toLocaleTimeString("id-ID")}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Tabel Log */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th className="px-5 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase">Level</th>
-                <th className="px-5 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase">Message</th>
-                <th className="px-5 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase">Path</th>
-                <th className="px-5 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase">User</th>
-                <th className="px-5 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase">Waktu</th>
+                <th className="px-5 py-3 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Level</th>
+                <th className="px-5 py-3 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Message</th>
+                <th className="px-5 py-3 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Path</th>
+                <th className="px-5 py-3 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider">User</th>
+                <th className="px-5 py-3 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Waktu</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {logs.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-5 py-12 text-center text-gray-400">
-                    <div className="flex flex-col items-center gap-2">
-                      <span className="text-3xl">📭</span>
-                      <p className="text-sm">Belum ada log</p>
+                  <td colSpan={5} className="px-5 py-12 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <Settings className="w-12 h-12 text-gray-300" />
+                      <p className="text-gray-400 text-sm">Belum ada log</p>
                     </div>
                   </td>
                 </tr>
               ) : (
                 logs.map((log) => (
                   <tr key={log.id} className="hover:bg-gray-50 transition">
-                    <td className="px-5 py-3">
-                      {getLevelBadge(log.level)}
-                    </td>
+                    <td className="px-5 py-3">{getLevelBadge(log.level)}</td>
                     <td className="px-5 py-3">
                       <p className="text-xs text-gray-700 max-w-md line-clamp-2">{log.message}</p>
                       {log.stack && (

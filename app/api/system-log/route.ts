@@ -1,6 +1,7 @@
 // app/api/system-log/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { requireAdmin, AuthError } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
@@ -30,6 +31,9 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
+    // 🔥 Cek admin — cuma admin yang bisa lihat system log
+    const session = await requireAdmin();
+
     const { searchParams } = new URL(request.url);
     const level = searchParams.get("level");
     const limit = parseInt(searchParams.get("limit") || "50");
@@ -39,6 +43,16 @@ export async function GET(request: Request) {
     const where: any = {};
     if (level && level !== "all") {
       where.level = level;
+    }
+
+    // 🔥 ADMIN biasa — jangan lihat log yang terkait SUPER_ADMIN
+    if (session.role !== "SUPER_ADMIN") {
+      where.NOT = {
+        userEmail: {
+          contains: "superadmin", // atau pakai field lain
+        },
+      };
+      // ⚠️ Note: ini bergantung ke field userEmail — kalau ada field role, pakai itu
     }
 
     const [logs, total] = await Promise.all([
@@ -60,6 +74,9 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error("Error fetching logs:", error);
     return NextResponse.json({ error: "Gagal mengambil log" }, { status: 500 });
   }

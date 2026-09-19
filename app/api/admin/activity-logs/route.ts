@@ -1,9 +1,13 @@
 // app/api/admin/activity-logs/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { requireAdmin, AuthError } from "@/lib/auth";
 
 export async function GET(request: Request) {
   try {
+    // 🔥 Cek session dari server — bukan dari header
+    const session = await requireAdmin();
+
     const { searchParams } = new URL(request.url);
     const schoolId = searchParams.get("schoolId");
     const action = searchParams.get("action");
@@ -11,48 +15,37 @@ export async function GET(request: Request) {
     const search = searchParams.get("search") || "";
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "20");
-    
-    // Ambil role dari header
-    const userRole = request.headers.get("x-user-role") || "";
-    const userSchoolId = request.headers.get("x-school-id") || "";
-    
-    console.log("📋 GET Activity Logs - userRole:", userRole, "schoolId:", schoolId);
-    
+
+    console.log("📋 GET Activity Logs - role:", session.role, "schoolId:", schoolId);
+
     const where: any = {};
-    
+
     // ========== ATURAN AKSES BERDASARKAN ROLE ==========
-    
-    if (userRole === "SUPER_ADMIN") {
-      // SUPER_ADMIN: bisa lihat semua log, bisa filter berdasarkan schoolId
+
+    if (session.role === "SUPER_ADMIN") {
+      // SUPER_ADMIN: bisa lihat semua log
       if (schoolId && schoolId !== "") {
         where.schoolId = schoolId;
       }
-      // SUPER_ADMIN bisa lihat log dengan schoolId null (aktivitas sendiri)
-      // Tidak perlu filter tambahan
-    } 
-    else if (userRole === "ADMIN") {
+    } else if (session.role === "ADMIN") {
       // ADMIN: hanya bisa lihat log di sekolahnya sendiri
-      // dan hanya untuk USER (siswa) - exclude admin dan SUPER_ADMIN
-      if (userSchoolId) {
-        where.schoolId = userSchoolId;
+      if (session.schoolId) {
+        where.schoolId = session.schoolId;
       }
-      // ADMIN tidak boleh melihat log admin lain atau SUPER_ADMIN
-      where.adminRole = "ADMIN"; // Atau bisa juga exclude SUPER_ADMIN
-      // Alternative: where.adminRole: { not: "SUPER_ADMIN" }
-    }
-    else {
-      // Role lain tidak diizinkan
+      // 🔥 ADMIN TIDAK BOLEH lihat log SUPER_ADMIN
+      where.adminRole = { not: "SUPER_ADMIN" };
+    } else {
       return NextResponse.json(
         { activities: [], pagination: { currentPage: 1, pageSize: 20, totalPages: 1, totalItems: 0 } },
         { status: 403 }
       );
     }
-    
+
     // Filter berdasarkan aksi
     if (action && action !== "") {
       where.action = action;
     }
-    
+
     // Filter berdasarkan tanggal
     if (date) {
       const startDate = new Date(date);
@@ -61,7 +54,7 @@ export async function GET(request: Request) {
       endDate.setHours(23, 59, 59, 999);
       where.createdAt = { gte: startDate, lte: endDate };
     }
-    
+
     // Filter pencarian
     if (search) {
       where.OR = [
@@ -70,22 +63,20 @@ export async function GET(request: Request) {
         { targetName: { contains: search, mode: "insensitive" } },
       ];
     }
-    
-    // Hitung total data
+
     const totalItems = await db.adminLog.count({ where });
     const totalPages = Math.ceil(totalItems / limit);
     const skip = (page - 1) * limit;
-    
-    // Ambil data
+
     const activities = await db.adminLog.findMany({
       where,
       orderBy: { createdAt: "desc" },
       skip,
       take: limit,
     });
-    
+
     console.log(`✅ Menemukan ${activities.length} dari ${totalItems} aktivitas`);
-    
+
     return NextResponse.json({
       activities,
       pagination: {
@@ -96,6 +87,9 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error("Error fetching activity logs:", error);
     return NextResponse.json(
       { activities: [], pagination: { currentPage: 1, pageSize: 20, totalPages: 1, totalItems: 0 } },

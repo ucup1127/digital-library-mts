@@ -3,17 +3,18 @@ import { writeFile, mkdir } from "fs/promises";
 import { NextResponse } from "next/server";
 import path from "path";
 import { requireAuth, AuthError } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 export async function POST(request: Request) {
   try {
     await requireAuth();
-    console.log("📤 Upload API called");
+    logger.log("📤 Upload API called");
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
     const type = formData.get("type") as string;
 
-    console.log("File:", file?.name, "Type:", type, "Size:", file?.size);
+    logger.log("File:", file?.name, "Type:", type, "Size:", file?.size);
 
     if (!file) {
       return NextResponse.json(
@@ -85,7 +86,7 @@ export async function POST(request: Request) {
 
     await writeFile(filePath, buffer);
 
-    console.log("✅ File saved:", publicPath);
+    logger.log("✅ File saved:", publicPath);
 
     return NextResponse.json({ success: true, url: publicPath });
   } catch (error) {
@@ -95,7 +96,7 @@ export async function POST(request: Request) {
         { status: error.status }
       );
     }
-    console.error("Upload error:", error);
+    logger.error("Upload error:", error);
     return NextResponse.json(
       { error: "Upload gagal: " + String(error) },
       { status: 500 }

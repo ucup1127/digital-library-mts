@@ -2,6 +2,7 @@
 import { db } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
         });
         bookTitle = book?.title || null;
       } catch (err) {
-        console.error("Error fetching book:", err);
+        logger.error("Error fetching book:", err);
       }
     }
 
@@ -51,12 +52,12 @@ export async function POST(request: NextRequest) {
         },
       });
     } catch (err) {
-      console.error("Error saving visitor log:", err);
+      logger.error("Error saving visitor log:", err);
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Track API error:", error);
+    logger.error("Track API error:", error);
     return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
 }

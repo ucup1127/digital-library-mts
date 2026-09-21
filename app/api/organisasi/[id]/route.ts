@@ -2,6 +2,7 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireAdmin, AuthError } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 export async function PATCH(
   req: Request,
@@ -36,7 +37,7 @@ export async function PATCH(
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    console.error("ERROR PATCH ORGANISASI:", error);
+    logger.error("ERROR PATCH ORGANISASI:", error);
     return NextResponse.json(
       { error: "Gagal update data anggota" },
       { status: 500 }

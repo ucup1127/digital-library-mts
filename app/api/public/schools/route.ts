@@ -1,6 +1,7 @@
 // app/api/public/schools/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 
 export async function GET() {
   try {
@@ -14,7 +15,7 @@ export async function GET() {
 
     return NextResponse.json(schools);
   } catch (error) {
-    console.error("Error fetching public schools:", error);
+    logger.error("Error fetching public schools:", error);
     return NextResponse.json([], { status: 500 });
   }
 }

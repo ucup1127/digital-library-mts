@@ -2,6 +2,7 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 export async function GET() {
   try {
@@ -49,7 +50,7 @@ export async function GET() {
       website: "https://mtsmuhammadiyahpatikraja.sch.id",
     });
   } catch (error) {
-    console.error("Error fetching school info:", error);
+    logger.error("Error fetching school info:", error);
     return NextResponse.json(
       { error: "Gagal memuat info sekolah" },
       { status: 500 }

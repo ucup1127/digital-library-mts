@@ -2,6 +2,7 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireAdmin, AuthError } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 // GET: Ambil semua kategori
 export async function GET() {
@@ -11,7 +12,7 @@ export async function GET() {
     });
     return NextResponse.json(categories);
   } catch (error) {
-    console.error("Error fetching categories:", error);
+    logger.error("Error fetching categories:", error);
     return NextResponse.json({ error: "Gagal memuat kategori" }, { status: 500 });
   }
 }
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
         if (error instanceof AuthError) {
           return NextResponse.json({ error: error.message }, { status: error.status });
         }
-        console.error("Error creating category:", error);
+        logger.error("Error creating category:", error);
         return NextResponse.json({ error: "Gagal menambah kategori" }, { status: 500 });
       }
     }

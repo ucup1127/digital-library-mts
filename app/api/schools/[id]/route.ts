@@ -2,6 +2,7 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireSuperAdmin, AuthError } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 // GET - Ambil detail sekolah
 export async function GET(
@@ -25,7 +26,7 @@ export async function GET(
     
     return NextResponse.json(school);
   } catch (error) {
-    console.error("GET error:", error);
+    logger.error("GET error:", error);
     return NextResponse.json({ error: "Gagal mengambil data" }, { status: 500 });
   }
 }
@@ -59,7 +60,7 @@ export async function PUT(
         if (error instanceof AuthError) {
           return NextResponse.json({ error: error.message }, { status: error.status });
         }
-        console.error("Update school error:", error);
+        logger.error("Update school error:", error);
         return NextResponse.json({ error: "Gagal memperbarui sekolah" }, { status: 500 });
       }
     }
@@ -99,7 +100,7 @@ export async function DELETE(
         if (error instanceof AuthError) {
           return NextResponse.json({ error: error.message }, { status: error.status });
         }
-        console.error("Delete school error:", error);
+        logger.error("Delete school error:", error);
         return NextResponse.json({ error: "Gagal menghapus sekolah" }, { status: 500 });
       }
     }

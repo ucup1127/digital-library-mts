@@ -2,13 +2,14 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { action, bookId, bookTitle, userId, userEmail, schoolId } = body;
 
-    console.log("📝 Received log request:", { action, bookId, bookTitle });
+    logger.log("📝 Received log request:", { action, bookId, bookTitle });
 
     if (!action) {
       return NextResponse.json({ error: "Action required" }, { status: 400 });
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
 
     // 🔥 SKIP kalau SUPER_ADMIN — aktivitasnya jangan tercatat
     if (session?.role === "SUPER_ADMIN") {
-      console.log("⏭️ Skipping log for SUPER_ADMIN");
+      logger.log("⏭️ Skipping log for SUPER_ADMIN");
       return NextResponse.json({ success: true, skipped: true, reason: "SUPER_ADMIN" });
     }
 
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
       },
     });
 
-    console.log("✅ Log saved:", log.id);
+    logger.log("✅ Log saved:", log.id);
 
     // Update views buku jika action READ
     if (action === "READ" && bookId) {
@@ -44,12 +45,12 @@ export async function POST(request: Request) {
         where: { id: bookId },
         data: { views: { increment: 1 } },
       });
-      console.log("✅ Book views updated:", bookId);
+      logger.log("✅ Book views updated:", bookId);
     }
 
     return NextResponse.json({ success: true, log });
   } catch (error) {
-    console.error("❌ Error in visitor-log:", error);
+    logger.error("❌ Error in visitor-log:", error);
     return NextResponse.json(
       {
         error: "Failed to log activity",

@@ -2,7 +2,7 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireAuth, requireAdmin, AuthError } from "@/lib/auth";
-
+import { logger } from "@/lib/logger";
 // GET - Ambil daftar peminjaman dengan filter schoolId
 export async function GET(request: Request) {
   try {
@@ -55,7 +55,7 @@ export async function GET(request: Request) {
       orderBy: { tglPinjam: "desc" },
     });
 
-    console.log(`✅ Menemukan ${peminjaman.length} peminjaman`);
+    logger.log(`✅ Menemukan ${peminjaman.length} peminjaman`);
 
     return NextResponse.json(peminjaman);
   } catch (error) {
@@ -65,7 +65,7 @@ export async function GET(request: Request) {
         { status: error.status }
       );
     }
-    console.error("Error fetching peminjaman:", error);
+    logger.error("Error fetching peminjaman:", error);
     return NextResponse.json([], { status: 500 });
   }
 }
@@ -161,7 +161,7 @@ export async function POST(request: Request) {
       const status = error.message === "Forbidden" ? 403 : 400;
       return NextResponse.json({ error: error.message }, { status });
     }
-    console.error("Error creating peminjaman:", error);
+    logger.error("Error creating peminjaman:", error);
     return NextResponse.json(
       { error: "Gagal meminjam buku" },
       { status: 500 }
@@ -253,7 +253,7 @@ export async function PUT(request: Request) {
       const status = error.message === "Forbidden" ? 403 : 400;
       return NextResponse.json({ error: error.message }, { status });
     }
-    console.error("Error returning book:", error);
+    logger.error("Error returning book:", error);
     return NextResponse.json(
       { error: "Gagal mengembalikan buku" },
       { status: 500 }

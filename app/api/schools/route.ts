@@ -2,6 +2,7 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireAdmin, requireSuperAdmin, AuthError } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 // GET - Ambil semua sekolah
 export async function GET() {
@@ -40,7 +41,7 @@ export async function GET() {
         if (error instanceof AuthError) {
           return NextResponse.json({ error: error.message }, { status: error.status });
         }
-        console.error("Error fetching schools:", error);
+        logger.error("Error fetching schools:", error);
         return NextResponse.json([], { status: 500 });
       }
     }
@@ -76,7 +77,7 @@ export async function POST(request: Request) {
         if (error instanceof AuthError) {
           return NextResponse.json({ error: error.message }, { status: error.status });
         }
-        console.error("Error creating school:", error);
+        logger.error("Error creating school:", error);
         return NextResponse.json({ error: "Gagal menambahkan sekolah" }, { status: 500 });
       }
     }

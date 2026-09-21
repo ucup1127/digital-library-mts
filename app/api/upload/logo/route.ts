@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import path from "path";
 import { db } from "@/lib/db";
 import { requireAdmin, AuthError } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 export async function POST(request: Request) {
   try {
@@ -12,7 +13,7 @@ export async function POST(request: Request) {
     const file = formData.get("logo") as File;
     const schoolId = formData.get("schoolId") as string;
 
-    console.log("Upload request:", { hasFile: !!file, schoolId });
+    logger.log("Upload request:", { hasFile: !!file, schoolId });
 
     if (!file) {
       return NextResponse.json({ error: "File logo tidak ditemukan" }, { status: 400 });
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
     const buffer = Buffer.from(bytes);
     await writeFile(filePath, buffer);
 
-    console.log("File saved:", publicPath);
+    logger.log("File saved:", publicPath);
 
     // ✅ Jika ada schoolId, update logo ke database
     if (schoolId && schoolId !== "temp") {
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
         where: { id: schoolId },
         data: { logo: publicPath }
       });
-      console.log("Database updated with logo for school:", schoolId);
+      logger.log("Database updated with logo for school:", schoolId);
     }
 
     return NextResponse.json({ 
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    console.error("Upload error:", error);
+    logger.error("Upload error:", error);
     return NextResponse.json({ 
       error: error instanceof Error ? error.message : "Gagal upload logo" 
     }, { status: 500 });

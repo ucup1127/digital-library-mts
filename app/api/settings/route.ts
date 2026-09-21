@@ -2,6 +2,7 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 // GET - Ambil setting
 export async function GET(request: Request) {
@@ -9,7 +10,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const key = searchParams.get("key");
     
-    console.log("📌 GET Setting - key:", key);
+    logger.log("📌 GET Setting - key:", key);
     
     if (!key) {
       return NextResponse.json({ error: "Key diperlukan" }, { status: 400 });
@@ -22,19 +23,19 @@ export async function GET(request: Request) {
         where: { key: key },
       });
     } catch (err) {
-      console.error("Database error:", err);
+      logger.error("Database error:", err);
       // Jika tabel belum ada, return default
       return NextResponse.json({ key, value: "false" });
     }
     
-    console.log("📌 Setting found:", setting);
+    logger.log("📌 Setting found:", setting);
     
     return NextResponse.json({ 
       key, 
       value: setting?.value || "false"
     });
   } catch (error) {
-    console.error("Error getting setting:", error);
+    logger.error("Error getting setting:", error);
     // Return default value instead of error
     return NextResponse.json({ key: "maintenance_mode", value: "false" });
   }
@@ -84,7 +85,7 @@ export async function POST(request: Request) {
 
   return response;
   } catch (error) {
-    console.error("Error updating setting:", error);
+    logger.error("Error updating setting:", error);
     return NextResponse.json({ error: "Gagal update setting" }, { status: 500 });
   }
 }

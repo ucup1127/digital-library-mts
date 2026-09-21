@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { logAdminActivity } from "@/lib/admin-log";
 import { requireAdmin, AuthError } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 export async function GET() {
   try {
@@ -66,7 +67,7 @@ export async function GET() {
       if (error instanceof AuthError) {
         return NextResponse.json({ error: error.message }, { status: error.status });
       }
-      console.error("Error checking overdue:", error);
+      logger.error("Error checking overdue:", error);
       return NextResponse.json({ error: "Gagal mengecek overdue" }, { status: 500 });
     }
   }

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { requireAuth, AuthError } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 export async function PATCH(req: Request) {
   try {
@@ -59,7 +60,7 @@ export async function PATCH(req: Request) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    console.error("ERROR_UPDATE_USER:", error);
+    logger.error("ERROR_UPDATE_USER:", error);
     return NextResponse.json({ error: "Gagal memperbarui profil." }, { status: 500 });
   }
 }

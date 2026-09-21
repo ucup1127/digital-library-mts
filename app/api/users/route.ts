@@ -2,6 +2,7 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireAdmin, AuthError } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 export async function GET(request: Request) {
   try {
@@ -11,7 +12,7 @@ export async function GET(request: Request) {
     const search = searchParams.get("search");
     const limit = parseInt(searchParams.get("limit") || "10");
     
-    console.log("🔍 SEARCH USER:", { barcode, search, limit });
+    logger.log("🔍 SEARCH USER:", { barcode, search, limit });
     
     // 🔍 Cari user berdasarkan barcode (scan)
     if (barcode) {
@@ -38,7 +39,7 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: "User tidak ditemukan" }, { status: 404 });
       }
       
-      console.log("✅ User ditemukan:", user.name, "memberId:", user.memberId);
+      logger.log("✅ User ditemukan:", user.name, "memberId:", user.memberId);
       
       return NextResponse.json({ user });
     }
@@ -66,7 +67,7 @@ export async function GET(request: Request) {
         },
       });
       
-      console.log(`✅ Menemukan ${users.length} user`);
+      logger.log(`✅ Menemukan ${users.length} user`);
       
       return NextResponse.json({ users });
     }
@@ -76,7 +77,7 @@ export async function GET(request: Request) {
         if (error instanceof AuthError) {
           return NextResponse.json({ error: error.message }, { status: error.status });
         }
-        console.error("Error fetching users:", error);
+        logger.error("Error fetching users:", error);
         return NextResponse.json({ error: "Gagal memuat user" }, { status: 500 });
       }
     }

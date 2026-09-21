@@ -2,6 +2,7 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireAdmin, AuthError } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 export async function POST(request: Request) {
   try {
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, log });
   } catch (error) {
-    console.error("Error saving log:", error);
+    logger.error("Error saving log:", error);
     return NextResponse.json({ error: "Gagal menyimpan log" }, { status: 500 });
   }
 }
@@ -77,7 +78,7 @@ export async function GET(request: Request) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    console.error("Error fetching logs:", error);
+    logger.error("Error fetching logs:", error);
     return NextResponse.json({ error: "Gagal mengambil log" }, { status: 500 });
   }
 }

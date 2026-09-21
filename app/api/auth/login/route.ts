@@ -4,6 +4,10 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { createSession, setSessionCookie } from "@/lib/auth";
 import { logger } from "@/lib/logger";
+import { checkRateLimit, resetRateLimit, getClientIp } from "@/lib/rate-limit";
+
+const RATE_LIMIT_MAX = 5;             // 5 percobaan
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 menit
 
 export async function POST(request: Request) {
   try {
@@ -13,6 +17,26 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Email dan password wajib diisi" },
         { status: 400 }
+      );
+    }
+
+    // 🔥 Cek rate limit — IP + email
+    const ip = getClientIp(request);
+    const rateKey = `login:${ip}:${email.toLowerCase()}`;
+    const rateCheck = checkRateLimit(rateKey, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
+
+    if (!rateCheck.allowed) {
+      logger.log(`🚫 Rate limit exceeded: ${ip} - ${email}`);
+      return NextResponse.json(
+        {
+          error: `Terlalu banyak percobaan login. Coba lagi dalam ${Math.ceil((rateCheck.retryAfter || 0) / 60)} menit.`,
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rateCheck.retryAfter || 60),
+          },
+        }
       );
     }
 
@@ -48,10 +72,13 @@ export async function POST(request: Request) {
       );
     }
 
+    // 🔥 Login berhasil — reset rate limit
+    resetRateLimit(rateKey);
+
     // Bikin session
     const token = await createSession(user.id, {
       userAgent: request.headers.get("user-agent") || undefined,
-      ipAddress: request.headers.get("x-forwarded-for") || undefined,
+      ipAddress: ip,
       rememberMe: !!rememberMe,
     });
 

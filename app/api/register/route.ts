@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { logger } from "@/lib/logger";
+import { generateMemberId } from "@/lib/member-id";
 
 export async function POST(request: Request) {
   try {
@@ -53,10 +54,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // ✅ Hash password sebelum disimpan
+    // ✅ Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Buat user baru dengan password terhash
+    // 🔥 Generate memberId — pakai helper
+    const memberId = await generateMemberId(schoolId);
+
+    // Buat user baru
     const user = await db.user.create({
       data: {
         name: name || "",
@@ -64,10 +68,12 @@ export async function POST(request: Request) {
         password: hashedPassword,
         schoolId,
         role: "USER",
+        memberId,
+        barcode: memberId,
       },
     });
 
-    logger.log("User created:", user.id);
+    logger.log("User created:", user.id, "memberId:", user.memberId);
 
     return NextResponse.json({
       success: true,
@@ -75,6 +81,7 @@ export async function POST(request: Request) {
         id: user.id,
         name: user.name,
         email: user.email,
+        memberId: user.memberId,
       },
     });
   } catch (error) {

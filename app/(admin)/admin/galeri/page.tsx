@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import ImageUploader from "@/components/admin/ImageUploader";
+import Image from "next/image";
 import { 
   Images, 
   Plus, 
@@ -447,7 +448,13 @@ export default function KelolaGaleriPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 shadow-sm">
-                          <img src={image.imageUrl} alt={image.title} className="w-full h-full object-cover" />
+                          <Image
+                            src={image.imageUrl}
+                            alt={image.title}
+                            width={48}
+                            height={48}
+                            className="w-full h-full object-cover"
+                          />
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -551,11 +558,12 @@ export default function KelolaGaleriPage() {
                 className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-lg transition-all duration-300 group hover:-translate-y-1"
               >
                 <div className="aspect-square relative overflow-hidden">
-                  <img
+                  <Image
                     src={image.imageUrl}
                     alt={image.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    loading="lazy"
+                    fill
+                    sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                    className="object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-between p-3">
                     <div>
@@ -707,7 +715,13 @@ export default function KelolaGaleriPage() {
             <form onSubmit={handleEditSubmit} className="p-6 space-y-4">
               <div className="mb-3">
                 <div className="w-32 h-32 rounded-xl overflow-hidden bg-gray-100 mx-auto">
-                  <img src={editingImage.imageUrl} alt={editingImage.title} className="w-full h-full object-cover" />
+                  <Image
+                  src={editingImage.imageUrl}
+                  alt={editingImage.title}
+                  width={128}
+                  height={128}
+                  className="w-full h-full object-cover"
+                />
                 </div>
                 <p className="text-[9px] text-gray-400 text-center mt-1">Preview foto saat ini</p>
               </div>

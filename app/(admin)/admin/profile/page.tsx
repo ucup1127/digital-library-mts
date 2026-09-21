@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
+import Image from "next/image";
 import { 
   User, 
   Mail, 
@@ -326,7 +327,13 @@ export default function AdminProfilePage() {
             {/* Avatar / Logo */}
             <div className="w-24 h-24 rounded-full bg-white/20 backdrop-blur-sm border-4 border-white/30 shadow-xl flex items-center justify-center text-3xl font-bold text-white overflow-hidden flex-shrink-0">
               {profile.schoolLogo ? (
-                <img src={profile.schoolLogo} alt={profile.schoolName} className="w-full h-full object-cover" />
+                <Image
+                  src={profile.schoolLogo}
+                  alt={profile.schoolName}
+                  width={96}
+                  height={96}
+                  className="w-full h-full object-cover"
+                />
               ) : (
                 getInitials()
               )}

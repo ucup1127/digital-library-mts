@@ -1,169 +1,140 @@
 // app/api/admin/stats/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
-import { requireAdmin, AuthError } from "@/lib/auth";  
+import { requireAdmin, AuthError } from "@/lib/auth";
+import { unstable_cache } from "next/cache";
 
-export async function GET(request: Request) {
-  try {
-    await requireAdmin();  
-    const { searchParams } = new URL(request.url);
-    const schoolId = searchParams.get("schoolId");
-    
-    console.log("📊 Dashboard Stats - schoolId:", schoolId);
-    
-    // Filter untuk books, users, dll
+const getCachedStats = unstable_cache(
+  async (schoolId: string | null) => {
     const bookWhere: any = {};
     const userWhere: any = { role: "USER" };
-    
+
     if (schoolId) {
       bookWhere.schoolId = schoolId;
       userWhere.schoolId = schoolId;
     }
-    
-    // Total Buku Digital
-    const totalBooks = await db.book.count({ where: bookWhere });
-    
-    // Total User (siswa)
-    const totalUsers = await db.user.count({ where: userWhere });
-    
-    // Total Kategori (semua, tidak perlu filter schoolId karena kategori global)
-    const totalCategories = await db.category.count();
-    
-    // Total Views
-    const totalViewsAgg = await db.book.aggregate({
-      where: bookWhere,
-      _sum: { views: true },
-    });
-    const totalViews = totalViewsAgg._sum.views || 0;
-    
-    // ========== STATISTIK BUKU FISIK ==========
-    const bukuFisikWhere: any = {};
-    if (schoolId) {
-      bukuFisikWhere.schoolId = schoolId;
-    }
-    
-    const totalBukuFisik = await db.bukuFisik.count({ where: bukuFisikWhere });
-    
-    // Peminjaman dengan filter (join ke bukuFisik untuk filter schoolId)
+
     const peminjamanWhere: any = {};
     if (schoolId) {
       peminjamanWhere.bukuFisik = { schoolId };
     }
-    
-    const totalBukuFisikDipinjam = await db.peminjamanFisik.count({
-      where: {
-        ...peminjamanWhere,
-        status: { in: ["DIPINJAM", "TERLAMBAT"] },
-      },
-    });
-    
-    const totalPeminjamanAktif = await db.peminjamanFisik.count({
-      where: {
-        ...peminjamanWhere,
-        status: { in: ["DIPINJAM", "TERLAMBAT"] },
-      },
-    });
-    
-    const totalDendaBelumBayarAgg = await db.peminjamanFisik.aggregate({
-      where: {
-        ...peminjamanWhere,
-        status: "DIKEMBALIKAN",
-        denda: { gt: 0 },
-      },
-      _sum: { denda: true },
-    });
+
+    // ========== QUERY PARALEL ==========
+    const [
+      totalBooks,
+      totalUsers,
+      totalCategories,
+      totalViewsAgg,
+      totalBukuFisik,
+      activeLoansCount,
+      totalDendaBelumBayarAgg,
+      loanStatusRaw,
+      popularBooks,
+      categoryStatsRaw,
+    ] = await Promise.all([
+      db.book.count({ where: bookWhere }),
+      db.user.count({ where: userWhere }),
+      db.category.count(),
+      db.book.aggregate({ where: bookWhere, _sum: { views: true } }),
+      db.bukuFisik.count({ where: schoolId ? { schoolId } : {} }),
+      db.peminjamanFisik.count({
+        where: { ...peminjamanWhere, status: { in: ["DIPINJAM", "TERLAMBAT"] } },
+      }),
+      db.peminjamanFisik.aggregate({
+        where: { ...peminjamanWhere, status: "DIKEMBALIKAN", denda: { gt: 0 } },
+        _sum: { denda: true },
+      }),
+      db.peminjamanFisik.groupBy({
+        by: ["status"],
+        where: peminjamanWhere,
+        _count: { id: true },
+      }),
+      db.book.findMany({
+        where: bookWhere,
+        select: { id: true, title: true, author: true, views: true },
+        orderBy: { views: "desc" },
+        take: 5,
+      }),
+      db.bookCategory.groupBy({
+        by: ["categoryId"],
+        _count: { bookId: true },
+        where: { book: bookWhere },
+      }),
+    ]);
+
+    const totalViews = totalViewsAgg._sum.views || 0;
+    const totalBukuFisikDipinjam = activeLoansCount;
+    const totalPeminjamanAktif = activeLoansCount;
     const totalDendaBelumBayar = totalDendaBelumBayarAgg._sum.denda || 0;
-    
-    // Status peminjaman
-    const dipinjam = await db.peminjamanFisik.count({
-      where: { ...peminjamanWhere, status: "DIPINJAM" },
-    });
-    const terlambat = await db.peminjamanFisik.count({
-      where: { ...peminjamanWhere, status: "TERLAMBAT" },
-    });
-    const dikembalikan = await db.peminjamanFisik.count({
-      where: { ...peminjamanWhere, status: "DIKEMBALIKAN" },
-    });
-    
+
+    // Parse loanStatus
+    const loanStatusMap: Record<string, number> = {};
+    for (const item of loanStatusRaw) {
+      loanStatusMap[item.status] = item._count.id;
+    }
+
     const loanStatus = [
-      { name: "Dipinjam", value: dipinjam },
-      { name: "Terlambat", value: terlambat },
-      { name: "Dikembalikan", value: dikembalikan },
+      { name: "Dipinjam", value: loanStatusMap["DIPINJAM"] || 0 },
+      { name: "Terlambat", value: loanStatusMap["TERLAMBAT"] || 0 },
+      { name: "Dikembalikan", value: loanStatusMap["DIKEMBALIKAN"] || 0 },
     ];
-    
-    // Monthly stats (6 bulan terakhir)
+
+    // ========== MONTHLY STATS — 2 QUERY ==========
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+    sixMonthsAgo.setDate(1);
+    sixMonthsAgo.setHours(0, 0, 0, 0);
+
+    const [allBooks, allLoans] = await Promise.all([
+      db.book.findMany({
+        where: { ...bookWhere, createdAt: { gte: sixMonthsAgo } },
+        select: { createdAt: true, views: true },
+      }),
+      db.peminjamanFisik.findMany({
+        where: { ...peminjamanWhere, createdAt: { gte: sixMonthsAgo } },
+        select: { createdAt: true },
+      }),
+    ]);
+
     const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
     const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
     const monthlyStats = [];
-    
+
     for (let i = 5; i >= 0; i--) {
       const monthIndex = (currentMonth - i + 12) % 12;
-      const monthName = months[monthIndex];
-      const year = new Date().getFullYear();
-      const startDate = new Date(year, monthIndex, 1);
-      const endDate = new Date(year, monthIndex + 1, 0);
-      
-      const booksCount = await db.book.count({
-        where: {
-          ...bookWhere,
-          createdAt: { gte: startDate, lte: endDate },
-        },
-      });
-      
-      const viewsCount = await db.book.aggregate({
-        where: {
-          ...bookWhere,
-          createdAt: { gte: startDate, lte: endDate },
-        },
-        _sum: { views: true },
-      });
-      
-      const loansCount = await db.peminjamanFisik.count({
-        where: {
-          ...peminjamanWhere,
-          createdAt: { gte: startDate, lte: endDate },
-        },
-      });
-      
+      const isSameMonth = (date: Date) =>
+        date.getMonth() === monthIndex && date.getFullYear() === currentYear;
+
+      const booksCount = allBooks.filter((b) => isSameMonth(new Date(b.createdAt))).length;
+      const viewsCount = allBooks
+        .filter((b) => isSameMonth(new Date(b.createdAt)))
+        .reduce((sum, b) => sum + (b.views || 0), 0);
+      const loansCount = allLoans.filter((l) => isSameMonth(new Date(l.createdAt))).length;
+
       monthlyStats.push({
-        month: monthName,
+        month: months[monthIndex],
         books: booksCount,
-        views: viewsCount._sum.views || 0,
+        views: viewsCount,
         loans: loansCount,
       });
     }
-    
-    // Buku populer
-    const popularBooks = await db.book.findMany({
-      where: bookWhere,
-      select: { id: true, title: true, author: true, views: true },
-      orderBy: { views: "desc" },
-      take: 5,
-    });
-    
-    // Kategori stats
-    const categoryStatsRaw = await db.bookCategory.groupBy({
-      by: ["categoryId"],
-      _count: { bookId: true },
-      where: {
-        book: bookWhere,
-      },
-    });
-    
-    const categoryIds = categoryStatsRaw.map(c => c.categoryId);
+
+    // Category stats
+    const categoryIds = categoryStatsRaw.map((c) => c.categoryId);
     const categories = await db.category.findMany({
       where: { id: { in: categoryIds } },
     });
-    
-    const categoryStats = categoryStatsRaw.map(cat => {
-      const category = categories.find(c => c.id === cat.categoryId);
+
+    const categoryStats = categoryStatsRaw.map((cat) => {
+      const category = categories.find((c) => c.id === cat.categoryId);
       return {
         name: category?.name || "Unknown",
         count: cat._count.bookId,
       };
     });
-    
-    return NextResponse.json({
+
+    return {
       totalBooks,
       totalUsers,
       totalCategories,
@@ -176,8 +147,21 @@ export async function GET(request: Request) {
       monthlyStats,
       popularBooks,
       categoryStats,
-    });
-    } catch (error) {
+    };
+  },
+  ["admin-stats"],
+  { revalidate: 300, tags: ["admin-stats"] }
+);
+
+export async function GET(request: Request) {
+  try {
+    await requireAdmin();
+    const { searchParams } = new URL(request.url);
+    const schoolId = searchParams.get("schoolId");
+
+    const stats = await getCachedStats(schoolId);
+    return NextResponse.json(stats);
+  } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json(
         { error: error.message },

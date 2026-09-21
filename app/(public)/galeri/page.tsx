@@ -2,8 +2,9 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import NextImage from "next/image";
 import { 
-  Image, 
+  Image as ImageIcon,   // ← rename
   X, 
   Calendar, 
   Tag, 
@@ -142,7 +143,7 @@ export default function GaleriPage() {
           </div>
           
           <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-2xl border border-white/10">
-            <Image className="w-10 h-10 text-white" />
+            <ImageIcon className="w-10 h-10 text-white" />
           </div>
           
           <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">
@@ -214,11 +215,12 @@ export default function GaleriPage() {
                   className="group relative aspect-square rounded-2xl overflow-hidden bg-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 hover:scale-[1.02]"
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
-                  <img
+                  <NextImage
                     src={image.imageUrl}
                     alt={image.title}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                    loading="lazy"
+                    fill
+                    sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
+                    className="object-cover group-hover:scale-110 transition-transform duration-700"
                   />
                   
                   {/* Gradient Overlay */}
@@ -277,10 +279,13 @@ export default function GaleriPage() {
 
             {/* Gambar */}
             <div className="relative bg-gray-900">
-              <img 
-                src={selectedImage.imageUrl} 
-                alt={selectedImage.title} 
+              <NextImage
+                src={selectedImage.imageUrl}
+                alt={selectedImage.title}
+                width={1200}
+                height={800}
                 className="w-full h-auto max-h-[50vh] sm:max-h-[65vh] object-contain"
+                sizes="(max-width: 768px) 95vw, 768px"
               />
             </div>
             

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { logAdminActivity } from "@/lib/admin-log";
+import Image from "next/image";
 import { 
   ArrowLeft, 
   Plus, 
@@ -282,7 +283,14 @@ export default function TambahBukuPage() {
                 <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center hover:border-blue-300 transition">
                   {coverPreview ? (
                     <div className="space-y-3">
-                      <img src={coverPreview} alt="Cover preview" className="w-32 h-40 object-cover rounded-lg mx-auto shadow-sm" />
+                      <Image
+                          src={coverPreview}
+                          alt="Cover preview"
+                          width={128}
+                          height={160}
+                          className="w-32 h-40 object-cover rounded-lg mx-auto shadow-sm"
+                          unoptimized  // ← karena ini data URL (blob), nggak perlu dioptimasi
+                        />
                       <button
                         type="button"
                         onClick={() => {

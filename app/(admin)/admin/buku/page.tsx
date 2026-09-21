@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import PrintButton from "@/components/ui/PrintButton";
+import Image from "next/image";
 import { 
   BookOpen, 
   Plus, 
@@ -313,7 +314,13 @@ export default function BukuPage() {
                   <td className="px-5 py-3">
                     {book.coverUrl ? (
                       <div className="w-12 h-16 rounded-lg overflow-hidden shadow-sm bg-gray-100">
-                        <img src={book.coverUrl} alt={book.title} className="w-full h-full object-cover" />
+                        <Image
+                          src={book.coverUrl}
+                          alt={book.title}
+                          width={48}
+                          height={64}
+                          className="w-full h-full object-cover"
+                        />
                       </div>
                     ) : (
                       <div className="w-12 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 text-xs border border-gray-200">

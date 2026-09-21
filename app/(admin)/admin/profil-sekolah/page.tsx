@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import Image from "next/image";
 
 interface School {
   id: string;
@@ -181,9 +182,11 @@ export default function AdminProfilSekolahPage() {
           {selectedSchoolId && (
             <>
               {schools.find(s => s.id === selectedSchoolId)?.logo ? (
-                <img 
-                  src={schools.find(s => s.id === selectedSchoolId)?.logo} 
+                <Image
+                  src={schools.find(s => s.id === selectedSchoolId)?.logo || ""}
                   alt={selectedSchoolName}
+                  width={40}
+                  height={40}
                   className="w-10 h-10 rounded-lg object-cover"
                 />
               ) : (

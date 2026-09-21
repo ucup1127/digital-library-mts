@@ -1,6 +1,7 @@
 // app/(public)/page.tsx
 import { db } from "@/lib/db";
 import Link from "next/link";
+import Image from "next/image";
 import BookFilter from "@/components/public/BookFilter";
 import RecentlyRead from "@/components/public/RecentlyRead";
 import Pagination from "@/components/public/Pagination";
@@ -130,11 +131,12 @@ export default async function Home({
                 <Link href={`/buku/${book.id}`} key={book.id} className="group">
                   <div className="relative aspect-[2/3] rounded-xl overflow-hidden bg-gray-100 shadow-sm group-hover:shadow-md transition-all duration-300 group-hover:-translate-y-1">
                     {book.coverUrl ? (
-                      <img 
-                        src={book.coverUrl} 
+                      <Image
+                        src={book.coverUrl}
                         alt={book.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        loading="lazy"
+                        fill
+                        sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 16vw"
+                        className="object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 text-gray-400 text-[10px] font-medium p-3 text-center">

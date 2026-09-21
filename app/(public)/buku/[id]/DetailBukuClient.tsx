@@ -2,6 +2,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
@@ -148,12 +149,15 @@ export default function DetailBukuClient({ book }: { book: Book }) {
         
         <div className="relative z-10 max-w-6xl mx-auto px-5 flex flex-col sm:flex-row items-center gap-6">
           {/* Cover Buku */}
-          <div className="w-36 sm:w-44 flex-shrink-0 aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20">
+          <div className="relative w-36 sm:w-44 flex-shrink-0 aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20">
             {book.coverUrl ? (
-              <img 
-                src={book.coverUrl} 
-                alt={book.title} 
-                className="w-full h-full object-cover"
+              <Image
+                src={book.coverUrl}
+                alt={book.title}
+                fill
+                sizes="(max-width: 640px) 144px, 176px"
+                className="object-cover"
+                priority
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-gray-800/50 text-white text-sm font-medium p-4 text-center">

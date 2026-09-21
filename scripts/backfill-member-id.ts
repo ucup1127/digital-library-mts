@@ -1,9 +1,11 @@
 // scripts/backfill-member-id.ts
+import "./load-env";  // ← WAJIB paling atas
 import { db } from "@/lib/db";
 import { generateMemberId } from "@/lib/member-id";
-import { logger } from "@/lib/logger";
 
 async function main() {
+  console.log("🔍 Mencari user tanpa memberId...");
+
   const usersWithoutMemberId = await db.user.findMany({
     where: {
       memberId: null,
@@ -13,7 +15,12 @@ async function main() {
     select: { id: true, schoolId: true, email: true },
   });
 
-  logger.log(`Found ${usersWithoutMemberId.length} users without memberId`);
+  console.log(`📊 Ditemukan ${usersWithoutMemberId.length} user tanpa memberId`);
+
+  if (usersWithoutMemberId.length === 0) {
+    console.log("✅ Semua user sudah punya memberId");
+    return;
+  }
 
   for (const user of usersWithoutMemberId) {
     if (!user.schoolId) continue;
@@ -25,12 +32,15 @@ async function main() {
       data: { memberId, barcode: memberId },
     });
 
-    logger.log(`✅ ${user.email} → ${memberId}`);
+    console.log(`✅ ${user.email} → ${memberId}`);
   }
 
-  logger.log("Done!");
+  console.log("🎉 Backfill selesai!");
 }
 
 main()
-  .catch(logger.error)
+  .catch((error) => {
+    console.error("❌ Error:", error);
+    process.exit(1);
+  })
   .finally(() => db.$disconnect());

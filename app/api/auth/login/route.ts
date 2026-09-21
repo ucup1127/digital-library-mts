@@ -5,24 +5,29 @@ import bcrypt from "bcrypt";
 import { createSession, setSessionCookie } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { checkRateLimit, resetRateLimit, getClientIp } from "@/lib/rate-limit";
+import { loginSchema, formatZodError } from "@/lib/validations";
 
-const RATE_LIMIT_MAX = 5;             // 5 percobaan
-const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 menit
+const RATE_LIMIT_MAX = 5;
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 
 export async function POST(request: Request) {
   try {
-    const { email, password, role, rememberMe } = await request.json();
+    const body = await request.json();
 
-    if (!email || !password) {
+    // 🔥 Validasi input pakai Zod
+    const parseResult = loginSchema.safeParse(body);
+    if (!parseResult.success) {
       return NextResponse.json(
-        { error: "Email dan password wajib diisi" },
+        { error: formatZodError(parseResult.error) },
         { status: 400 }
       );
     }
 
-    // 🔥 Cek rate limit — IP + email
+    const { email, password, role, rememberMe } = parseResult.data;
+
+    // 🔥 Cek rate limit
     const ip = getClientIp(request);
-    const rateKey = `login:${ip}:${email.toLowerCase()}`;
+    const rateKey = `login:${ip}:${email}`;
     const rateCheck = checkRateLimit(rateKey, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
 
     if (!rateCheck.allowed) {
@@ -75,7 +80,6 @@ export async function POST(request: Request) {
     // 🔥 Login berhasil — reset rate limit
     resetRateLimit(rateKey);
 
-    // Bikin session
     const token = await createSession(user.id, {
       userAgent: request.headers.get("user-agent") || undefined,
       ipAddress: ip,

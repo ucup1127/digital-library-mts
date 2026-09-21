@@ -4,8 +4,12 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { requireAdmin, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
+import { createUserSchema, formatZodError } from "@/lib/validations";
 import { generateMemberId } from "@/lib/member-id";
 
+// ============================================
+// GET — Ambil daftar user
+// ============================================
 export async function GET(request: Request) {
   try {
     await requireAdmin();
@@ -21,6 +25,7 @@ export async function GET(request: Request) {
 
     const where: any = {};
 
+    // 🔥 Filter berdasarkan status
     if (status === "active") {
       where.isActive = true;
     } else if (status === "inactive") {
@@ -93,25 +98,26 @@ export async function GET(request: Request) {
   }
 }
 
+// ============================================
+// POST — Tambah user baru (PAKAI ZOD)
+// ============================================
 export async function POST(request: Request) {
   try {
     const session = await requireAdmin();
+    const body = await request.json();
 
-    const { email, password, name, role, className, schoolId } = await request.json();
-
-    logger.log("📝 Membuat user baru - email:", email, "role:", role, "schoolId:", schoolId);
-
-    if (!email || !password || !schoolId) {
-      return NextResponse.json({ error: "Data tidak lengkap" }, { status: 400 });
-    }
-
-    // 🔥 BATASI ROLE — cegah bikin SUPER_ADMIN
-    if (role === "SUPER_ADMIN") {
+    // 🔥 Validasi pakai Zod
+    const parseResult = createUserSchema.safeParse(body);
+    if (!parseResult.success) {
       return NextResponse.json(
-        { error: "Tidak bisa membuat Super Admin" },
-        { status: 403 }
+        { error: formatZodError(parseResult.error) },
+        { status: 400 }
       );
     }
+
+    const { email, password, name, role, className, schoolId } = parseResult.data;
+
+    logger.log("📝 Membuat user baru - email:", email, "role:", role, "schoolId:", schoolId);
 
     // 🔥 Cuma SUPER_ADMIN yang bisa bikin ADMIN
     if (role === "ADMIN" && session.role !== "SUPER_ADMIN") {
@@ -121,6 +127,7 @@ export async function POST(request: Request) {
       );
     }
 
+    // 🔥 Cek email duplikat
     const existingUser = await db.user.findUnique({ where: { email } });
     if (existingUser) {
       return NextResponse.json({ error: "Email sudah terdaftar!" }, { status: 400 });
@@ -129,13 +136,15 @@ export async function POST(request: Request) {
     // 🔥 Generate memberId — pakai helper
     const memberId = await generateMemberId(schoolId);
 
+    // 🔥 Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // 🔥 Buat user
     const user = await db.user.create({
       data: {
         email,
         password: hashedPassword,
-        name,
+        name: name || "",
         role: role || "USER",
         className: className || "",
         schoolId,
@@ -169,6 +178,9 @@ export async function POST(request: Request) {
   }
 }
 
+// ============================================
+// DELETE — Hapus / nonaktifkan user
+// ============================================
 export async function DELETE(request: Request) {
   try {
     await requireAdmin();

@@ -4,35 +4,26 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { logger } from "@/lib/logger";
 import { generateMemberId } from "@/lib/member-id";
+import { registerSchema, formatZodError } from "@/lib/validations";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    // 🔥 JANGAN log body — bocor password!
     logger.log("Register attempt:", { email: body.email, schoolId: body.schoolId });
 
-    const { name, email, password, schoolId } = body;
-
-    // Validasi lengkap
-    const errors = [];
-    if (!email) errors.push("Email harus diisi");
-    if (!password) errors.push("Password harus diisi");
-    if (!schoolId) errors.push("Sekolah harus dipilih");
-    if (password && password.length < 6) errors.push("Password minimal 6 karakter");
-
-    if (errors.length > 0) {
-      logger.log("Validation errors:", errors);
+    // 🔥 Validasi pakai Zod
+    const parseResult = registerSchema.safeParse(body);
+    if (!parseResult.success) {
       return NextResponse.json(
-        { error: errors.join(", ") },
+        { error: formatZodError(parseResult.error) },
         { status: 400 }
       );
     }
 
-    // Cek apakah email sudah terdaftar
-    const existingUser = await db.user.findUnique({
-      where: { email },
-    });
+    const { name, email, password, schoolId } = parseResult.data;
 
+    // Cek email sudah terdaftar
+    const existingUser = await db.user.findUnique({ where: { email } });
     if (existingUser) {
       logger.log("Email already exists:", email);
       return NextResponse.json(
@@ -41,11 +32,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // Cek apakah schoolId valid
-    const school = await db.school.findUnique({
-      where: { id: schoolId },
-    });
-
+    // Cek schoolId valid
+    const school = await db.school.findUnique({ where: { id: schoolId } });
     if (!school) {
       logger.log("School not found:", schoolId);
       return NextResponse.json(
@@ -54,10 +42,10 @@ export async function POST(request: Request) {
       );
     }
 
-    // ✅ Hash password
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 🔥 Generate memberId — pakai helper
+    // Generate memberId
     const memberId = await generateMemberId(schoolId);
 
     // Buat user baru

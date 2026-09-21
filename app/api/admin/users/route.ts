@@ -4,7 +4,12 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { requireAdmin, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
+import { createUserSchema, formatZodError } from "@/lib/validations";
+import { generateMemberId } from "@/lib/member-id";
 
+// ============================================
+// GET — Ambil daftar user
+// ============================================
 export async function GET(request: Request) {
   try {
     await requireAdmin();
@@ -93,17 +98,26 @@ export async function GET(request: Request) {
   }
 }
 
+// ============================================
+// POST — Tambah user baru
+// ============================================
 export async function POST(request: Request) {
   try {
     const session = await requireAdmin();
+    const body = await request.json();
 
-    const { email, password, name, role, className, schoolId } = await request.json();
+    // 🔥 Validasi pakai Zod
+    const parseResult = createUserSchema.safeParse(body);
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: formatZodError(parseResult.error) },
+        { status: 400 }
+      );
+    }
+
+    const { email, password, name, role, className, schoolId } = parseResult.data;
 
     logger.log("📝 Membuat user baru - email:", email, "role:", role, "schoolId:", schoolId);
-
-    if (!email || !password || !schoolId) {
-      return NextResponse.json({ error: "Data tidak lengkap" }, { status: 400 });
-    }
 
     // 🔥 BATASI ROLE — cegah bikin SUPER_ADMIN
     if (role === "SUPER_ADMIN") {
@@ -121,53 +135,24 @@ export async function POST(request: Request) {
       );
     }
 
+    // 🔥 Cek email duplikat
     const existingUser = await db.user.findUnique({ where: { email } });
     if (existingUser) {
       return NextResponse.json({ error: "Email sudah terdaftar!" }, { status: 400 });
     }
 
-    // 🔥 Generate memberId otomatis
-    const allUsers = await db.user.findMany({
-      where: { schoolId, memberId: { not: null } },
-      select: { memberId: true },
-    });
+    // 🔥 Generate memberId — pakai helper
+    const memberId = await generateMemberId(schoolId);
 
-    let maxNumber = 0;
-    for (const u of allUsers) {
-      if (u.memberId) {
-        const num = parseInt(u.memberId.replace(/\D/g, ""), 10);
-        if (!isNaN(num) && num > maxNumber) {
-          maxNumber = num;
-        }
-      }
-    }
-
-    const newNumber = maxNumber + 1;
-    let memberId = `MTS${String(newNumber).padStart(3, "0")}`;
-
-    let attempts = 0;
-    const maxAttempts = 5;
-    while (attempts < maxAttempts) {
-      const existing = await db.user.findFirst({
-        where: { memberId, schoolId },
-        select: { id: true },
-      });
-
-      if (!existing) break;
-
-      attempts++;
-      memberId = `MTS${String(newNumber + attempts).padStart(3, "0")}`;
-    }
-
-    logger.log(`📌 Generated memberId: ${memberId}`);
-
+    // 🔥 Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // 🔥 Buat user
     const user = await db.user.create({
       data: {
         email,
         password: hashedPassword,
-        name,
+        name: name || "",
         role: role || "USER",
         className: className || "",
         schoolId,
@@ -201,6 +186,9 @@ export async function POST(request: Request) {
   }
 }
 
+// ============================================
+// DELETE — Hapus / nonaktifkan user
+// ============================================
 export async function DELETE(request: Request) {
   try {
     await requireAdmin();

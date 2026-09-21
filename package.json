@@ -32,7 +32,8 @@
     "recharts": "^3.8.1",
     "sweetalert2": "^11.26.25",
     "uploadthing": "^7.7.4",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.4",

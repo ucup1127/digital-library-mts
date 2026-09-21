@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireAdmin, AuthError } from "@/lib/auth";
 import { unstable_cache } from "next/cache";
+import { logger } from "@/lib/logger";
 
 const getCachedStats = unstable_cache(
   async (schoolId: string | null) => {
@@ -168,7 +169,7 @@ export async function GET(request: Request) {
         { status: error.status }
       );
     }
-    console.error("Error fetching stats:", error);
+    logger.error("Error fetching stats:", error);
     return NextResponse.json(
       {
         totalBooks: 0,

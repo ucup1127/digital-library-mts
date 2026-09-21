@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { requireAdmin, AuthError } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 export async function GET(request: Request) {
   try {
@@ -14,30 +15,29 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "10");
     const status = searchParams.get("status");
-    
-    console.log("📥 GET Users - schoolId:", schoolId, "status:", status);
-    
+
+    logger.log("📥 GET Users - schoolId:", schoolId, "status:", status);
+
     const where: any = {};
-    
+
     // 🔥 Filter berdasarkan status
     if (status === "active") {
       where.isActive = true;
     } else if (status === "inactive") {
       where.isActive = false;
     } else {
-      // Default: tampilkan yang aktif saja
       where.isActive = true;
     }
-    
+
     if (schoolId && schoolId !== "") {
       where.schoolId = schoolId;
       where.role = { not: "SUPER_ADMIN" };
     }
-    
+
     if (role && role !== "") {
       where.role = role;
     }
-    
+
     if (search && search !== "") {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
@@ -45,11 +45,11 @@ export async function GET(request: Request) {
         { memberId: { contains: search, mode: "insensitive" } },
       ];
     }
-    
+
     const totalItems = await db.user.count({ where });
     const totalPages = Math.ceil(totalItems / limit);
     const skip = (page - 1) * limit;
-    
+
     const users = await db.user.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -69,9 +69,9 @@ export async function GET(request: Request) {
         graduatedAt: true,
       },
     });
-    
-    console.log(`✅ Menemukan ${users.length} user dari total ${totalItems}`);
-    
+
+    logger.log(`✅ Menemukan ${users.length} user dari total ${totalItems}`);
+
     return NextResponse.json({
       users,
       pagination: {
@@ -81,17 +81,17 @@ export async function GET(request: Request) {
         totalItems,
       },
     });
-      } catch (error) {
-        if (error instanceof AuthError) {
-          return NextResponse.json({ error: error.message }, { status: error.status });
-        }
-        console.error("Error fetching users:", error);
-        return NextResponse.json(
-          { users: [], pagination: { currentPage: 1, pageSize: 10, totalPages: 1, totalItems: 0 } },
-          { status: 500 }
-        );
-      }
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
     }
+    logger.error("Error fetching users:", error);
+    return NextResponse.json(
+      { users: [], pagination: { currentPage: 1, pageSize: 10, totalPages: 1, totalItems: 0 } },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -99,7 +99,8 @@ export async function POST(request: Request) {
 
     const { email, password, name, role, className, schoolId } = await request.json();
 
-    console.log("📝 MEMBUAT USER BARU:", { email, name, role, schoolId });
+    // 🔥 Jangan log password
+    logger.log("📝 Membuat user baru - email:", email, "role:", role, "schoolId:", schoolId);
 
     if (!email || !password || !schoolId) {
       return NextResponse.json({ error: "Data tidak lengkap" }, { status: 400 });
@@ -148,7 +149,6 @@ export async function POST(request: Request) {
     const newNumber = maxNumber + 1;
     let memberId = `MTS${String(newNumber).padStart(3, "0")}`;
 
-    // Retry kalau masih duplikat
     let attempts = 0;
     const maxAttempts = 5;
     while (attempts < maxAttempts) {
@@ -163,7 +163,7 @@ export async function POST(request: Request) {
       memberId = `MTS${String(newNumber + attempts).padStart(3, "0")}`;
     }
 
-    console.log(`📌 Generated memberId: ${memberId} (max was ${maxNumber})`);
+    logger.log(`📌 Generated memberId: ${memberId}`);
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -193,14 +193,14 @@ export async function POST(request: Request) {
       },
     });
 
-    console.log("✅ USER BERHASIL DIBUAT:", user.id, "memberId:", user.memberId);
+    logger.log("✅ User berhasil dibuat - id:", user.id, "memberId:", user.memberId);
 
     return NextResponse.json(user, { status: 201 });
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    console.error("Error creating user:", error);
+    logger.error("Error creating user:", error);
     return NextResponse.json({ error: "Gagal menambah user" }, { status: 500 });
   }
 }
@@ -211,20 +211,18 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     const permanent = searchParams.get("permanent") === "true";
-    
+
     if (!id) {
       return NextResponse.json({ error: "ID tidak ditemukan" }, { status: 400 });
     }
-    
-    console.log("🗑️ DELETE User - id:", id, "permanent:", permanent);
-    
-    // 🔥 Jika permanent = true, hapus permanen
+
+    logger.log("🗑️ DELETE User - id:", id, "permanent:", permanent);
+
     if (permanent) {
       await db.user.delete({ where: { id } });
       return NextResponse.json({ success: true, message: "User dihapus permanen" });
     }
-    
-    // 🔥 Soft delete: nonaktifkan user
+
     const user = await db.user.update({
       where: { id },
       data: {
@@ -232,19 +230,19 @@ export async function DELETE(request: Request) {
         graduatedAt: new Date(),
       },
     });
-    
-    console.log("✅ User dinonaktifkan:", user.id);
-    
-    return NextResponse.json({ 
-      success: true, 
+
+    logger.log("✅ User dinonaktifkan - id:", user.id);
+
+    return NextResponse.json({
+      success: true,
       message: "User berhasil dinonaktifkan",
-      user 
+      user,
     });
-   } catch (error) {
-      if (error instanceof AuthError) {
-        return NextResponse.json({ error: error.message }, { status: error.status });
-      }
-      console.error("Error deactivating user:", error);
-      return NextResponse.json({ error: "Gagal menonaktifkan user" }, { status: 500 });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
     }
+    logger.error("Error deactivating user:", error);
+    return NextResponse.json({ error: "Gagal menonaktifkan user" }, { status: 500 });
   }
+}

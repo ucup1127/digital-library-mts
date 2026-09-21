@@ -1,14 +1,13 @@
 // app/api/admin/restore/route.ts
 import { NextResponse } from "next/server";
-import { requireBackupToken } from "@/lib/backup-auth";
 import { db } from "@/lib/db";
+import { requireSuperAdmin, AuthError } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 export async function POST(request: Request) {
-  // Cek token
-  const authError = requireBackupToken(request);
-  if (authError) return authError;
-
   try {
+    // 🔥 WAJIB: admin only (session)
+    await requireSuperAdmin();
     const formData = await request.formData();
     const file = formData.get("backup") as File;
 
@@ -168,7 +167,10 @@ export async function POST(request: Request) {
       message: "Database berhasil direstore!",
     });
   } catch (error) {
-    console.error("Restore error:", error);
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    logger.error("Restore error:", error);
     return NextResponse.json(
       { error: "Gagal restore database" },
       { status: 500 }

@@ -1,50 +1,53 @@
 // app/api/tentang/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const schoolId = searchParams.get("schoolId");
-    
-    console.log("📌 GET Public Tentang - schoolId:", schoolId);
-    
+
+    logger.log("📌 GET Public Tentang - schoolId:", schoolId);
+
     if (!schoolId) {
-      return NextResponse.json({ error: "School ID diperlukan" }, { status: 400 });
+      return NextResponse.json(
+        { error: "School ID diperlukan" },
+        { status: 400 }
+      );
     }
-    
+
     // Cari data sekolah
     const school = await db.school.findUnique({
       where: { id: schoolId },
-      select: { id: true, name: true, logo: true }
+      select: { id: true, name: true, logo: true },
     });
-    
+
     if (!school) {
-      return NextResponse.json({ error: "Sekolah tidak ditemukan" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Sekolah tidak ditemukan" },
+        { status: 404 }
+      );
     }
-    
-    // 🔥 Ambil statistik dari database
-    const totalBooks = await db.book.count({ where: { schoolId } });
-    const totalUsers = await db.user.count({ 
-      where: { 
-        schoolId,
-        role: "USER",
-        isActive: true,
-      } 
-    });
-    const totalBukuDigital = await db.book.count({ 
-      where: { 
-        schoolId,
-        fileUrl: { not: null },
-      } 
-    });
-    const totalCategories = await db.category.count();
-    
+
+    // 🔥 Ambil statistik dari database — PARALEL
+    const [totalBooks, totalUsers, totalBukuDigital, totalCategories] =
+      await Promise.all([
+        db.book.count({ where: { schoolId } }),
+        db.user.count({
+          where: { schoolId, role: "USER", isActive: true },
+        }),
+        db.book.count({
+          where: { schoolId, fileUrl: { not: null } },
+        }),
+        db.category.count(),
+      ]);
+
     // Cari profil sekolah
-    let profile = await db.schoolProfile.findUnique({
+    const profile = await db.schoolProfile.findUnique({
       where: { schoolId },
     });
-    
+
     // Jika belum ada profil, return data default
     if (!profile) {
       return NextResponse.json({
@@ -67,7 +70,7 @@ export async function GET(request: Request) {
         },
       });
     }
-    
+
     return NextResponse.json({
       vision: profile.vision || "",
       mission: profile.mission || "",
@@ -88,9 +91,9 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
-    console.error("Error fetching public tentang:", error);
+    logger.error("Error fetching public tentang:", error);
     return NextResponse.json(
-      { error: "Gagal memuat data", details: String(error) },
+      { error: "Gagal memuat data" },
       { status: 500 }
     );
   }

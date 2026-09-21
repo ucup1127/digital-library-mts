@@ -2,6 +2,7 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireAdmin, AuthError } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 export async function GET(request: Request) {
   try {
@@ -16,7 +17,7 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "20");
 
-    console.log("📋 GET Activity Logs - role:", session.role, "schoolId:", schoolId);
+    logger.log("📋 GET Activity Logs - role:", session.role, "schoolId:", schoolId);
 
     const where: any = {};
 
@@ -75,7 +76,7 @@ export async function GET(request: Request) {
       take: limit,
     });
 
-    console.log(`✅ Menemukan ${activities.length} dari ${totalItems} aktivitas`);
+    logger.log(`✅ Menemukan ${activities.length} dari ${totalItems} aktivitas`);
 
     return NextResponse.json({
       activities,
@@ -90,7 +91,7 @@ export async function GET(request: Request) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    console.error("Error fetching activity logs:", error);
+    logger.error("Error fetching activity logs:", error);
     return NextResponse.json(
       { activities: [], pagination: { currentPage: 1, pageSize: 20, totalPages: 1, totalItems: 0 } },
       { status: 500 }

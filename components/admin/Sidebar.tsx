@@ -62,6 +62,7 @@ export default function Sidebar({
     { name: "User", href: "/admin/users", icon: Users },
     { name: "Peminjaman Fisik", href: "/admin/peminjaman-fisik", icon: RefreshCw },
     { name: "Laporan Siswa", href: "/admin/laporan-user", icon: FileText },
+      { name: "Aktivitas Admin", href: "/admin/laporan-aktivitas", icon: ClipboardList }, 
     { name: "Galeri", href: "/admin/galeri", icon: Images },
     { name: "Tentang", href: "/admin/tentang", icon: Info },
   ];

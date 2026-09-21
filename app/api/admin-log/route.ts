@@ -2,6 +2,7 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireAdmin, AuthError } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 export async function GET(request: Request) {
   try {
@@ -11,7 +12,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const schoolId = searchParams.get("schoolId");
 
-    console.log("📊 Dashboard Stats - schoolId:", schoolId);
+    logger.log("📊 Dashboard Stats - schoolId:", schoolId);
 
     // Filter untuk books, users, dll
     const bookWhere: any = {};
@@ -217,7 +218,7 @@ export async function GET(request: Request) {
         { status: error.status }
       );
     }
-    console.error("Error fetching stats:", error);
+    logger.error("Error fetching stats:", error);
     return NextResponse.json(
       {
         totalBooks: 0,

@@ -29,7 +29,8 @@ import {
   AlertCircle,
   UserX,
   UserCheck,
-  Key
+  Key,
+ Download,
 } from "lucide-react";
 
 interface User {
@@ -488,6 +489,39 @@ export default function UsersPage() {
       default: return "User/Siswa";
     }
   };
+  const handleExportExcel = async () => {
+    try {
+      toast.loading("Menyiapkan file Excel...", { id: "export" });
+
+      const params = new URLSearchParams();
+      if (selectedSchoolId) params.append("schoolId", selectedSchoolId);
+      if (search) params.append("search", search);
+      if (filterRole) params.append("role", filterRole);
+      if (filterStatus) params.append("status", filterStatus);
+
+      const res = await fetch(`/api/admin/export-user?${params.toString()}`);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      // Download file
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `daftar-user-${new Date().toISOString().split("T")[0]}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      toast.success("✅ Export berhasil!", { id: "export" });
+    } catch (error) {
+      console.error("Export error:", error);
+      toast.error("Gagal export data", { id: "export" });
+    }
+  };
 
   if (userRole === "SUPER_ADMIN" && !selectedSchoolId) {
     return (
@@ -547,6 +581,16 @@ export default function UsersPage() {
               { header: "Status", accessor: "isActive" },
             ]}
           />
+          
+          {/* 🔥 Tombol Export Excel */}
+          <button
+            onClick={handleExportExcel}
+            className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg text-sm font-semibold hover:from-green-700 hover:to-emerald-700 transition flex items-center gap-2 shadow-lg shadow-green-200"
+          >
+            <Download className="w-4 h-4" />
+            Export Excel
+          </button>
+          
           <button
             onClick={() => setShowAddModal(true)}
             className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg text-sm font-semibold hover:from-purple-700 hover:to-indigo-700 transition flex items-center gap-2 shadow-lg shadow-purple-200"

@@ -2,6 +2,7 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireAdmin, AuthError } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 // DELETE: Hapus kategori berdasarkan ID
 export async function DELETE(
@@ -37,7 +38,7 @@ export async function DELETE(
         if (error instanceof AuthError) {
           return NextResponse.json({ error: error.message }, { status: error.status });
         }
-        console.error("Error deleting category:", error);
+        logger.error("Error deleting category:", error);
         return NextResponse.json({ error: "Gagal menghapus kategori" }, { status: 500 });
       }
     }

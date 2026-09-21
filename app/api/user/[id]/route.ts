@@ -2,6 +2,7 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireAuth, AuthError } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 export async function GET(
   req: Request,
@@ -20,7 +21,7 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     
-    console.log("Fetching user with ID:", id);
+    logger.log("Fetching user with ID:", id);
     
     if (!id) {
       return NextResponse.json({ error: "ID user diperlukan" }, { status: 400 });
@@ -39,17 +40,17 @@ export async function GET(
     });
     
     if (!user) {
-      console.log("User not found:", id);
+      logger.log("User not found:", id);
       return NextResponse.json({ error: "User tidak ditemukan" }, { status: 404 });
     }
     
-    console.log("User found:", user.name);
+    logger.log("User found:", user.name);
     return NextResponse.json(user);
    } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    console.error("Error fetching user:", error);
+    logger.error("Error fetching user:", error);
     return NextResponse.json({ error: "Gagal memuat data user" }, { status: 500 });
   }
 }

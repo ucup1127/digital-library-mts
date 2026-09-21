@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { unlink } from "fs/promises";
 import path from "path";
 import { requireAdmin, AuthError } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 // GET - Ambil detail buku
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -30,7 +31,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
     return NextResponse.json(formattedBook);
   } catch (error: any) {
-    console.error("GET error:", error);
+    logger.error("GET error:", error);
     return NextResponse.json({ error: "Gagal ambil data" }, { status: 500 });
   }
 }
@@ -78,7 +79,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       if (error instanceof AuthError) {
         return NextResponse.json({ error: error.message }, { status: error.status });
       }
-      console.error("PUT error:", error);
+      logger.error("PUT error:", error);
       return NextResponse.json({ error: "Gagal memperbarui buku" }, { status: 500 });
     }
   }
@@ -113,7 +114,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       if (error instanceof AuthError) {
         return NextResponse.json({ error: error.message }, { status: error.status });
       }
-      console.error("PATCH error:", error);
+      logger.error("PATCH error:", error);
       return NextResponse.json({ error: "Gagal update" }, { status: 500 });
     }
   }
@@ -140,11 +141,11 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       // Pastikan path di dalam folder uploads
       const uploadsDir = path.join(process.cwd(), "public", "uploads");
       if (!filePath.startsWith(uploadsDir)) {
-        console.warn("⚠️ Path traversal terdeteksi, skip:", url);
+        logger.warn("⚠️ Path traversal terdeteksi, skip:", url);
         return;
       }
       
-      await unlink(filePath).catch(() => console.log("File tidak ditemukan:", filePath));
+      await unlink(filePath).catch(() => logger.log("File tidak ditemukan:", filePath));
     };
     
     // Hapus file PDF (dari folder books)
@@ -160,7 +161,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    console.error("DELETE error:", error);
+    logger.error("DELETE error:", error);
     return NextResponse.json({ error: "Gagal hapus buku" }, { status: 500 });
   }
 }

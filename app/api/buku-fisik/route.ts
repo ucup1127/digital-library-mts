@@ -2,6 +2,7 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireAdmin, AuthError } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 // GET - Ambil daftar buku fisik dengan pagination dan filter schoolId
 export async function GET(request: Request) {
@@ -12,7 +13,7 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "10");
     
-    console.log("📚 GET Buku Fisik - schoolId:", schoolId, "page:", page, "limit:", limit);
+    logger.log("📚 GET Buku Fisik - schoolId:", schoolId, "page:", page, "limit:", limit);
     
     const where: any = {};
     
@@ -50,7 +51,7 @@ export async function GET(request: Request) {
       take: limit,
     });
     
-    console.log(`✅ Menemukan ${bukuFisik.length} dari ${totalItems} buku`);
+   logger.log(`✅ Menemukan ${bukuFisik.length} dari ${totalItems} buku`);
     
     return NextResponse.json({
       books: bukuFisik,
@@ -62,7 +63,7 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
-    console.error("Error fetching buku fisik:", error);
+    logger.error("Error fetching buku fisik:", error);
     return NextResponse.json(
       { books: [], pagination: { currentPage: 1, pageSize: 10, totalPages: 1, totalItems: 0 } },
       { status: 500 }
@@ -77,7 +78,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { judul, penulis, penerbit, tahun, isbn, lokasiRak, stok, deskripsi, schoolId } = body;
     
-    console.log("📝 POST Buku Fisik - judul:", judul, "schoolId:", schoolId);
+    logger.log("📝 POST Buku Fisik - judul:", judul, "schoolId:", schoolId);
     
     // Validasi required fields
     if (!judul || !penulis) {
@@ -93,7 +94,7 @@ export async function POST(request: Request) {
     const random = Math.floor(Math.random() * 1000).toString().padStart(3, "0");
     const barcode = `BF${timestamp}${random}`;
     
-    console.log("✅ Generated barcode:", barcode);
+    logger.log("✅ Generated barcode:", barcode);
     
     const stokNum = parseInt(stok) || 1;
     
@@ -114,14 +115,14 @@ export async function POST(request: Request) {
       },
     });
     
-    console.log("✅ Buku Fisik created:", bukuFisik.id, "barcode:", barcode);
+    logger.log("✅ Buku Fisik created:", bukuFisik.id, "barcode:", barcode);
     
     return NextResponse.json(bukuFisik, { status: 201 });
     } catch (error) {
         if (error instanceof AuthError) {
           return NextResponse.json({ error: error.message }, { status: error.status });
         }
-        console.error("Error creating buku fisik:", error);
+        logger.error("Error creating buku fisik:", error);
         return NextResponse.json({ error: "Gagal menambah buku: " + (error as Error).message }, { status: 500 });
       }
     }

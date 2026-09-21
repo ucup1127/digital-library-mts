@@ -2,6 +2,7 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireAdmin, AuthError } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 // PUT - Update galeri
 export async function PUT(
@@ -32,7 +33,7 @@ export async function PUT(
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    console.error("Error updating gallery:", error);
+    logger.error("Error updating gallery:", error);
     return NextResponse.json({ error: "Gagal memperbarui" }, { status: 500 });
   }
 }
@@ -52,7 +53,7 @@ export async function DELETE(
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    console.error("Error deleting gallery:", error);
+    logger.error("Error deleting gallery:", error);
     return NextResponse.json({ error: "Gagal menghapus" }, { status: 500 });
   }
 }

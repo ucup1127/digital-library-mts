@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { requireAdmin, AuthError } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 export async function PUT(request: Request) {
   try {
@@ -70,7 +71,7 @@ export async function PUT(request: Request) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    console.error("Admin profile error:", error);
+    logger.error("Admin profile error:", error);
     return NextResponse.json({ error: "Gagal memperbarui profil" }, { status: 500 });
   }
 }

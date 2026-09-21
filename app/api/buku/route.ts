@@ -2,6 +2,7 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireAdmin, AuthError } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 export async function GET(request: Request) {
   try {
@@ -90,7 +91,7 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
-    console.error("Error fetching books:", error);
+    logger.error("Error fetching books:", error);
     return NextResponse.json({ books: [], error: "Gagal memuat buku" }, { status: 500 });
   }
 }
@@ -133,7 +134,7 @@ export async function POST(request: Request) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    console.error("Error creating book:", error);
+    logger.error("Error creating book:", error);
     return NextResponse.json({ error: "Gagal menambah buku" }, { status: 500 });
   }
 }

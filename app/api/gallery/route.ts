@@ -2,6 +2,7 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireAdmin, AuthError } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 // GET - Ambil galeri dengan pagination & search
 export async function GET(request: Request) {
@@ -12,7 +13,7 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "12");
     
-    console.log("📸 GET Gallery - schoolId:", schoolId, "page:", page, "limit:", limit);
+    logger.log("📸 GET Gallery - schoolId:", schoolId, "page:", page, "limit:", limit);
     
     if (!schoolId) {
       return NextResponse.json({ images: [], pagination: { totalItems: 0 } });
@@ -45,7 +46,7 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
-    console.error("Error fetching gallery:", error);
+    logger.error("Error fetching gallery:", error);
     return NextResponse.json({ images: [], pagination: { totalItems: 0 } }, { status: 500 });
   }
 }
@@ -80,7 +81,7 @@ export async function POST(request: Request) {
         if (error instanceof AuthError) {
           return NextResponse.json({ error: error.message }, { status: error.status });
         }
-        console.error("Error creating gallery:", error);
+        logger.error("Error creating gallery:", error);
         return NextResponse.json({ error: "Gagal menambah galeri" }, { status: 500 });
       }
     }

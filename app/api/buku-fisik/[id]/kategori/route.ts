@@ -2,6 +2,7 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireAdmin, AuthError } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 // GET - Ambil kategori buku fisik
 export async function GET(
@@ -18,7 +19,7 @@ export async function GET(
     
     return NextResponse.json(kategoriBuku);
   } catch (error) {
-    console.error("Error fetching kategori:", error);
+    logger.error("Error fetching kategori:", error);
     return NextResponse.json([], { status: 500 });
   }
 }
@@ -53,7 +54,7 @@ export async function POST(
         if (error instanceof AuthError) {
           return NextResponse.json({ error: error.message }, { status: error.status });
         }
-        console.error("Error updating kategori:", error);
+        logger.error("Error updating kategori:", error);
         return NextResponse.json({ error: "Gagal update kategori" }, { status: 500 });
       }
     }

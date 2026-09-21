@@ -2,9 +2,14 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
+import { requireAdmin, AuthError } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 export async function POST(request: Request) {
   try {
+    // 🔥 WAJIB: admin only
+    await requireAdmin();
+
     const formData = await request.formData();
     const file = formData.get("file") as File;
     const schoolId = formData.get("schoolId") as string;
@@ -17,7 +22,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Sekolah harus dipilih" }, { status: 400 });
     }
 
-    // Baca file Excel
     const buffer = await file.arrayBuffer();
     const workbook = XLSX.read(buffer);
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -27,19 +31,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "File Excel kosong" }, { status: 400 });
     }
 
-    // Ambil semua kategori yang ada di database
     const existingCategories = await db.category.findMany();
-    const categoryMap = new Map(existingCategories.map(c => [c.name.toLowerCase(), c.id]));
+    const categoryMap = new Map(existingCategories.map((c) => [c.name.toLowerCase(), c.id]));
 
     let successCount = 0;
     let errorCount = 0;
     const errors: string[] = [];
 
-    // Proses setiap baris
     for (let i = 0; i < data.length; i++) {
       const row: any = data[i];
-      
-      // Mapping kolom (support multiple column names)
+
       const title = row["Judul"] || row["Judul Buku"] || row["title"];
       const author = row["Penulis"] || row["author"];
       const categoryNames = row["Kategori"] || row["category"];
@@ -48,7 +49,6 @@ export async function POST(request: Request) {
       const coverUrl = row["Cover URL"] || row["coverUrl"] || null;
       const fileUrl = row["File URL"] || row["fileUrl"] || null;
 
-      // Validasi required field
       if (!title || !author) {
         errors.push(`Baris ${i + 2}: Judul dan Penulis wajib diisi`);
         errorCount++;
@@ -56,7 +56,6 @@ export async function POST(request: Request) {
       }
 
       try {
-        // Buat buku baru
         const book = await db.book.create({
           data: {
             title,
@@ -69,14 +68,12 @@ export async function POST(request: Request) {
           },
         });
 
-        // Proses kategori
         if (categoryNames) {
           const categoryList = categoryNames.split(",").map((cat: string) => cat.trim().toLowerCase());
-          
+
           for (const catName of categoryList) {
             let categoryId = categoryMap.get(catName);
-            
-            // Jika kategori belum ada, buat baru
+
             if (!categoryId) {
               const newCategory = await db.category.create({
                 data: { name: catName },
@@ -84,8 +81,7 @@ export async function POST(request: Request) {
               categoryId = newCategory.id;
               categoryMap.set(catName, categoryId);
             }
-            
-            // Hubungkan buku dengan kategori
+
             await db.bookCategory.create({
               data: {
                 bookId: book.id,
@@ -94,7 +90,7 @@ export async function POST(request: Request) {
             });
           }
         }
-        
+
         successCount++;
       } catch (error) {
         errors.push(`Baris ${i + 2}: Gagal import - ${(error as Error).message}`);
@@ -102,15 +98,20 @@ export async function POST(request: Request) {
       }
     }
 
+    logger.log(`Import buku selesai: ${successCount} sukses, ${errorCount} gagal`);
+
     return NextResponse.json({
       success: true,
       message: `Import selesai! ${successCount} buku berhasil ditambahkan, ${errorCount} gagal.`,
       successCount,
       errorCount,
-      errors: errors.slice(0, 10), // Kirim maksimal 10 error
+      errors: errors.slice(0, 10),
     });
   } catch (error) {
-    console.error("Import error:", error);
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    logger.error("Import error:", error);
     return NextResponse.json({ error: "Gagal import file" }, { status: 500 });
   }
 }

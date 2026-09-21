@@ -2,12 +2,17 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
+import { requireAdmin, AuthError } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 export async function GET(request: Request) {
   try {
+    // 🔥 WAJIB: admin only
+    await requireAdmin();
+
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search") || "";
-    
+
     const where: any = {};
     if (search) {
       where.OR = [
@@ -16,12 +21,12 @@ export async function GET(request: Request) {
         { isbn: { contains: search, mode: "insensitive" } },
       ];
     }
-    
+
     const bukuFisik = await db.bukuFisik.findMany({
       where,
       orderBy: { judul: "asc" },
     });
-    
+
     const formattedData = bukuFisik.map((book, index) => ({
       "No": index + 1,
       "Barcode": book.barcode,
@@ -37,13 +42,13 @@ export async function GET(request: Request) {
       "Deskripsi": book.deskripsi || "-",
       "Tanggal Ditambahkan": new Date(book.createdAt).toLocaleDateString("id-ID"),
     }));
-    
+
     const worksheet = XLSX.utils.json_to_sheet(formattedData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Daftar Buku Fisik");
-    
+
     const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
-    
+
     return new NextResponse(buffer, {
       status: 200,
       headers: {
@@ -52,7 +57,10 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
-    console.error("Export error:", error);
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    logger.error("Export error:", error);
     return NextResponse.json({ error: "Gagal export data" }, { status: 500 });
   }
 }

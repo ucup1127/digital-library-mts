@@ -99,7 +99,6 @@ export async function POST(request: Request) {
 
     const { email, password, name, role, className, schoolId } = await request.json();
 
-    // 🔥 Jangan log password
     logger.log("📝 Membuat user baru - email:", email, "role:", role, "schoolId:", schoolId);
 
     if (!email || !password || !schoolId) {
@@ -127,12 +126,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Email sudah terdaftar!" }, { status: 400 });
     }
 
-    // 🔥 Generate memberId otomatis — robust
+    // 🔥 Generate memberId otomatis
     const allUsers = await db.user.findMany({
-      where: {
-        schoolId,
-        memberId: { not: null },
-      },
+      where: { schoolId, memberId: { not: null } },
       select: { memberId: true },
     });
 

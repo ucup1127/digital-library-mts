@@ -4,15 +4,24 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { requireAdmin, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
+import { adminProfileSchema, formatZodError } from "@/lib/validations";
+import { logAdminActivityServer } from "@/lib/admin-log-server";
 
 export async function PUT(request: Request) {
   try {
     const session = await requireAdmin();
-    const { id, name, email, currentPassword, newPassword } = await request.json();
+    const body = await request.json();
 
-    if (!id) {
-      return NextResponse.json({ error: "ID tidak ditemukan" }, { status: 400 });
+    // 🔥 Validasi pakai Zod
+    const parseResult = adminProfileSchema.safeParse(body);
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: formatZodError(parseResult.error) },
+        { status: 400 }
+      );
     }
+
+    const { id, name, email, currentPassword, newPassword } = parseResult.data;
 
     // 🔥 Cek: admin cuma bisa update profil sendiri
     if (session.userId !== id) {
@@ -32,6 +41,15 @@ export async function PUT(request: Request) {
         data: { name, email },
       });
 
+      // 🔥 Log aktivitas
+      await logAdminActivityServer({
+        action: "UPDATE_PROFILE",
+        targetType: "USER",
+        targetId: updatedUser.id,
+        targetName: updatedUser.email || updatedUser.name || updatedUser.id,
+        changes: { fields: ["name", "email"] },
+      });
+
       return NextResponse.json({
         success: true,
         user: {
@@ -49,18 +67,20 @@ export async function PUT(request: Request) {
         return NextResponse.json({ error: "Password saat ini salah!" }, { status: 401 });
       }
 
-      if (newPassword.length < 6) {
-        return NextResponse.json(
-          { error: "Password minimal 6 karakter" },
-          { status: 400 }
-        );
-      }
-
       const hashedPassword = await bcrypt.hash(newPassword, 10);
 
       await db.user.update({
         where: { id },
         data: { password: hashedPassword },
+      });
+
+      // 🔥 Log aktivitas
+      await logAdminActivityServer({
+        action: "CHANGE_PASSWORD",
+        targetType: "USER",
+        targetId: user.id,
+        targetName: user.email || user.name || user.id,
+        changes: { self: true },
       });
 
       return NextResponse.json({ success: true });

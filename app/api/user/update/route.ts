@@ -4,15 +4,24 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { requireAuth, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
+import { updateProfileSchema, formatZodError } from "@/lib/validations";
+import { logAdminActivityServer } from "@/lib/admin-log-server";
 
 export async function PATCH(req: Request) {
   try {
     const session = await requireAuth();
-    const { id, name, className, email, password } = await req.json();
+    const body = await req.json();
 
-    if (!id) {
-      return NextResponse.json({ error: "ID User tidak ditemukan!" }, { status: 400 });
+    // 🔥 Validasi pakai Zod
+    const parseResult = updateProfileSchema.safeParse(body);
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: formatZodError(parseResult.error) },
+        { status: 400 }
+      );
     }
+
+    const { id, name, className, email, password } = parseResult.data;
 
     // 🔥 Cek: user cuma bisa update profil sendiri (kecuali admin)
     if (
@@ -29,12 +38,6 @@ export async function PATCH(req: Request) {
     if (email !== undefined) updateData.email = email;
 
     if (password && password.length > 0) {
-      if (password.length < 6) {
-        return NextResponse.json(
-          { error: "Password minimal 6 karakter" },
-          { status: 400 }
-        );
-      }
       updateData.password = await bcrypt.hash(password, 10);
     }
 
@@ -48,7 +51,18 @@ export async function PATCH(req: Request) {
         className: true,
         memberId: true,
         role: true,
-        // ❌ password TIDAK di-select
+      },
+    });
+
+    // 🔥 Log aktivitas
+    await logAdminActivityServer({
+      action: "UPDATE",
+      targetType: "USER",
+      targetId: updatedUser.id,
+      targetName: updatedUser.email || updatedUser.name || updatedUser.id,
+      changes: {
+        fields: Object.keys(updateData).filter((k) => k !== "password"),
+        passwordChanged: !!updateData.password,
       },
     });
 

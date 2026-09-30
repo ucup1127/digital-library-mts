@@ -4,25 +4,28 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { requireAdmin, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
+import { resetPasswordSchema, formatZodError } from "@/lib/validations";
+import { logAdminActivityServer } from "@/lib/admin-log-server";
 
 export async function POST(request: Request) {
   try {
-    // 🔥 Ambil user dari session — bukan header yang bisa dipalsukan
     const currentUser = await requireAdmin();
+    const body = await request.json();
 
-    const { userId, newPassword } = await request.json();
-
-    if (!userId || !newPassword || newPassword.length < 6) {
+    // 🔥 Validasi pakai Zod
+    const parseResult = resetPasswordSchema.safeParse(body);
+    if (!parseResult.success) {
       return NextResponse.json(
-        { error: "Password minimal 6 karakter" },
+        { error: formatZodError(parseResult.error) },
         { status: 400 }
       );
     }
 
-    // Ambil target user
+    const { userId, newPassword } = parseResult.data;
+
     const targetUser = await db.user.findUnique({
       where: { id: userId },
-      select: { id: true, role: true, schoolId: true },
+      select: { id: true, role: true, schoolId: true, email: true },
     });
 
     if (!targetUser) {
@@ -36,7 +39,6 @@ export async function POST(request: Request) {
     if (currentUser.role === "SUPER_ADMIN") {
       // SUPER_ADMIN bisa reset password siapa saja
     } else if (currentUser.role === "ADMIN") {
-      // ADMIN cuma bisa reset password USER biasa di sekolahnya
       if (targetUser.role !== "USER") {
         return NextResponse.json(
           { error: "Tidak bisa reset password admin atau super admin" },
@@ -58,6 +60,15 @@ export async function POST(request: Request) {
     await db.user.update({
       where: { id: userId },
       data: { password: hashedPassword },
+    });
+
+    // 🔥 Log aktivitas
+    await logAdminActivityServer({
+      action: "RESET_PASSWORD",
+      targetType: "USER",
+      targetId: targetUser.id,
+      targetName: targetUser.email || targetUser.id,
+      changes: { role: targetUser.role },
     });
 
     return NextResponse.json({

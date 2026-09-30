@@ -200,6 +200,117 @@ export const changePasswordSchema = z.object({
 });
 
 // ============================================
+// 👤 USER — UPDATE PROFILE
+// ============================================
+
+export const updateProfileSchema = z.object({
+  id: z
+    .string({ message: "ID user wajib diisi" })
+    .min(1, "ID user wajib diisi"),
+  name: z
+    .string()
+    .max(100, "Nama maksimal 100 karakter")
+    .trim()
+    .optional(),
+  className: z
+    .string()
+    .max(50, "Kelas maksimal 50 karakter")
+    .trim()
+    .optional(),
+  email: z
+    .string()
+    .email("Format email tidak valid")
+    .max(255, "Email terlalu panjang")
+    .toLowerCase()
+    .trim()
+    .optional(),
+  password: z
+    .string()
+    .max(100, "Password maksimal 100 karakter")
+    .optional()
+    .or(z.literal("")),
+});
+
+// ============================================
+// 🔐 ADMIN — RESET PASSWORD
+// ============================================
+
+export const resetPasswordSchema = z.object({
+  userId: z
+    .string({ message: "User ID wajib diisi" })
+    .min(1, "User ID wajib diisi"),
+  newPassword: z
+    .string({ message: "Password baru wajib diisi" })
+    .min(6, "Password baru minimal 6 karakter")
+    .max(100, "Password baru maksimal 100 karakter"),
+});
+
+// ============================================
+// 👥 ADMIN — UPDATE USER BY ID
+// ============================================
+
+export const adminUpdateUserSchema = z.object({
+  name: z
+    .string({ message: "Nama wajib diisi" })
+    .min(1, "Nama wajib diisi")
+    .max(100, "Nama maksimal 100 karakter")
+    .trim(),
+  email: z
+    .string({ message: "Email wajib diisi" })
+    .min(1, "Email wajib diisi")
+    .email("Format email tidak valid")
+    .max(255, "Email terlalu panjang")
+    .toLowerCase()
+    .trim(),
+  role: z.enum(["USER", "ADMIN", "SUPER_ADMIN"], {
+    message: "Role tidak valid",
+  }),
+  className: z
+    .string()
+    .max(50, "Kelas maksimal 50 karakter")
+    .trim()
+    .optional()
+    .or(z.literal("")),
+  password: z
+    .string()
+    .max(100, "Password maksimal 100 karakter")
+    .optional()
+    .or(z.literal("")),
+});
+
+// ============================================
+// 👤 ADMIN — UPDATE PROFILE (self)
+// ============================================
+
+export const adminProfileSchema = z.object({
+  id: z
+    .string({ message: "ID admin wajib diisi" })
+    .min(1, "ID admin wajib diisi"),
+  name: z
+    .string()
+    .max(100, "Nama maksimal 100 karakter")
+    .trim()
+    .optional(),
+  email: z
+    .string()
+    .email("Format email tidak valid")
+    .max(255, "Email terlalu panjang")
+    .toLowerCase()
+    .trim()
+    .optional(),
+  currentPassword: z
+    .string()
+    .max(100, "Password maksimal 100 karakter")
+    .optional()
+    .or(z.literal("")),
+  newPassword: z
+    .string()
+    .max(100, "Password maksimal 100 karakter")
+    .optional()
+    .or(z.literal("")),
+});
+
+// ============================================
 // HELPER
 // ============================================
 

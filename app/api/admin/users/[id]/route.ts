@@ -4,14 +4,18 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { requireAdmin, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
+import { adminUpdateUserSchema, formatZodError } from "@/lib/validations";
+import { logAdminActivityServer } from "@/lib/admin-log-server";
 
-// 🔥 PATCH - Aktifkan / Nonaktifkan user (Soft Delete)
+// ============================================
+// PATCH — Aktifkan / Nonaktifkan user (Soft Delete)
+// ============================================
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAdmin();
+    const session = await requireAdmin();
     const { id } = await params;
     const body = await req.json();
     const { isActive } = body;
@@ -42,6 +46,15 @@ export async function PATCH(
       },
     });
 
+    // 🔥 Log aktivitas
+    await logAdminActivityServer({
+      action: isActive ? "ACTIVATE_USER" : "DEACTIVATE_USER",
+      targetType: "USER",
+      targetId: user.id,
+      targetName: user.email || user.name || user.id,
+      changes: { isActive },
+    });
+
     logger.log("✅ User status updated - id:", user.id, "isActive:", user.isActive);
 
     return NextResponse.json(user);
@@ -54,7 +67,9 @@ export async function PATCH(
   }
 }
 
-// PUT - Update user (edit profile)
+// ============================================
+// PUT — Update user (edit profile)
+// ============================================
 export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -63,13 +78,19 @@ export async function PUT(
     const session = await requireAdmin();
     const { id } = await params;
     const body = await req.json();
-    const { name, email, role, className, password } = body;
+
+    // 🔥 Validasi pakai Zod
+    const parseResult = adminUpdateUserSchema.safeParse(body);
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: formatZodError(parseResult.error) },
+        { status: 400 }
+      );
+    }
+
+    const { name, email, role, className, password } = parseResult.data;
 
     logger.log("📌 PUT User - id:", id);
-
-    if (!name || !email) {
-      return NextResponse.json({ error: "Nama dan email wajib diisi" }, { status: 400 });
-    }
 
     // 🔥 Hanya SUPER_ADMIN yang bisa ubah role ke ADMIN atau SUPER_ADMIN
     if (
@@ -102,11 +123,8 @@ export async function PUT(
       className,
     };
 
-    // Jika password diisi, hash dan update
-    if (password && password.length >= 6) {
+    if (password && password.length > 0) {
       updateData.password = await bcrypt.hash(password, 10);
-    } else if (password && password.length > 0 && password.length < 6) {
-      return NextResponse.json({ error: "Password minimal 6 karakter!" }, { status: 400 });
     }
 
     const updatedUser = await db.user.update({
@@ -126,6 +144,18 @@ export async function PUT(
       },
     });
 
+    // 🔥 Log aktivitas
+    await logAdminActivityServer({
+      action: "UPDATE",
+      targetType: "USER",
+      targetId: updatedUser.id,
+      targetName: updatedUser.email || updatedUser.name || updatedUser.id,
+      changes: {
+        role,
+        passwordChanged: !!updateData.password,
+      },
+    });
+
     logger.log("✅ User updated - id:", updatedUser.id);
 
     return NextResponse.json(updatedUser);
@@ -138,7 +168,9 @@ export async function PUT(
   }
 }
 
-// GET - Ambil detail user
+// ============================================
+// GET — Ambil detail user
+// ============================================
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }

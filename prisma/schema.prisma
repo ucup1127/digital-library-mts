@@ -88,6 +88,9 @@ model BukuFisik {
   @@index([barcode])
   @@index([schoolId, judul])
   @@index([schoolId, stokTersedia])
+  @@index([schoolId, penulis])
+  @@index([schoolId, isbn])
+  @@index([schoolId, lokasiRak])
 }
 
 model PeminjamanFisik {
@@ -112,6 +115,9 @@ model PeminjamanFisik {
   @@index([userId, status])
   @@index([bukuFisikId, status])
   @@index([status, tglKembali])
+  @@index([tglPinjam])
+  @@index([userId, tglPinjam])
+  @@index([bukuFisikId, tglPinjam])
 }
 
 model Organization {
@@ -174,6 +180,9 @@ model Book {
   @@index([schoolId, createdAt])
   @@index([schoolId, views])
   @@index([schoolId, isRecommended])
+  @@index([schoolId, title])       
+  @@index([schoolId, author])      
+  @@index([schoolId, year]) 
 }
 
 // Junction Table
@@ -211,6 +220,8 @@ model VisitorLog {
   @@index([schoolId, action])
   @@index([action, createdAt])
   @@index([userId, createdAt])
+  @@index([bookId])
+  @@index([bookId, createdAt])
 }
 
 model ActiveSession {
@@ -267,6 +278,9 @@ model AdminLog {
   @@index([adminId, createdAt])
   @@index([schoolId, action])
   @@index([adminRole, createdAt])
+  @@index([targetType])
+  @@index([schoolId, targetType])
+  @@index([targetType, createdAt])
 }
 
 model Setting {
@@ -278,6 +292,7 @@ model Setting {
 
   @@index([key])
   @@index([schoolId])
+  @@index([schoolId, key])
 }
 
 model BukuFisikKategori {
@@ -320,4 +335,5 @@ model Session {
   @@index([token])
   @@index([userId])
   @@index([expiresAt])
+  @@index([userId, expiresAt])
 }

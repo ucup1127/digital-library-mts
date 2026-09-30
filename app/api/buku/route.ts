@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireAdmin, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
+import { createBookSchema, formatZodError } from "@/lib/validations";
+import { logAdminActivityServer } from "@/lib/admin-log-server";
 
 export async function GET(request: Request) {
   try {
@@ -98,14 +100,20 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    await requireAdmin();  
+    await requireAdmin();
     const body = await request.json();
-    const { title, author, description, coverUrl, fileUrl, year, schoolId, categories } = body;
-    
-    if (!title || !author || !schoolId) {
-      return NextResponse.json({ error: "Data tidak lengkap" }, { status: 400 });
+
+    // 🔥 Validasi pakai Zod
+    const parseResult = createBookSchema.safeParse(body);
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: formatZodError(parseResult.error) },
+        { status: 400 }
+      );
     }
-    
+
+    const { title, author, description, coverUrl, fileUrl, year, schoolId, categories } = parseResult.data;
+
     const book = await db.book.create({
       data: {
         title,
@@ -117,18 +125,24 @@ export async function POST(request: Request) {
         schoolId,
       },
     });
-    
+
     if (categories && categories.length > 0) {
-      for (const categoryId of categories) {
-        await db.bookCategory.create({
-          data: {
-            bookId: book.id,
-            categoryId,
-          },
-        });
-      }
+      await db.bookCategory.createMany({
+        data: categories.map((categoryId) => ({
+          bookId: book.id,
+          categoryId,
+        })),
+      });
     }
-    
+
+    // 🔥 Log aktivitas
+    await logAdminActivityServer({
+      action: "CREATE",
+      targetType: "BOOK",
+      targetId: book.id,
+      targetName: book.title,
+    });
+
     return NextResponse.json(book, { status: 201 });
   } catch (error) {
     if (error instanceof AuthError) {

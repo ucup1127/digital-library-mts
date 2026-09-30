@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireAdmin, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
+import { createGallerySchema, formatZodError } from "@/lib/validations";
+import { logAdminActivityServer } from "@/lib/admin-log-server";
 
 // GET - Ambil galeri dengan pagination & search
 export async function GET(request: Request) {
@@ -54,18 +56,20 @@ export async function GET(request: Request) {
 // POST - Tambah galeri
 export async function POST(request: Request) {
   try {
-    await requireAdmin(); 
+    await requireAdmin();
     const body = await request.json();
-    const { title, description, imageUrl, category, schoolId } = body;
-    
-    if (!title || !imageUrl) {
-      return NextResponse.json({ error: "Judul dan URL gambar wajib diisi" }, { status: 400 });
+
+    // 🔥 Validasi pakai Zod
+    const parseResult = createGallerySchema.safeParse(body);
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: formatZodError(parseResult.error) },
+        { status: 400 }
+      );
     }
-    
-    if (!schoolId) {
-      return NextResponse.json({ error: "schoolId diperlukan" }, { status: 400 });
-    }
-    
+
+    const { title, description, imageUrl, category, schoolId } = parseResult.data;
+
     const gallery = await db.gallery.create({
       data: {
         title,
@@ -75,13 +79,21 @@ export async function POST(request: Request) {
         schoolId,
       },
     });
-    
+
+    // 🔥 Log aktivitas
+    await logAdminActivityServer({
+      action: "CREATE",
+      targetType: "GALLERY",
+      targetId: gallery.id,
+      targetName: gallery.title,
+    });
+
     return NextResponse.json(gallery, { status: 201 });
-    } catch (error) {
-        if (error instanceof AuthError) {
-          return NextResponse.json({ error: error.message }, { status: error.status });
-        }
-        logger.error("Error creating gallery:", error);
-        return NextResponse.json({ error: "Gagal menambah galeri" }, { status: 500 });
-      }
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
     }
+    logger.error("Error creating gallery:", error);
+    return NextResponse.json({ error: "Gagal menambah galeri" }, { status: 500 });
+  }
+}

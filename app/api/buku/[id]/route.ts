@@ -5,6 +5,8 @@ import { unlink } from "fs/promises";
 import path from "path";
 import { requireAdmin, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
+import { updateBookSchema, formatZodError } from "@/lib/validations";
+import { logAdminActivityServer } from "@/lib/admin-log-server";
 
 // GET - Ambil detail buku
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -36,18 +38,24 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   }
 }
 
-// PUT - Update buku lengkap (untuk edit)
+// PUT - Update buku lengkap
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await requireAdmin();
     const { id } = await params;
     const body = await req.json();
-    const { title, author, year, description, categories } = body;
-    
-    if (!title || !author) {
-      return NextResponse.json({ error: "Judul dan penulis harus diisi" }, { status: 400 });
+
+    // 🔥 Validasi pakai Zod
+    const parseResult = updateBookSchema.safeParse(body);
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: formatZodError(parseResult.error) },
+        { status: 400 }
+      );
     }
-    
+
+    const { title, author, year, description, categories } = parseResult.data;
+
     const updatedBook = await db.book.update({
       where: { id },
       data: {
@@ -57,32 +65,41 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         description: description || null,
       },
     });
-    
+
     if (categories && categories.length > 0) {
       await db.bookCategory.deleteMany({
-        where: { bookId: id }
+        where: { bookId: id },
       });
-      
+
       await db.bookCategory.createMany({
-        data: categories.map((categoryId: string) => ({
+        data: categories.map((categoryId) => ({
           bookId: id,
-          categoryId: categoryId
-        }))
+          categoryId,
+        })),
       });
-    }  
-    return NextResponse.json({ 
-      success: true, 
-      message: "Buku berhasil diperbarui",
-      book: updatedBook 
-    });
-    } catch (error) {
-      if (error instanceof AuthError) {
-        return NextResponse.json({ error: error.message }, { status: error.status });
-      }
-      logger.error("PUT error:", error);
-      return NextResponse.json({ error: "Gagal memperbarui buku" }, { status: 500 });
     }
+
+    // 🔥 Log aktivitas
+    await logAdminActivityServer({
+      action: "UPDATE",
+      targetType: "BOOK",
+      targetId: updatedBook.id,
+      targetName: updatedBook.title,
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Buku berhasil diperbarui",
+      book: updatedBook,
+    });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    logger.error("PUT error:", error);
+    return NextResponse.json({ error: "Gagal memperbarui buku" }, { status: 500 });
   }
+}
 
 // PATCH - Update sebagian (untuk keperluan lain)
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {

@@ -311,6 +311,115 @@ export const adminProfileSchema = z.object({
 });
 
 // ============================================
+// 📂 KATEGORI
+// ============================================
+
+export const createKategoriSchema = z.object({
+  name: z
+    .string({ message: "Nama kategori wajib diisi" })
+    .min(1, "Nama kategori tidak boleh kosong")
+    .max(50, "Nama kategori maksimal 50 karakter")
+    .trim(),
+});
+
+// ============================================
+// 🏫 SEKOLAH
+// ============================================
+
+export const createSchoolSchema = z.object({
+  name: z
+    .string({ message: "Nama sekolah wajib diisi" })
+    .min(1, "Nama sekolah wajib diisi")
+    .max(100, "Nama sekolah maksimal 100 karakter")
+    .trim(),
+  slug: z
+    .string({ message: "Slug wajib diisi" })
+    .min(1, "Slug wajib diisi")
+    .max(100, "Slug maksimal 100 karakter")
+    .regex(/^[a-z0-9-]+$/, "Slug hanya boleh huruf kecil, angka, dan strip")
+    .trim(),
+  logo: z
+    .string()
+    .max(500, "URL logo maksimal 500 karakter")
+    .optional()
+    .nullable(),
+});
+
+// ============================================
+// 🖼️ GALERI
+// ============================================
+
+export const createGallerySchema = z.object({
+  title: z
+    .string({ message: "Judul wajib diisi" })
+    .min(1, "Judul wajib diisi")
+    .max(255, "Judul maksimal 255 karakter")
+    .trim(),
+  description: z
+    .string()
+    .max(1000, "Deskripsi maksimal 1000 karakter")
+    .optional()
+    .nullable(),
+  imageUrl: z
+    .string({ message: "URL gambar wajib diisi" })
+    .min(1, "URL gambar wajib diisi")
+    .max(500, "URL gambar maksimal 500 karakter"),
+  category: z
+    .string()
+    .max(50, "Kategori maksimal 50 karakter")
+    .optional()
+    .default("kegiatan"),
+  schoolId: z
+    .string({ message: "SchoolId wajib diisi" })
+    .min(1, "SchoolId wajib diisi"),
+});
+
+// ============================================
+// 📚 BUKU (UPDATE — untuk PUT)
+// ============================================
+
+export const updateBookSchema = z.object({
+  title: z
+    .string({ message: "Judul wajib diisi" })
+    .min(1, "Judul wajib diisi")
+    .max(255, "Judul maksimal 255 karakter")
+    .trim(),
+  author: z
+    .string({ message: "Penulis wajib diisi" })
+    .min(1, "Penulis wajib diisi")
+    .max(100, "Penulis maksimal 100 karakter")
+    .trim(),
+  year: z.string().max(10).optional().nullable(),
+  description: z
+    .string()
+    .max(5000, "Deskripsi maksimal 5000 karakter")
+    .optional()
+    .nullable(),
+  categories: z
+    .array(z.string())
+    .optional()
+    .default([]),
+});
+
+// ============================================
+// 👥 ORGANISASI (FormData)
+// ============================================
+
+export const createOrganisasiSchema = z.object({
+  name: z
+    .string({ message: "Nama wajib diisi" })
+    .min(1, "Nama wajib diisi")
+    .max(100, "Nama maksimal 100 karakter")
+    .trim(),
+  position: z
+    .string({ message: "Jabatan wajib diisi" })
+    .min(1, "Jabatan wajib diisi")
+    .max(100, "Jabatan maksimal 100 karakter")
+    .trim(),
+  order: z.coerce.number().int().min(0).default(0),
+});
+
+// ============================================
 // HELPER
 // ============================================
 

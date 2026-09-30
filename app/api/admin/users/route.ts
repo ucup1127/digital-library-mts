@@ -6,6 +6,8 @@ import { requireAdmin, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { createUserSchema, formatZodError } from "@/lib/validations";
 import { generateMemberId } from "@/lib/member-id";
+import { logAdminActivityServer } from "@/lib/admin-log-server";
+import { revalidateTag } from "next/cache";
 
 // ============================================
 // GET — Ambil daftar user
@@ -130,6 +132,17 @@ export async function POST(request: Request) {
       );
     }
 
+    // 🔥 ADMIN hanya bisa bikin user di sekolahnya sendiri
+    if (
+      session.role !== "SUPER_ADMIN" &&
+      session.schoolId !== schoolId
+    ) {
+      return NextResponse.json(
+        { error: "Tidak bisa menambah user di sekolah lain" },
+        { status: 403 }
+      );
+    }
+
     // 🔥 Cek email duplikat
     const existingUser = await db.user.findUnique({ where: { email } });
     if (existingUser) {
@@ -171,6 +184,18 @@ export async function POST(request: Request) {
 
     logger.log("✅ User berhasil dibuat - id:", user.id, "memberId:", user.memberId);
 
+    // 🔥 Log audit
+    await logAdminActivityServer({
+      action: "CREATE",
+      targetType: "USER",
+      targetId: user.id,
+      targetName: user.email || user.name || user.id,
+      changes: { role: user.role },
+    });
+
+    // 🔥 Invalidate cache stats (total user berubah)
+    revalidateTag("admin-stats", "max");
+
     return NextResponse.json(user, { status: 201 });
   } catch (error) {
     if (error instanceof AuthError) {
@@ -186,7 +211,7 @@ export async function POST(request: Request) {
 // ============================================
 export async function DELETE(request: Request) {
   try {
-    await requireAdmin();
+    const session = await requireAdmin();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     const permanent = searchParams.get("permanent") === "true";
@@ -197,8 +222,66 @@ export async function DELETE(request: Request) {
 
     logger.log("🗑️ DELETE User - id:", id, "permanent:", permanent);
 
+    // 🔥 Ambil data target dulu
+    const targetUser = await db.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        schoolId: true,
+      },
+    });
+
+    if (!targetUser) {
+      return NextResponse.json({ error: "User tidak ditemukan" }, { status: 404 });
+    }
+
+    // 🔥 Tidak bisa hapus diri sendiri
+    if (targetUser.id === session.userId) {
+      return NextResponse.json(
+        { error: "Tidak bisa menghapus akun sendiri" },
+        { status: 400 }
+      );
+    }
+
+    // 🔥 ADMIN tidak bisa hapus ADMIN/SUPER_ADMIN
+    if (
+      session.role !== "SUPER_ADMIN" &&
+      (targetUser.role === "ADMIN" || targetUser.role === "SUPER_ADMIN")
+    ) {
+      return NextResponse.json(
+        { error: "Hanya Super Admin yang bisa menghapus Admin atau Super Admin" },
+        { status: 403 }
+      );
+    }
+
+    // 🔥 ADMIN hanya bisa hapus user di sekolahnya sendiri
+    if (
+      session.role !== "SUPER_ADMIN" &&
+      session.schoolId !== targetUser.schoolId
+    ) {
+      return NextResponse.json(
+        { error: "Tidak bisa menghapus user dari sekolah lain" },
+        { status: 403 }
+      );
+    }
+
     if (permanent) {
       await db.user.delete({ where: { id } });
+
+      // 🔥 Log audit
+      await logAdminActivityServer({
+        action: "DELETE",
+        targetType: "USER",
+        targetId: targetUser.id,
+        targetName: targetUser.email || targetUser.name || targetUser.id,
+        changes: { role: targetUser.role, permanent: true },
+      });
+
+      revalidateTag("admin-stats", "max");
+
       return NextResponse.json({ success: true, message: "User dihapus permanen" });
     }
 
@@ -211,6 +294,17 @@ export async function DELETE(request: Request) {
     });
 
     logger.log("✅ User dinonaktifkan - id:", user.id);
+
+    // 🔥 Log audit
+    await logAdminActivityServer({
+      action: "DEACTIVATE_USER",
+      targetType: "USER",
+      targetId: user.id,
+      targetName: user.email || user.name || user.id,
+      changes: { role: user.role, permanent: false },
+    });
+
+    revalidateTag("admin-stats", "max");
 
     return NextResponse.json({
       success: true,

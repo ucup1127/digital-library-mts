@@ -5,44 +5,67 @@ import { getSession } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { updateSettingSchema, formatZodError } from "@/lib/validations";
 import { logAdminActivityServer } from "@/lib/admin-log-server";
+import { unstable_cache, revalidateTag } from "next/cache";
 
-// GET - Ambil setting
+// ============================================
+// Cache function — per key
+// ============================================
+const getCachedSetting = unstable_cache(
+  async (key: string) => {
+    const setting = await db.setting.findUnique({
+      where: { key },
+    });
+    return setting?.value || "false";
+  },
+  ["setting-by-key"],
+  { revalidate: 300, tags: ["settings"] }
+);
+
+// ============================================
+// GET — Ambil setting (SUPER_ADMIN only)
+// ============================================
 export async function GET(request: Request) {
   try {
+    // 🔥 WAJIB: hanya SUPER_ADMIN
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (session.role !== "SUPER_ADMIN") {
+      return NextResponse.json(
+        { error: "Hanya Super Admin yang boleh membaca setting" },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const key = searchParams.get("key");
-    
+
     logger.log("📌 GET Setting - key:", key);
-    
+
     if (!key) {
       return NextResponse.json({ error: "Key diperlukan" }, { status: 400 });
     }
-    
-    // Cek apakah model Setting ada
-    let setting = null;
+
+    let value = "false";
     try {
-      setting = await db.setting.findUnique({
-        where: { key: key },
-      });
+      value = await getCachedSetting(key);
     } catch (err) {
       logger.error("Database error:", err);
-      // Jika tabel belum ada, return default
+      // Kalau tabel belum ada, return default
       return NextResponse.json({ key, value: "false" });
     }
-    
-    logger.log("📌 Setting found:", setting);
-    
-    return NextResponse.json({ 
-      key, 
-      value: setting?.value || "false"
-    });
+
+    return NextResponse.json({ key, value });
   } catch (error) {
     logger.error("Error getting setting:", error);
-    // Return default value instead of error
     return NextResponse.json({ key: "maintenance_mode", value: "false" });
   }
 }
 
+// ============================================
+// POST — Update setting (SUPER_ADMIN only)
+// ============================================
 export async function POST(request: Request) {
   try {
     const session = await getSession();
@@ -90,7 +113,7 @@ export async function POST(request: Request) {
       });
     }
 
-    // 🔥 Log aktivitas
+    // 🔥 Log audit
     await logAdminActivityServer({
       action: "UPDATE_SETTING",
       targetType: "SETTING",
@@ -98,6 +121,9 @@ export async function POST(request: Request) {
       targetName: key,
       changes: { value },
     });
+
+    // 🔥 Invalidate cache
+    revalidateTag("settings", "max");
 
     return response;
   } catch (error) {

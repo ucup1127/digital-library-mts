@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { Eye, EyeOff, BookOpen, ArrowRight, Sparkles, ChevronRight, Library, UserPlus, GraduationCap } from "lucide-react";
+import { logger } from "@/lib/logger";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -27,10 +28,10 @@ export default function RegisterPage() {
       try {
         const res = await fetch("/api/public/schools");
         const data = await res.json();
-        console.log("Schools loaded:", data);
+        logger.log("Schools loaded:", data);
         setSchools(data);
       } catch (error) {
-        console.error("Gagal ambil sekolah:", error);
+        logger.error("Gagal ambil sekolah:", error);
       }
     };
     fetchSchools();
@@ -95,7 +96,7 @@ export default function RegisterPage() {
         });
       }
     } catch (error) {
-      console.error("Fetch error:", error);
+      logger.error("Fetch error:", error);
       toast.error("Terjadi kesalahan koneksi", {
         duration: 3000,
         position: "top-center",

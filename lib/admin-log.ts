@@ -1,5 +1,7 @@
-// lib/admin-log.ts
-interface LogData {
+// lib/admin-log-client.ts
+import { logger } from "@/lib/logger";
+
+export interface LogData {
   action: string;
   targetType: string;
   targetId?: string;
@@ -7,6 +9,10 @@ interface LogData {
   changes?: any;
 }
 
+/**
+ * Log aktivitas admin — CLIENT-SIDE ONLY.
+ * Kirim ke /api/admin-log, endpoint yang lengkapi data admin dari session.
+ */
 export async function logAdminActivity(data: LogData) {
   try {
     await fetch("/api/admin-log", {
@@ -15,6 +21,6 @@ export async function logAdminActivity(data: LogData) {
       body: JSON.stringify(data),
     });
   } catch (error) {
-    console.error("Failed to log admin activity:", error);
+    logger.error("Failed to log admin activity (client):", error);
   }
 }

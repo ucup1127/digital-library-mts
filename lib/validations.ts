@@ -67,7 +67,7 @@ export const createUserSchema = z.object({
     .trim()
     .optional()
     .or(z.literal("")),
-  role: z.enum(["USER", "ADMIN"], {
+    role: z.enum(["USER", "ADMIN", "SUPER_ADMIN"], {
     message: "Role tidak valid",
   }).default("USER"),
   className: z
@@ -94,7 +94,7 @@ export const updateUserSchema = z.object({
     .max(255, "Email terlalu panjang")
     .toLowerCase()
     .trim(),
-  role: z.enum(["USER", "ADMIN"], {
+  role: z.enum(["USER", "ADMIN", "SUPER_ADMIN"], {
     message: "Role tidak valid",
   }),
   className: z

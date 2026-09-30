@@ -1,7 +1,7 @@
 // app/api/peminjaman-fisik/check-overdue/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
-import { logAdminActivity } from "@/lib/admin-log";
+import { logAdminActivityServer } from "@/lib/admin-log-server";
 import { requireAdmin, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 
@@ -40,7 +40,7 @@ export async function GET() {
     
     // Catat ke AdminLog untuk notifikasi
     for (const loan of overdueLoans) {
-      await logAdminActivity({
+      await logAdminActivityServer({
         action: "OVERDUE",
         targetType: "PEMINJAMAN",
         targetId: loan.id,

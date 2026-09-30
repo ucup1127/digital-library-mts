@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import * as XLSX from "xlsx"; 
+import { logger } from "@/lib/logger";
 
 interface School {
   id: string;
@@ -100,7 +101,7 @@ export default function ImportBukuPage() {
       }
       
       if (data.errors && data.errors.length > 0) {
-        console.log("Errors:", data.errors);
+        logger.log("Errors:", data.errors);
         toast.error(`${data.errors.length} error terjadi. Cek console untuk detail.`);
       }
     } catch (error) {

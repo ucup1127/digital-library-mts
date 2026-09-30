@@ -66,24 +66,22 @@ export async function POST(request: Request) {
     else if (type === "logo") folder = "logos";
 
     const uploadDir = path.join(process.cwd(), "public", "uploads", folder);
-
     await mkdir(uploadDir, { recursive: true });
 
-    // 🔥 Sanitasi nama file — cegah path traversal
+    // Sanitasi nama file
     const timestamp = Date.now();
     const random = Math.floor(Math.random() * 10000);
     const ext = path.extname(file.name);
     const safeName = `${timestamp}_${random}${ext}`;
     const filePath = path.join(uploadDir, safeName);
 
-    // 🔥 Pastikan di dalam folder uploads
+    // Pastikan di dalam folder uploads
     const uploadsDir = path.join(process.cwd(), "public", "uploads");
     if (!filePath.startsWith(uploadsDir)) {
       return NextResponse.json({ error: "Path tidak valid" }, { status: 400 });
     }
 
     const publicPath = `/uploads/${folder}/${safeName}`;
-
     await writeFile(filePath, buffer);
 
     logger.log("✅ File saved:", publicPath);
@@ -98,7 +96,7 @@ export async function POST(request: Request) {
     }
     logger.error("Upload error:", error);
     return NextResponse.json(
-      { error: "Upload gagal: " + String(error) },
+      { error: "Upload gagal" },   // ← FIX: pesan umum, bukan String(error)
       { status: 500 }
     );
   }
@@ -109,9 +107,12 @@ export async function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Origin": "*",
+      // ← FIX: ganti "*" jadi origin spesifik
+      "Access-Control-Allow-Origin":
+        process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
       "Access-Control-Allow-Methods": "POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Credentials": "true",
     },
   });
 }

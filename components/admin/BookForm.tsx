@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import { logger } from "@/lib/logger";
 
 interface Category {
   id: string;
@@ -57,7 +58,7 @@ export default function BookForm({ categories }: { categories: Category[] }) {
     if (formData.coverFile) submitData.append("cover", formData.coverFile);
 
     // Debug
-    console.log("Sending categories:", selectedCategories);
+    logger.log("Sending categories:", selectedCategories);
 
     try {
       const res = await fetch("/api/buku", {
@@ -75,7 +76,7 @@ export default function BookForm({ categories }: { categories: Category[] }) {
         toast.error("Gagal: " + (result.error || "Unknown error"));
       }
     } catch (error) {
-      console.error("Error:", error);
+      logger.error("Error:", error);
       toast.error("Terjadi kesalahan, coba lagi!");
     } finally {
       setLoading(false);

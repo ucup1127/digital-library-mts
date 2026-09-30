@@ -3,6 +3,7 @@
 
 import { useState, useRef } from "react";
 import toast from "react-hot-toast";
+import { logger } from "@/lib/logger";
 
 interface ImageUploaderProps {
   onUploadComplete: (url: string) => void;
@@ -51,12 +52,12 @@ export default function ImageUploader({ onUploadComplete, onUploadError, classNa
       // Cek response
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("Upload failed:", response.status, errorText);
+        logger.error("Upload failed:", response.status, errorText);
         throw new Error(`HTTP ${response.status}`);
       }
 
       const result = await response.json();
-      console.log("Upload result:", result);
+      logger.log("Upload result:", result);
 
       if (result.success && result.url) {
         toast.success("✅ Gambar berhasil diupload!", { id: "upload" });
@@ -67,7 +68,7 @@ export default function ImageUploader({ onUploadComplete, onUploadError, classNa
         if (onUploadError) onUploadError(new Error(result.error));
       }
     } catch (error) {
-      console.error("Upload error:", error);
+      logger.error("Upload error:", error);
       toast.error("Terjadi kesalahan saat upload", { id: "upload" });
       setPreview(null);
       if (onUploadError) onUploadError(error as Error);

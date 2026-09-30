@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
+import { logger } from "@/lib/logger";
 
 export default function Navbar() {
   const router = useRouter();
@@ -37,7 +38,7 @@ export default function Navbar() {
         setIsLoggedIn(false);
       }
       } catch (error) {
-        console.error("Error fetching user:", error);
+        logger.error("Error fetching user:", error);
         setIsLoggedIn(false);
       }
 
@@ -65,7 +66,7 @@ export default function Navbar() {
           schoolData.website || "https://mtsmuhammadiyahpatikraja.sch.id"
         );
       } catch (error) {
-        console.error("Error fetching school:", error);
+        logger.error("Error fetching school:", error);
       }
     };
 
@@ -80,7 +81,7 @@ export default function Navbar() {
       const newSchoolWebsite = event.detail?.schoolWebsite || "https://mtsmuhammadiyahpatikraja.sch.id";
       
       if (newSchoolName) {
-        console.log("🏫 School changed to:", newSchoolName);
+        logger.log("🏫 School changed to:", newSchoolName);
         setSchoolName(newSchoolName);
         setSchoolLogo(newSchoolLogo);
         setSchoolWebsite(newSchoolWebsite);
@@ -100,7 +101,7 @@ export default function Navbar() {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } catch (error) {
-      console.error("Logout error:", error);
+      logger.error("Logout error:", error);
     }
 
     localStorage.clear();

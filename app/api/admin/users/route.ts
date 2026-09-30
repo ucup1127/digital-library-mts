@@ -119,18 +119,13 @@ export async function POST(request: Request) {
 
     logger.log("📝 Membuat user baru - email:", email, "role:", role, "schoolId:", schoolId);
 
-    // 🔥 BATASI ROLE — cegah bikin SUPER_ADMIN
-    if (role === "SUPER_ADMIN") {
+    // 🔥 Hanya SUPER_ADMIN yang bisa bikin ADMIN atau SUPER_ADMIN
+    if (
+      (role === "ADMIN" || role === "SUPER_ADMIN") &&
+      session.role !== "SUPER_ADMIN"
+    ) {
       return NextResponse.json(
-        { error: "Tidak bisa membuat Super Admin" },
-        { status: 403 }
-      );
-    }
-
-    // 🔥 Cuma SUPER_ADMIN yang bisa bikin ADMIN
-    if (role === "ADMIN" && session.role !== "SUPER_ADMIN") {
-      return NextResponse.json(
-        { error: "Hanya Super Admin yang bisa membuat Admin" },
+        { error: "Hanya Super Admin yang bisa membuat Admin atau Super Admin" },
         { status: 403 }
       );
     }

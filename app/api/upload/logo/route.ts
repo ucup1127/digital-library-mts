@@ -68,7 +68,7 @@ export async function POST(request: Request) {
     }
     logger.error("Upload error:", error);
     return NextResponse.json({ 
-      error: error instanceof Error ? error.message : "Gagal upload logo" 
+      error: "Gagal upload logo"
     }, { status: 500 });
   }
 }

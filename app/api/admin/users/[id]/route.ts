@@ -60,7 +60,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAdmin();
+    const session = await requireAdmin();
     const { id } = await params;
     const body = await req.json();
     const { name, email, role, className, password } = body;
@@ -69,6 +69,17 @@ export async function PUT(
 
     if (!name || !email) {
       return NextResponse.json({ error: "Nama dan email wajib diisi" }, { status: 400 });
+    }
+
+    // 🔥 Hanya SUPER_ADMIN yang bisa ubah role ke ADMIN atau SUPER_ADMIN
+    if (
+      (role === "ADMIN" || role === "SUPER_ADMIN") &&
+      session.role !== "SUPER_ADMIN"
+    ) {
+      return NextResponse.json(
+        { error: "Hanya Super Admin yang bisa mengubah role ke Admin atau Super Admin" },
+        { status: 403 }
+      );
     }
 
     // Cek email tidak bentrok dengan user lain

@@ -183,7 +183,7 @@ export async function POST(request: Request) {
 // ============================================
 export async function DELETE(request: Request) {
   try {
-    await requireAdmin();
+    const session = await requireAdmin();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     const permanent = searchParams.get("permanent") === "true";
@@ -192,7 +192,36 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "ID tidak ditemukan" }, { status: 400 });
     }
 
-    logger.log("🗑️ DELETE User - id:", id, "permanent:", permanent);
+    // 🔥 Cek user yang mau dihapus
+    const targetUser = await db.user.findUnique({
+      where: { id },
+      select: { id: true, role: true, email: true },
+    });
+
+    if (!targetUser) {
+      return NextResponse.json({ error: "User tidak ditemukan" }, { status: 404 });
+    }
+
+    // 🔥 Cegah hapus diri sendiri
+    if (targetUser.id === session.userId) {
+      return NextResponse.json(
+        { error: "Tidak bisa menghapus akun sendiri" },
+        { status: 400 }
+      );
+    }
+
+    // 🔥 Hanya SUPER_ADMIN yang bisa hapus ADMIN atau SUPER_ADMIN
+    if (
+      (targetUser.role === "ADMIN" || targetUser.role === "SUPER_ADMIN") &&
+      session.role !== "SUPER_ADMIN"
+    ) {
+      return NextResponse.json(
+        { error: "Hanya Super Admin yang bisa menghapus Admin atau Super Admin" },
+        { status: 403 }
+      );
+    }
+
+    logger.log("🗑️ DELETE User - id:", id, "permanent:", permanent, "role:", targetUser.role);
 
     if (permanent) {
       await db.user.delete({ where: { id } });

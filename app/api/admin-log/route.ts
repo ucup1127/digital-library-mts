@@ -1,215 +1,78 @@
-// app/api/admin/stats/route.ts
+// app/api/admin-log/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireAdmin, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
+import { z } from "zod";
 
+// ============================================
+// SCHEMA — POST
+// ============================================
+const adminLogSchema = z.object({
+  action: z.string().min(1).max(50),
+  targetType: z.string().min(1).max(50),
+  targetId: z.string().optional().nullable(),
+  targetName: z.string().max(255).optional().nullable(),
+  changes: z.any().optional(),
+});
+
+// ============================================
+// SCHEMA — GET (query params)
+// ============================================
+const getLogsSchema = z.object({
+  action: z.string().default("all"),
+  targetType: z.string().default("all"),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+// ============================================
+// GET — Ambil daftar log (buat halaman admin-log)
+// ============================================
 export async function GET(request: Request) {
   try {
-    // 🔥 Auth — cuma admin yang boleh lihat stats
     await requireAdmin();
 
     const { searchParams } = new URL(request.url);
-    const schoolId = searchParams.get("schoolId");
+    const parseResult = getLogsSchema.safeParse({
+      action: searchParams.get("action") ?? "all",
+      targetType: searchParams.get("targetType") ?? "all",
+      page: searchParams.get("page") ?? "1",
+      limit: searchParams.get("limit") ?? "20",
+    });
 
-    logger.log("📊 Dashboard Stats - schoolId:", schoolId);
-
-    // Filter untuk books, users, dll
-    const bookWhere: any = {};
-    const userWhere: any = { role: "USER" };
-
-    if (schoolId) {
-      bookWhere.schoolId = schoolId;
-      userWhere.schoolId = schoolId;
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: parseResult.error.issues[0]?.message || "Query tidak valid" },
+        { status: 400 }
+      );
     }
 
-    // Filter peminjaman (join ke bukuFisik)
-    const peminjamanWhere: any = {};
-    if (schoolId) {
-      peminjamanWhere.bukuFisik = { schoolId };
-    }
+    const { action, targetType, page, limit } = parseResult.data;
 
-    // ========== QUERY UTAMA (PARALEL) ==========
-    const [
-      totalBooks,
-      totalUsers,
-      totalCategories,
-      totalViewsAgg,
-      totalBukuFisik,
-      activeLoansCount,
-      totalDendaBelumBayarAgg,
-      loanStatusRaw,
-      popularBooks,
-      categoryStatsRaw,
-    ] = await Promise.all([
-      // Total Buku Digital
-      db.book.count({ where: bookWhere }),
+    // Bangun filter
+    const where: any = {};
+    if (action !== "all") where.action = action;
+    if (targetType !== "all") where.targetType = targetType;
 
-      // Total User (siswa)
-      db.user.count({ where: userWhere }),
-
-      // Total Kategori (global)
-      db.category.count(),
-
-      // Total Views
-      db.book.aggregate({
-        where: bookWhere,
-        _sum: { views: true },
-      }),
-
-      // Total Buku Fisik
-      db.bukuFisik.count({ where: schoolId ? { schoolId } : {} }),
-
-      // Peminjaman aktif (gabungan — DIPINJAM + TERLAMBAT)
-      db.peminjamanFisik.count({
-        where: {
-          ...peminjamanWhere,
-          status: { in: ["DIPINJAM", "TERLAMBAT"] },
-        },
-      }),
-
-      // Total Denda
-      db.peminjamanFisik.aggregate({
-        where: {
-          ...peminjamanWhere,
-          status: "DIKEMBALIKAN",
-          denda: { gt: 0 },
-        },
-        _sum: { denda: true },
-      }),
-
-      // 🔥 loanStatus — 1 query groupBy (bukan 3 query)
-      db.peminjamanFisik.groupBy({
-        by: ["status"],
-        where: peminjamanWhere,
-        _count: { id: true },
-      }),
-
-      // Buku populer
-      db.book.findMany({
-        where: bookWhere,
-        select: { id: true, title: true, author: true, views: true },
-        orderBy: { views: "desc" },
-        take: 5,
-      }),
-
-      // Category stats
-      db.bookCategory.groupBy({
-        by: ["categoryId"],
-        _count: { bookId: true },
-        where: { book: bookWhere },
+    // Hitung total + ambil data (paralel)
+    const [totalItems, logs] = await Promise.all([
+      db.adminLog.count({ where }),
+      db.adminLog.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
       }),
     ]);
 
-    const totalViews = totalViewsAgg._sum.views || 0;
-    const totalBukuFisikDipinjam = activeLoansCount; // sama
-    const totalPeminjamanAktif = activeLoansCount; // sama
-    const totalDendaBelumBayar = totalDendaBelumBayarAgg._sum.denda || 0;
-
-    // 🔥 Parse loanStatus dari groupBy
-    const loanStatusMap: Record<string, number> = {};
-    for (const item of loanStatusRaw) {
-      loanStatusMap[item.status] = item._count.id;
-    }
-
-    const loanStatus = [
-      { name: "Dipinjam", value: loanStatusMap["DIPINJAM"] || 0 },
-      { name: "Terlambat", value: loanStatusMap["TERLAMBAT"] || 0 },
-      { name: "Dikembalikan", value: loanStatusMap["DIKEMBALIKAN"] || 0 },
-    ];
-
-    // ========== MONTHLY STATS (6 BULAN) — 3 QUERY TOTAL ==========
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
-    sixMonthsAgo.setDate(1);
-    sixMonthsAgo.setHours(0, 0, 0, 0);
-
-    // 🔥 3 query paralel — ambil semua data 6 bulan
-    const [allBooks, allLoans, allViews] = await Promise.all([
-      db.book.findMany({
-        where: {
-          ...bookWhere,
-          createdAt: { gte: sixMonthsAgo },
-        },
-        select: { createdAt: true, views: true },
-      }),
-
-      db.peminjamanFisik.findMany({
-        where: {
-          ...peminjamanWhere,
-          createdAt: { gte: sixMonthsAgo },
-        },
-        select: { createdAt: true },
-      }),
-
-      db.book.findMany({
-        where: {
-          ...bookWhere,
-          createdAt: { gte: sixMonthsAgo },
-        },
-        select: { createdAt: true, views: true },
-      }),
-    ]);
-
-    // 🔥 Group by month di JS — bukan query DB
-    const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
-
-    const monthlyStats = [];
-
-    for (let i = 5; i >= 0; i--) {
-      const monthIndex = (currentMonth - i + 12) % 12;
-      const monthName = months[monthIndex];
-      const year = currentYear;
-
-      // Filter data di JS — bukan query DB
-      const isSameMonth = (date: Date) =>
-        date.getMonth() === monthIndex && date.getFullYear() === year;
-
-      const booksCount = allBooks.filter((b) => isSameMonth(new Date(b.createdAt))).length;
-
-      const viewsCount = allBooks
-        .filter((b) => isSameMonth(new Date(b.createdAt)))
-        .reduce((sum, b) => sum + (b.views || 0), 0);
-
-      const loansCount = allLoans.filter((l) => isSameMonth(new Date(l.createdAt))).length;
-
-      monthlyStats.push({
-        month: monthName,
-        books: booksCount,
-        views: viewsCount,
-        loans: loansCount,
-      });
-    }
-
-    // ========== CATEGORY STATS ==========
-    const categoryIds = categoryStatsRaw.map((c) => c.categoryId);
-    const categories = await db.category.findMany({
-      where: { id: { in: categoryIds } },
-    });
-
-    const categoryStats = categoryStatsRaw.map((cat) => {
-      const category = categories.find((c) => c.id === cat.categoryId);
-      return {
-        name: category?.name || "Unknown",
-        count: cat._count.bookId,
-      };
-    });
+    const totalPages = Math.ceil(totalItems / limit);
 
     return NextResponse.json({
-      totalBooks,
-      totalUsers,
-      totalCategories,
-      totalViews,
-      totalBukuFisik,
-      totalBukuFisikDipinjam,
-      totalPeminjamanAktif,
-      totalDendaBelumBayar,
-      loanStatus,
-      monthlyStats,
-      popularBooks,
-      categoryStats,
+      logs,
+      totalItems,
+      totalPages,
+      currentPage: page,
     });
   } catch (error) {
     if (error instanceof AuthError) {
@@ -218,22 +81,69 @@ export async function GET(request: Request) {
         { status: error.status }
       );
     }
-    logger.error("Error fetching stats:", error);
+    logger.error("Admin log GET error:", error);
     return NextResponse.json(
-      {
-        totalBooks: 0,
-        totalUsers: 0,
-        totalCategories: 0,
-        totalViews: 0,
-        totalBukuFisik: 0,
-        totalBukuFisikDipinjam: 0,
-        totalPeminjamanAktif: 0,
-        totalDendaBelumBayar: 0,
-        loanStatus: [],
-        monthlyStats: [],
-        popularBooks: [],
-        categoryStats: [],
+      { error: "Gagal mengambil log" },
+      { status: 500 }
+    );
+  }
+}
+
+// ============================================
+// POST — Simpan log baru (dari client)
+// ============================================
+export async function POST(request: Request) {
+  try {
+    const session = await requireAdmin();
+    const body = await request.json();
+
+    // 🔥 Validasi input
+    const parseResult = adminLogSchema.safeParse(body);
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: parseResult.error.issues[0]?.message || "Data tidak valid" },
+        { status: 400 }
+      );
+    }
+
+    const { action, targetType, targetId, targetName, changes } = parseResult.data;
+
+    // 🔥 Ambil IP + user-agent dari request
+    const ipAddress =
+      request.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+      request.headers.get("x-real-ip") ||
+      null;
+    const userAgent = request.headers.get("user-agent") || null;
+
+    // 🔥 Simpan ke DB — lengkapi 6 field wajib dari session
+    const log = await db.adminLog.create({
+      data: {
+        adminId: session.userId,
+        adminName: session.name ?? "Unknown",
+        adminEmail: session.email,
+        adminRole: session.role,
+        schoolId: session.schoolId,
+        action,
+        targetType,
+        targetId: targetId ?? null,
+        targetName: targetName ?? null,
+        changes: changes ?? undefined,
+        ipAddress,
+        userAgent,
       },
+    });
+
+    return NextResponse.json({ success: true, id: log.id });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+    logger.error("Admin log error:", error);
+    return NextResponse.json(
+      { error: "Gagal menyimpan log" },
       { status: 500 }
     );
   }

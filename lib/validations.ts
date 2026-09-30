@@ -182,6 +182,24 @@ export const createBukuFisikSchema = z.object({
 });
 
 // ============================================
+// 🔐 CHANGE PASSWORD
+// ============================================
+
+export const changePasswordSchema = z.object({
+  id: z
+    .string({ message: "ID user wajib diisi" })
+    .min(1, "ID user wajib diisi"),
+  currentPassword: z
+    .string({ message: "Password saat ini wajib diisi" })
+    .min(1, "Password saat ini wajib diisi")
+    .max(100, "Password terlalu panjang"),
+  newPassword: z
+    .string({ message: "Password baru wajib diisi" })
+    .min(6, "Password baru minimal 6 karakter")
+    .max(100, "Password baru maksimal 100 karakter"),
+});
+
+// ============================================
 // HELPER
 // ============================================
 

@@ -4,26 +4,28 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { requireAuth, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
+import { changePasswordSchema, formatZodError } from "@/lib/validations";
+import { logAdminActivityServer } from "@/lib/admin-log-server";
 
 export async function PUT(request: Request) {
   try {
     const session = await requireAuth();
-    const { id, currentPassword, newPassword } = await request.json();
+    const body = await request.json();
 
-    if (!id || !currentPassword || !newPassword) {
-      return NextResponse.json({ error: "Data tidak lengkap" }, { status: 400 });
+    // 🔥 Validasi pakai Zod
+    const parseResult = changePasswordSchema.safeParse(body);
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: formatZodError(parseResult.error) },
+        { status: 400 }
+      );
     }
+
+    const { id, currentPassword, newPassword } = parseResult.data;
 
     // 🔥 Cek: user cuma bisa ganti password sendiri
     if (session.userId !== id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    if (newPassword.length < 6) {
-      return NextResponse.json(
-        { error: "Password minimal 6 karakter" },
-        { status: 400 }
-      );
     }
 
     const user = await db.user.findUnique({ where: { id } });
@@ -35,7 +37,11 @@ export async function PUT(request: Request) {
     // 🔥 Verifikasi pakai bcrypt — BUKAN plain text
     const isValid = await bcrypt.compare(currentPassword, user.password);
     if (!isValid) {
-      return NextResponse.json({ error: "Password saat ini salah!" }, { status: 401 });
+      logger.log("❌ Change password gagal - password lama salah:", user.email);
+      return NextResponse.json(
+        { error: "Password saat ini salah!" },
+        { status: 401 }
+      );
     }
 
     // 🔥 Hash password baru
@@ -46,12 +52,29 @@ export async function PUT(request: Request) {
       data: { password: hashedPassword },
     });
 
-    return NextResponse.json({ success: true, message: "Password berhasil diubah" });
+    // 🔥 Log aktivitas
+    await logAdminActivityServer({
+      action: "CHANGE_PASSWORD",
+      targetType: "USER",
+      targetId: user.id,
+      targetName: user.email,
+      changes: { self: true },
+    });
+
+    logger.log("✅ Password berhasil diubah - id:", user.id);
+
+    return NextResponse.json({
+      success: true,
+      message: "Password berhasil diubah",
+    });
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
     logger.error("Change password error:", error);
-    return NextResponse.json({ error: "Gagal mengubah password" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Gagal mengubah password" },
+      { status: 500 }
+    );
   }
 }

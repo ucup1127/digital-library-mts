@@ -8,6 +8,11 @@ import { logAdminActivityServer } from "@/lib/admin-log-server";
 import { unstable_cache, revalidateTag } from "next/cache";
 
 // ============================================
+// Konstanta: key yang boleh diakses public
+// ============================================
+const PUBLIC_KEYS = ["maintenance_mode"];
+
+// ============================================
 // Cache function — per key
 // ============================================
 const getCachedSetting = unstable_cache(
@@ -22,22 +27,12 @@ const getCachedSetting = unstable_cache(
 );
 
 // ============================================
-// GET — Ambil setting (SUPER_ADMIN only)
+// GET — Ambil setting
+// - maintenance_mode: public
+// - key lain: SUPER_ADMIN only
 // ============================================
 export async function GET(request: Request) {
   try {
-    // 🔥 WAJIB: hanya SUPER_ADMIN
-    const session = await getSession();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (session.role !== "SUPER_ADMIN") {
-      return NextResponse.json(
-        { error: "Hanya Super Admin yang boleh membaca setting" },
-        { status: 403 }
-      );
-    }
-
     const { searchParams } = new URL(request.url);
     const key = searchParams.get("key");
 
@@ -47,12 +42,25 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Key diperlukan" }, { status: 400 });
     }
 
+    // 🔥 Cek auth hanya kalau key BUKAN public
+    if (!PUBLIC_KEYS.includes(key)) {
+      const session = await getSession();
+      if (!session) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      if (session.role !== "SUPER_ADMIN") {
+        return NextResponse.json(
+          { error: "Hanya Super Admin yang boleh membaca setting" },
+          { status: 403 }
+        );
+      }
+    }
+
     let value = "false";
     try {
       value = await getCachedSetting(key);
     } catch (err) {
       logger.error("Database error:", err);
-      // Kalau tabel belum ada, return default
       return NextResponse.json({ key, value: "false" });
     }
 
@@ -122,7 +130,7 @@ export async function POST(request: Request) {
       changes: { value },
     });
 
-    // 🔥 Invalidate cache
+    // 🔥 Invalidate cache (Next.js 16: wajib 2 argumen)
     revalidateTag("settings", "max");
 
     return response;

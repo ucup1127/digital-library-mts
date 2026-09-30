@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireAdmin, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
+import { updateTentangSchema, formatZodError } from "@/lib/validations";
+import { logAdminActivityServer } from "@/lib/admin-log-server";
 
 // GET - Ambil data tentang untuk admin edit
 export async function GET(request: Request) {
@@ -93,20 +95,25 @@ export async function GET(request: Request) {
   }
 }
 
-// POST - Update atau buat profil sekolah
 export async function POST(request: Request) {
   try {
     const session = await requireAdmin();
     const body = await request.json();
-    logger.log("📌 POST Admin Tentang - schoolId:", body.schoolId);
 
-    const { schoolId, vision, mission, history, address, phone, email, website } = body;
-
-    if (!schoolId) {
-      return NextResponse.json({ error: "SchoolId diperlukan" }, { status: 400 });
+    // 🔥 Validasi pakai Zod
+    const parseResult = updateTentangSchema.safeParse(body);
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: formatZodError(parseResult.error) },
+        { status: 400 }
+      );
     }
 
-    // 🔥 Cek: admin cuma bisa update sekolahnya sendiri
+    const { schoolId, vision, mission, history, address, phone, email, website } = parseResult.data;
+
+    logger.log("📌 POST Admin Tentang - schoolId:", schoolId);
+
+    // Cek akses sekolah
     if (session.role !== "SUPER_ADMIN" && session.schoolId !== schoolId) {
       return NextResponse.json(
         { error: "Tidak bisa update profil sekolah lain" },
@@ -114,17 +121,10 @@ export async function POST(request: Request) {
       );
     }
 
-    // Cek apakah sekolah ada
-    const school = await db.school.findUnique({
-      where: { id: schoolId },
-    });
-
+    const school = await db.school.findUnique({ where: { id: schoolId } });
     if (!school) {
-      logger.log("School not found for update:", schoolId);
       return NextResponse.json({ error: "Sekolah tidak ditemukan" }, { status: 404 });
     }
-
-    logger.log("Updating profile for school:", school.name);
 
     const profile = await db.schoolProfile.upsert({
       where: { schoolId },
@@ -149,20 +149,22 @@ export async function POST(request: Request) {
       },
     });
 
+    // 🔥 Log aktivitas
+    await logAdminActivityServer({
+      action: "UPDATE_TENTANG",
+      targetType: "SCHOOL_PROFILE",
+      targetId: profile.id,
+      targetName: school.name,
+    });
+
     logger.log("Profile updated successfully");
 
     return NextResponse.json(profile);
   } catch (error) {
     if (error instanceof AuthError) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.status }
-      );
+      return NextResponse.json({ error: error.message }, { status: error.status });
     }
     logger.error("Error updating school profile:", error);
-    return NextResponse.json(
-      { error: "Gagal update profil sekolah" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Gagal update profil sekolah" }, { status: 500 });
   }
 }

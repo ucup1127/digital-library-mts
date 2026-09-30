@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { logger } from "@/lib/logger";
+import { updateSettingSchema, formatZodError } from "@/lib/validations";
+import { logAdminActivityServer } from "@/lib/admin-log-server";
 
 // GET - Ambil setting
 export async function GET(request: Request) {
@@ -41,49 +43,63 @@ export async function GET(request: Request) {
   }
 }
 
-// POST - Update setting (hanya untuk SUPER_ADMIN)
 export async function POST(request: Request) {
   try {
-    // 🔥 Cek session — hanya SUPER_ADMIN yang boleh ubah setting
     const session = await getSession();
-    
+
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    
+
     if (session.role !== "SUPER_ADMIN") {
       return NextResponse.json(
         { error: "Hanya Super Admin yang boleh mengubah setting" },
         { status: 403 }
       );
     }
-    
-    const { key, value } = await request.json();
-    
-    if (!key) {
-      return NextResponse.json({ error: "Key diperlukan" }, { status: 400 });
+
+    const body = await request.json();
+
+    // 🔥 Validasi pakai Zod
+    const parseResult = updateSettingSchema.safeParse(body);
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: formatZodError(parseResult.error) },
+        { status: 400 }
+      );
     }
-    
+
+    const { key, value } = parseResult.data;
+
     const setting = await db.setting.upsert({
-    where: { key: key },
-    update: { value: value || "" },
-    create: { key: key, value: value || "" },
-  });
-
-  const response = NextResponse.json(setting);
-
-  // 🔥 Set cookie httpOnly untuk maintenance mode (biar proxy bisa baca)
-  if (key === "maintenance_mode") {
-    response.cookies.set("maintenance_mode", value || "false", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24, // 1 hari
+      where: { key },
+      update: { value: value || "" },
+      create: { key, value: value || "" },
     });
-  }
 
-  return response;
+    const response = NextResponse.json(setting);
+
+    // Set cookie maintenance mode
+    if (key === "maintenance_mode") {
+      response.cookies.set("maintenance_mode", value || "false", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24,
+      });
+    }
+
+    // 🔥 Log aktivitas
+    await logAdminActivityServer({
+      action: "UPDATE_SETTING",
+      targetType: "SETTING",
+      targetId: setting.id,
+      targetName: key,
+      changes: { value },
+    });
+
+    return response;
   } catch (error) {
     logger.error("Error updating setting:", error);
     return NextResponse.json({ error: "Gagal update setting" }, { status: 500 });

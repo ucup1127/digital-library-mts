@@ -420,6 +420,93 @@ export const createOrganisasiSchema = z.object({
 });
 
 // ============================================
+// 📕 BUKU FISIK
+// ============================================
+
+export const updateBukuFisikSchema = z.object({
+  judul: z
+    .string({ message: "Judul wajib diisi" })
+    .min(1, "Judul wajib diisi")
+    .max(255, "Judul maksimal 255 karakter")
+    .trim(),
+  penulis: z
+    .string({ message: "Penulis wajib diisi" })
+    .min(1, "Penulis wajib diisi")
+    .max(100, "Penulis maksimal 100 karakter")
+    .trim(),
+  penerbit: z.string().max(100).optional().nullable(),
+  tahun: z.string().max(10).optional().nullable(),
+  isbn: z.string().max(50).optional().nullable(),
+  lokasiRak: z.string().max(50).optional().nullable(),
+  stok: z.coerce.number().int().min(1, "Stok minimal 1"),
+  deskripsi: z.string().max(5000).optional().nullable(),
+});
+
+// ============================================
+// 📂 BUKU FISIK — KATEGORI
+// ============================================
+
+export const bukuFisikKategoriSchema = z.object({
+  kategoriIds: z
+    .array(z.string())
+    .optional()
+    .default([]),
+});
+
+// ============================================
+// 📚 PEMINJAMAN
+// ============================================
+
+export const createPeminjamanSchema = z.object({
+  userId: z
+    .string({ message: "User ID wajib diisi" })
+    .min(1, "User ID wajib diisi"),
+  bukuFisikId: z
+    .string({ message: "Buku ID wajib diisi" })
+    .min(1, "Buku ID wajib diisi"),
+});
+
+export const returnPeminjamanSchema = z.object({
+  id: z
+    .string({ message: "ID peminjaman wajib diisi" })
+    .min(1, "ID peminjaman wajib diisi"),
+});
+
+// ============================================
+// ⚙️ SETTINGS
+// ============================================
+
+export const updateSettingSchema = z.object({
+  key: z
+    .string({ message: "Key wajib diisi" })
+    .min(1, "Key wajib diisi")
+    .max(100, "Key maksimal 100 karakter")
+    .trim(),
+  value: z
+    .string()
+    .max(1000, "Value maksimal 1000 karakter")
+    .optional()
+    .default(""),
+});
+
+// ============================================
+// 🏫 TENTANG SEKOLAH
+// ============================================
+
+export const updateTentangSchema = z.object({
+  schoolId: z
+    .string({ message: "SchoolId wajib diisi" })
+    .min(1, "SchoolId wajib diisi"),
+  vision: z.string().max(2000).optional().nullable(),
+  mission: z.string().max(5000).optional().nullable(),
+  history: z.string().max(5000).optional().nullable(),
+  address: z.string().max(500).optional().nullable(),
+  phone: z.string().max(50).optional().nullable(),
+  email: z.string().max(255).optional().nullable(),
+  website: z.string().max(500).optional().nullable(),
+});
+
+// ============================================
 // HELPER
 // ============================================
 

@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireAdmin, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
+import { createBukuFisikSchema, formatZodError } from "@/lib/validations";
+import { logAdminActivityServer } from "@/lib/admin-log-server";
 
 // GET - Ambil daftar buku fisik dengan pagination dan filter schoolId
 export async function GET(request: Request) {
@@ -71,58 +73,64 @@ export async function GET(request: Request) {
   }
 }
 
-// POST - Tambah buku fisik (versi sederhana)
+// POST - Tambah buku fisik
 export async function POST(request: Request) {
   try {
     await requireAdmin();
     const body = await request.json();
-    const { judul, penulis, penerbit, tahun, isbn, lokasiRak, stok, deskripsi, schoolId } = body;
-    
+
+    // 🔥 Validasi pakai Zod
+    const parseResult = createBukuFisikSchema.safeParse(body);
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: formatZodError(parseResult.error) },
+        { status: 400 }
+      );
+    }
+
+    const { judul, penulis, penerbit, tahun, isbn, lokasiRak, stok, deskripsi, schoolId } = parseResult.data;
+
     logger.log("📝 POST Buku Fisik - judul:", judul, "schoolId:", schoolId);
-    
-    // Validasi required fields
-    if (!judul || !penulis) {
-      return NextResponse.json({ error: "Judul dan penulis wajib diisi" }, { status: 400 });
-    }
-    
-    if (!schoolId) {
-      return NextResponse.json({ error: "School ID diperlukan" }, { status: 400 });
-    }
-    
-    // Generate barcode dengan timestamp (pasti unik)
+
+    // Generate barcode
     const timestamp = Date.now().toString().slice(-8);
     const random = Math.floor(Math.random() * 1000).toString().padStart(3, "0");
     const barcode = `BF${timestamp}${random}`;
-    
-    logger.log("✅ Generated barcode:", barcode);
-    
-    const stokNum = parseInt(stok) || 1;
-    
+
     const bukuFisik = await db.bukuFisik.create({
       data: {
-        judul: judul.trim(),
-        penulis: penulis.trim(),
+        judul,
+        penulis,
         penerbit: penerbit || null,
         tahun: tahun || null,
         isbn: isbn || null,
         lokasiRak: lokasiRak || null,
-        stok: stokNum,
-        stokTersedia: stokNum,
-        barcode: barcode,
+        stok,
+        stokTersedia: stok,
+        barcode,
         deskripsi: deskripsi || null,
-        schoolId: schoolId,
+        schoolId,
         kondisi: "BAIK",
       },
     });
-    
+
+    // 🔥 Log aktivitas
+    await logAdminActivityServer({
+      action: "CREATE",
+      targetType: "BUKU_FISIK",
+      targetId: bukuFisik.id,
+      targetName: bukuFisik.judul,
+    });
+
     logger.log("✅ Buku Fisik created:", bukuFisik.id, "barcode:", barcode);
-    
+
     return NextResponse.json(bukuFisik, { status: 201 });
-    } catch (error) {
-        if (error instanceof AuthError) {
-          return NextResponse.json({ error: error.message }, { status: error.status });
-        }
-        logger.error("Error creating buku fisik:", error);
-        return NextResponse.json({ error: "Gagal menambah buku: " + (error as Error).message }, { status: 500 });
-      }
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
     }
+    logger.error("Error creating buku fisik:", error);
+    return NextResponse.json({ error: "Gagal menambah buku" }, { status: 500 });
+    // ← FIX: hapus " + (error as Error).message"
+  }
+}

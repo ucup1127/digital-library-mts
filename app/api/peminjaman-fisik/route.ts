@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireAuth, requireAdmin, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
+import { createPeminjamanSchema, returnPeminjamanSchema, formatZodError } from "@/lib/validations";
+import { logAdminActivityServer } from "@/lib/admin-log-server";
 // GET - Ambil daftar peminjaman dengan filter schoolId
 export async function GET(request: Request) {
   try {
@@ -74,24 +76,24 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const session = await requireAdmin();
-    const { userId, bukuFisikId } = await request.json();
+    const body = await request.json();
 
-    if (!userId || !bukuFisikId) {
+    // 🔥 Validasi pakai Zod
+    const parseResult = createPeminjamanSchema.safeParse(body);
+    if (!parseResult.success) {
       return NextResponse.json(
-        { error: "Data tidak lengkap" },
+        { error: formatZodError(parseResult.error) },
         { status: 400 }
       );
     }
 
-    // 🔥 TRANSAKSI — anti race condition stok
-    const peminjaman = await db.$transaction(async (tx) => {
-      // Cek user
-      const user = await tx.user.findUnique({ where: { id: userId } });
-      if (!user) {
-        throw new Error("User tidak ditemukan");
-      }
+    const { userId, bukuFisikId } = parseResult.data;
 
-      // Cek kuota peminjaman (max 2)
+    // TRANSAKSI — anti race condition stok
+    const peminjaman = await db.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({ where: { id: userId } });
+      if (!user) throw new Error("User tidak ditemukan");
+
       const activeCount = await tx.peminjamanFisik.count({
         where: {
           userId,
@@ -103,34 +105,25 @@ export async function POST(request: Request) {
         throw new Error("Maksimal pinjam 2 buku sekaligus");
       }
 
-      // 🔥 ATOMIC DECREMENT — cek & kurangi stok dalam 1 query
       const updateResult = await tx.bukuFisik.updateMany({
         where: {
           id: bukuFisikId,
-          stokTersedia: { gt: 0 }, // ← cek stok > 0
+          stokTersedia: { gt: 0 },
         },
-        data: {
-          stokTersedia: { decrement: 1 },
-        },
+        data: { stokTersedia: { decrement: 1 } },
       });
 
       if (updateResult.count === 0) {
-        // Stok habis atau buku nggak ada
         const buku = await tx.bukuFisik.findUnique({
           where: { id: bukuFisikId },
         });
-
-        if (!buku) {
-          throw new Error("Buku tidak ditemukan");
-        }
+        if (!buku) throw new Error("Buku tidak ditemukan");
         throw new Error("Stok buku tidak tersedia");
       }
 
-      // Hitung tanggal kembali (7 hari)
       const tglKembali = new Date();
       tglKembali.setDate(tglKembali.getDate() + 7);
 
-      // Bikin peminjaman
       return await tx.peminjamanFisik.create({
         data: {
           userId,
@@ -149,38 +142,44 @@ export async function POST(request: Request) {
       });
     });
 
+    // 🔥 Log aktivitas
+    await logAdminActivityServer({
+      action: "CREATE_PEMINJAMAN",
+      targetType: "PEMINJAMAN",
+      targetId: peminjaman.id,
+      targetName: `${peminjaman.bukuFisik.judul} - ${peminjaman.user.name}`,
+    });
+
     return NextResponse.json(peminjaman, { status: 201 });
   } catch (error) {
     if (error instanceof AuthError) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.status }
-      );
+      return NextResponse.json({ error: error.message }, { status: error.status });
     }
     if (error instanceof Error) {
       const status = error.message === "Forbidden" ? 403 : 400;
       return NextResponse.json({ error: error.message }, { status });
     }
     logger.error("Error creating peminjaman:", error);
-    return NextResponse.json(
-      { error: "Gagal meminjam buku" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Gagal meminjam buku" }, { status: 500 });
   }
 }
 
 // PUT - Kembalikan buku fisik
 export async function PUT(request: Request) {
   try {
-    const session = await requireAdmin(); 
-    const { id } = await request.json();
+    await requireAdmin();
+    const body = await request.json();
 
-    if (!id) {
+    // 🔥 Validasi pakai Zod
+    const parseResult = returnPeminjamanSchema.safeParse(body);
+    if (!parseResult.success) {
       return NextResponse.json(
-        { error: "ID peminjaman diperlukan" },
+        { error: formatZodError(parseResult.error) },
         { status: 400 }
       );
     }
+
+    const { id } = parseResult.data;
 
     const updated = await db.$transaction(async (tx) => {
       const peminjaman = await tx.peminjamanFisik.findUnique({
@@ -191,10 +190,7 @@ export async function PUT(request: Request) {
         },
       });
 
-      if (!peminjaman) {
-        throw new Error("Peminjaman tidak ditemukan");
-      }
-
+      if (!peminjaman) throw new Error("Peminjaman tidak ditemukan");
       if (peminjaman.status === "DIKEMBALIKAN") {
         throw new Error("Buku sudah dikembalikan sebelumnya");
       }
@@ -203,7 +199,6 @@ export async function PUT(request: Request) {
       let denda = 0;
       const today = new Date();
       const tglKembali = new Date(peminjaman.tglKembali);
-
       today.setHours(0, 0, 0, 0);
       tglKembali.setHours(0, 0, 0, 0);
 
@@ -214,7 +209,6 @@ export async function PUT(request: Request) {
         denda = terlambatHari * 1000;
       }
 
-      // Update peminjaman
       const updatedPeminjaman = await tx.peminjamanFisik.update({
         where: { id },
         data: {
@@ -223,16 +217,11 @@ export async function PUT(request: Request) {
           denda,
         },
         include: {
-          user: {
-            select: { id: true, name: true, email: true, memberId: true },
-          },
-          bukuFisik: {
-            select: { id: true, judul: true, penulis: true, barcode: true },
-          },
+          user: { select: { id: true, name: true, email: true, memberId: true } },
+          bukuFisik: { select: { id: true, judul: true, penulis: true, barcode: true } },
         },
       });
 
-      // 🔥 Increment stok — 1 transaksi
       await tx.bukuFisik.update({
         where: { id: peminjaman.bukuFisikId },
         data: { stokTersedia: { increment: 1 } },
@@ -241,22 +230,25 @@ export async function PUT(request: Request) {
       return updatedPeminjaman;
     });
 
+    // 🔥 Log aktivitas
+    await logAdminActivityServer({
+      action: "RETURN_PEMINJAMAN",
+      targetType: "PEMINJAMAN",
+      targetId: updated.id,
+      targetName: `${updated.bukuFisik.judul} - ${updated.user.name}`,
+      changes: { denda: updated.denda },
+    });
+
     return NextResponse.json(updated);
   } catch (error) {
     if (error instanceof AuthError) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.status }
-      );
+      return NextResponse.json({ error: error.message }, { status: error.status });
     }
     if (error instanceof Error) {
       const status = error.message === "Forbidden" ? 403 : 400;
       return NextResponse.json({ error: error.message }, { status });
     }
     logger.error("Error returning book:", error);
-    return NextResponse.json(
-      { error: "Gagal mengembalikan buku" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Gagal mengembalikan buku" }, { status: 500 });
   }
 }

@@ -1,3 +1,4 @@
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 -- ============================================
 -- pg_trgm GIN index untuk fuzzy search
 -- Extension pg_trgm sudah terinstall (PostgreSQL 17.9)

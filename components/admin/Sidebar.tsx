@@ -164,7 +164,13 @@ export default function Sidebar({
                 <Shield className="w-5 h-5 text-white" />
               </div>
             ) : schoolLogo ? (
-              <img src={schoolLogo} alt={displaySchoolName} className="w-10 h-10 rounded-xl object-cover" />
+              <img 
+                src={schoolLogo} 
+                alt={displaySchoolName} 
+                className="w-10 h-10 rounded-xl object-cover"
+                loading="eager"
+                decoding="async"
+              />
             ) : (
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md">
                 <Library className="w-5 h-5 text-white" />

@@ -81,7 +81,14 @@ export default function EditMemberForm({ initialData }: any) {
 
       <div className="bg-gray-50 rounded-[32px] p-8 flex flex-col items-center justify-center text-center">
          <div className="w-32 h-32 bg-white rounded-3xl shadow-sm overflow-hidden mb-4">
-            {initialData.imageUrl ? <img src={initialData.imageUrl} className="w-full h-full object-cover" /> : "👤"}
+            {initialData.imageUrl ? (
+              <img 
+                src={initialData.imageUrl} 
+                className="w-full h-full object-cover"
+                loading="lazy"
+                decoding="async"
+              />
+            ) : "👤"}
          </div>
          <p className="text-[9px] text-gray-400 italic">Catatan: Untuk mengganti foto, silakan hapus dan buat ulang anggota baru agar database tetap rapi.</p>
       </div>

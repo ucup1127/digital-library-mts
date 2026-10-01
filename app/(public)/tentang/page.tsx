@@ -143,7 +143,13 @@ export default function TentangPage() {
           
           <div className="w-24 h-24 mx-auto mb-5 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-2xl border border-white/10">
             {data.school?.logo ? (
-              <img src={data.school.logo} alt={data.school.name} className="w-16 h-16 rounded-full object-cover" />
+              <img 
+                src={data.school.logo} 
+                alt={data.school.name} 
+                className="w-16 h-16 rounded-full object-cover"
+                loading="eager"
+                decoding="async"
+              />
             ) : (
               <Library className="w-12 h-12 text-white" />
             )}

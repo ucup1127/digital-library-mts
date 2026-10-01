@@ -211,7 +211,13 @@ export default function BukuClient({
                     <td className="p-3">
                       <div className="w-12 h-16 bg-gray-100 rounded-lg overflow-hidden">
                         {book.coverUrl ? (
-                          <img src={book.coverUrl} alt={book.title} className="w-full h-full object-cover" />
+                          <img 
+                            src={book.coverUrl} 
+                            alt={book.title} 
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                            decoding="async"
+                          />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">📖</div>
                         )}

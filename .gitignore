@@ -60,3 +60,6 @@ dependency-usage.txt
 struktur-*.txt
 # Backup PDF orphan (jangan commit)
 pdf-orphan-backup/
+
+# Backup PDF before compress
+pdf-before-compress-backup/

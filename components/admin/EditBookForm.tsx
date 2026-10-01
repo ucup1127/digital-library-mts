@@ -130,7 +130,14 @@ export default function EditBookForm({ initialData, categories }: any) {
 
       <div className="bg-blue-50/50 rounded-[32px] p-8 flex flex-col items-center justify-center text-center space-y-4">
         <div className="w-32 h-44 bg-white rounded-xl shadow-md overflow-hidden border border-blue-100">
-          {initialData.coverUrl && <img src={initialData.coverUrl} className="w-full h-full object-cover" />}
+          {initialData.coverUrl && (
+            <img 
+              src={initialData.coverUrl} 
+              className="w-full h-full object-cover"
+              loading="lazy"
+              decoding="async"
+            />
+          )}
         </div>
         <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">
           File PDF: {getFileName(initialData.fileUrl)}

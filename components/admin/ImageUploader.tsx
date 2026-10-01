@@ -116,7 +116,13 @@ export default function ImageUploader({ onUploadComplete, onUploadError, classNa
         <div className="mt-3">
           <p className="text-[9px] text-gray-400 mb-1">Preview:</p>
           <div className="border rounded-lg overflow-hidden">
-            <img src={preview} alt="Preview" className="w-full h-32 object-cover" />
+            <img 
+              src={preview} 
+              alt="Preview" 
+              className="w-full h-32 object-cover"
+              loading="lazy"
+              decoding="async"
+            />
           </div>
         </div>
       )}

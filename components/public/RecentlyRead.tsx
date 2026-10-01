@@ -55,7 +55,13 @@ export default function RecentlyRead() {
           >
             <div className="aspect-[2/3] rounded-xl overflow-hidden bg-gray-100 shadow-sm group-hover:shadow-md transition-all group-hover:-translate-y-0.5">
               {book.coverUrl ? (
-                <img src={book.coverUrl} alt={book.title} className="w-full h-full object-cover" />
+                <img 
+                  src={book.coverUrl} 
+                  alt={book.title} 
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                  decoding="async"
+                />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-[8px] text-gray-400 p-1 text-center bg-gray-50">
                   {book.title.slice(0, 10)}

@@ -208,7 +208,13 @@ export default function TambahSekolahPage() {
             </div>
             {preview && (
               <div className="mt-3">
-                <img src={preview} alt="Preview" className="w-20 h-20 object-cover rounded-lg border" />
+                <img 
+                  src={preview} 
+                  alt="Preview" 
+                  className="w-20 h-20 object-cover rounded-lg border"
+                  loading="eager"
+                  decoding="async"
+                />
               </div>
             )}
             <p className="text-[8px] text-gray-400 mt-1">

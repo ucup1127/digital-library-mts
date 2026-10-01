@@ -39,13 +39,12 @@ export default async function BacaBukuPage({
       {/* VIEWER: PDF Full Screen */}
       <div className="flex-1 w-full h-full bg-black">
         <iframe 
-          src={`${book.fileUrl}#toolbar=0&navpanes=0&scrollbar=1`} 
+          src={`/api/pdf${book.fileUrl?.replace("/uploads/", "/")}#toolbar=0&navpanes=0&scrollbar=1`} 
           className="w-full h-full border-none shadow-2xl"
           style={{ height: '100vh' }}
           title={book.title}
         />
       </div>
-
       {/* FOOTER WATERMARK */}
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 pointer-events-none opacity-20">
         <p className="text-[7px] font-black text-white uppercase tracking-[1em] italic">

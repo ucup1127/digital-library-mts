@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import StatsChart from "@/components/admin/StatsChart";
+import dynamic from "next/dynamic";
 import toast from "react-hot-toast";
 import { 
   BookOpen, 
@@ -39,6 +39,18 @@ interface DashboardData {
   categoryStats: { name: string; count: number }[];
   loanStatus: { name: string; value: number }[];
 }
+
+const StatsChart = dynamic(
+  () => import("@/components/admin/StatsChart"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-64 bg-gray-50 rounded-xl animate-pulse flex items-center justify-center">
+        <span className="text-gray-400 text-xs">Memuat chart...</span>
+      </div>
+    ),
+  }
+);
 
 export default function AdminDashboard() {
   const router = useRouter();

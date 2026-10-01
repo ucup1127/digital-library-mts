@@ -5,7 +5,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import * as XLSX from "xlsx"; 
 import { logger } from "@/lib/logger";
 
 interface School {
@@ -50,7 +49,7 @@ export default function ImportBukuPage() {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       setFile(e.dataTransfer.files[0]);
     }
@@ -64,31 +63,31 @@ export default function ImportBukuPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!file) {
       toast.error("Pilih file Excel terlebih dahulu!");
       return;
     }
-    
+
     if (!schoolId) {
       toast.error("Pilih sekolah terlebih dahulu!");
       return;
     }
-    
+
     setLoading(true);
-    
+
     const formData = new FormData();
     formData.append("file", file);
     formData.append("schoolId", schoolId);
-    
+
     try {
       const res = await fetch("/api/admin/import-buku", {
         method: "POST",
         body: formData,
       });
-      
+
       const data = await res.json();
-      
+
       if (res.ok) {
         toast.success(data.message);
         if (data.successCount > 0) {
@@ -99,7 +98,7 @@ export default function ImportBukuPage() {
       } else {
         toast.error(data.error || "Gagal import buku");
       }
-      
+
       if (data.errors && data.errors.length > 0) {
         logger.log("Errors:", data.errors);
         toast.error(`${data.errors.length} error terjadi. Cek console untuk detail.`);
@@ -111,8 +110,11 @@ export default function ImportBukuPage() {
     }
   };
 
-  // Download template Excel
-  const downloadTemplate = () => {
+  // Download template Excel — 🔥 LAZY LOAD xlsx
+  const downloadTemplate = async () => {
+    // 🔥 Dynamic import — xlsx cuma di-load saat tombol diklik
+    const XLSX = await import("xlsx");
+
     const template = [
       {
         "Judul Buku": "Contoh Buku Matematika",
@@ -133,7 +135,7 @@ export default function ImportBukuPage() {
         "File URL": "",
       },
     ];
-    
+
     const worksheet = XLSX.utils.json_to_sheet(template);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Template Buku");
@@ -162,7 +164,7 @@ export default function ImportBukuPage() {
             <div>
               <h3 className="font-bold text-blue-800">📥 Download Template</h3>
               <p className="text-xs text-blue-600 mt-1">
-              Gunakan template ini sebagai format file Excel yang benar
+                Gunakan template ini sebagai format file Excel yang benar
               </p>
             </div>
             <button

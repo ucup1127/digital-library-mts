@@ -63,3 +63,7 @@ pdf-orphan-backup/
 
 # Backup PDF before compress
 pdf-before-compress-backup/
+
+# File test compress (jangan commit)
+pdf-compress-test/
+pdf-info.js

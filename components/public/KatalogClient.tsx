@@ -53,11 +53,13 @@ export default function KatalogClient({ allBooks, categories }: any) {
               {/* Ukuran diperkecil dengan rounded yang disesuaikan */}
               <div className="relative aspect-[3/4] rounded-[18px] overflow-hidden bg-gray-50 mb-3 shadow-sm group-hover:shadow-xl transition-all duration-500 border border-gray-100">
                 {book.coverUrl ? (
-                  <img 
-                    src={book.coverUrl} 
-                    className="w-full h-full object-cover transition duration-700 group-hover:scale-110" 
-                    alt={book.title} 
-                  />
+                 <img 
+                  src={book.coverUrl} 
+                  className="w-full h-full object-cover transition duration-700 group-hover:scale-110" 
+                  alt={book.title} 
+                  loading="lazy"
+                  decoding="async"
+                />
                 ) : (
                   <div className="absolute inset-0 flex items-center justify-center text-[7px] text-gray-300 font-black uppercase p-2 text-center italic">
                     {book.title}

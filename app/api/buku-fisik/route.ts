@@ -36,16 +36,19 @@ export async function GET(request: Request) {
       ];
     }
 
-    const totalItems = await db.bukuFisik.count({ where });
-    const totalPages = Math.ceil(totalItems / limit);
     const skip = (page - 1) * limit;
 
-    const bukuFisik = await db.bukuFisik.findMany({
-      where,
-      orderBy: { judul: "asc" },
-      skip,
-      take: limit,
-    });
+    const [totalItems, bukuFisik] = await Promise.all([
+      db.bukuFisik.count({ where }),
+      db.bukuFisik.findMany({
+        where,
+        orderBy: { judul: "asc" },
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / limit);
 
     return NextResponse.json({
       books: bukuFisik,

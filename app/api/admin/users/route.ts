@@ -53,11 +53,11 @@ export async function GET(request: Request) {
       ];
     }
 
-    const totalItems = await db.user.count({ where });
-    const totalPages = Math.ceil(totalItems / limit);
     const skip = (page - 1) * limit;
 
-    const users = await db.user.findMany({
+  const [totalItems, users] = await Promise.all([
+    db.user.count({ where }),
+    db.user.findMany({
       where,
       orderBy: { createdAt: "desc" },
       skip,
@@ -75,7 +75,10 @@ export async function GET(request: Request) {
         isActive: true,
         graduatedAt: true,
       },
-    });
+       }),
+    ]);
+
+  const totalPages = Math.ceil(totalItems / limit);
 
     logger.log(`✅ Menemukan ${users.length} user dari total ${totalItems}`);
 

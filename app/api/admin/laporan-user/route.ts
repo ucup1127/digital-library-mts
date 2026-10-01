@@ -51,16 +51,27 @@ export async function GET(request: Request) {
       where.userId = { not: null };
     }
 
-    const totalItems = await db.visitorLog.count({ where });
-    const totalPages = Math.ceil(totalItems / limit);
     const skip = (page - 1) * limit;
 
-    const activities = await db.visitorLog.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip,
-      take: limit,
-    });
+    const [totalItems, activities] = await Promise.all([
+      db.visitorLog.count({ where }),
+      db.visitorLog.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          createdAt: true,
+          userEmail: true,
+          action: true,
+          bookTitle: true,
+          ipAddress: true,
+        },
+      }),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / limit);
 
     logger.log(`✅ Menemukan ${activities.length} dari ${totalItems} aktivitas`);
 

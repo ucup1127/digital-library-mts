@@ -70,19 +70,20 @@ export async function GET(request: Request) {
         orderBy = { createdAt: "desc" };
     }
 
-    const books = await db.book.findMany({
-      where,
-      include: {
-        categories: {
-          include: { category: true },
+    const [books, total] = await Promise.all([
+      db.book.findMany({
+        where,
+        include: {
+          categories: {
+            include: { category: true },
+          },
         },
-      },
-      orderBy,
-      skip: (page - 1) * limit,
-      take: limit,
-    });
-
-    const total = await db.book.count({ where });
+        orderBy,
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      db.book.count({ where }),
+    ]);
 
     return NextResponse.json({
       books,

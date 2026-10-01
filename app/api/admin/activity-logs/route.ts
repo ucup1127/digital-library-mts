@@ -65,16 +65,29 @@ export async function GET(request: Request) {
       ];
     }
 
-    const totalItems = await db.adminLog.count({ where });
-    const totalPages = Math.ceil(totalItems / limit);
     const skip = (page - 1) * limit;
 
-    const activities = await db.adminLog.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip,
-      take: limit,
-    });
+    const [totalItems, activities] = await Promise.all([
+      db.adminLog.count({ where }),
+      db.adminLog.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          createdAt: true,
+          adminName: true,
+          adminEmail: true,
+          action: true,
+          targetType: true,
+          targetName: true,
+          changes: true,
+        },
+      }),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / limit);
 
     logger.log(`✅ Menemukan ${activities.length} dari ${totalItems} aktivitas`);
 

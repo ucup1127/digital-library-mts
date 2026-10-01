@@ -58,3 +58,5 @@ backups/
 file-kosong.txt
 dependency-usage.txt
 struktur-*.txt
+# Backup PDF orphan (jangan commit)
+pdf-orphan-backup/

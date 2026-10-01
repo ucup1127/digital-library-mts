@@ -5,6 +5,7 @@ import { requireAdmin, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { createBookSchema, formatZodError } from "@/lib/validations";
 import { logAdminActivityServer } from "@/lib/admin-log-server";
+import { revalidateTag } from "next/cache";
 
 export async function GET(request: Request) {
   try {
@@ -16,36 +17,35 @@ export async function GET(request: Request) {
     const sortBy = searchParams.get("sort") || "newest";
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "20");
-    
+
     const where: any = {};
-    
+
     if (schoolId) {
       where.schoolId = schoolId;
     } else {
-      // Kalau nggak ada schoolId, return kosong
       return NextResponse.json({
         books: [],
         pagination: { currentPage: page, totalPages: 0, totalItems: 0 },
       });
     }
-    
+
     if (search) {
       where.OR = [
         { title: { contains: search, mode: "insensitive" } },
         { author: { contains: search, mode: "insensitive" } },
       ];
     }
-    
+
     if (categoryId && categoryId !== "all") {
       where.categories = {
-        some: { categoryId: categoryId }
+        some: { categoryId: categoryId },
       };
     }
-    
+
     if (year) {
       where.year = year;
     }
-    
+
     let orderBy: any = {};
     switch (sortBy) {
       case "newest":
@@ -69,21 +69,21 @@ export async function GET(request: Request) {
       default:
         orderBy = { createdAt: "desc" };
     }
-    
+
     const books = await db.book.findMany({
       where,
       include: {
         categories: {
-          include: { category: true }
-        }
+          include: { category: true },
+        },
       },
       orderBy,
       skip: (page - 1) * limit,
       take: limit,
     });
-    
+
     const total = await db.book.count({ where });
-    
+
     return NextResponse.json({
       books,
       pagination: {
@@ -103,7 +103,6 @@ export async function POST(request: Request) {
     await requireAdmin();
     const body = await request.json();
 
-    // 🔥 Validasi pakai Zod
     const parseResult = createBookSchema.safeParse(body);
     if (!parseResult.success) {
       return NextResponse.json(
@@ -112,7 +111,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const { title, author, description, coverUrl, fileUrl, year, schoolId, categories } = parseResult.data;
+    const { title, author, description, coverUrl, fileUrl, year, schoolId, categories } =
+      parseResult.data;
 
     const book = await db.book.create({
       data: {
@@ -142,6 +142,9 @@ export async function POST(request: Request) {
       targetId: book.id,
       targetName: book.title,
     });
+
+    // 🔥 Invalidate cache
+    revalidateTag("admin-stats", "max");
 
     return NextResponse.json(book, { status: 201 });
   } catch (error) {

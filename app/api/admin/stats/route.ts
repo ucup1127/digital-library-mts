@@ -151,7 +151,7 @@ const getCachedStats = unstable_cache(
     };
   },
   ["admin-stats"],
-  { revalidate: 300, tags: ["admin-stats"] }
+  { revalidate: 60, tags: ["admin-stats"] }
 );
 
 export async function GET(request: Request) {

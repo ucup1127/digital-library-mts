@@ -6,6 +6,7 @@ import { requireAdmin, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { adminUpdateUserSchema, formatZodError } from "@/lib/validations";
 import { logAdminActivityServer } from "@/lib/admin-log-server";
+import { revalidateTag } from "next/cache";
 
 // ============================================
 // PATCH — Aktifkan / Nonaktifkan user (Soft Delete)
@@ -19,8 +20,6 @@ export async function PATCH(
     const { id } = await params;
     const body = await req.json();
     const { isActive } = body;
-
-    logger.log("📌 PATCH User - id:", id, "isActive:", isActive);
 
     if (typeof isActive !== "boolean") {
       return NextResponse.json({ error: "Status tidak valid" }, { status: 400 });
@@ -55,7 +54,8 @@ export async function PATCH(
       changes: { isActive },
     });
 
-    logger.log("✅ User status updated - id:", user.id, "isActive:", user.isActive);
+    // 🔥 Invalidate cache
+    revalidateTag("admin-stats", "max");
 
     return NextResponse.json(user);
   } catch (error) {
@@ -79,7 +79,6 @@ export async function PUT(
     const { id } = await params;
     const body = await req.json();
 
-    // 🔥 Validasi pakai Zod
     const parseResult = adminUpdateUserSchema.safeParse(body);
     if (!parseResult.success) {
       return NextResponse.json(
@@ -89,8 +88,6 @@ export async function PUT(
     }
 
     const { name, email, role, className, password } = parseResult.data;
-
-    logger.log("📌 PUT User - id:", id);
 
     // 🔥 Hanya SUPER_ADMIN yang bisa ubah role ke ADMIN atau SUPER_ADMIN
     if (
@@ -103,7 +100,6 @@ export async function PUT(
       );
     }
 
-    // Cek email tidak bentrok dengan user lain
     const existingUser = await db.user.findFirst({
       where: {
         email,
@@ -115,7 +111,6 @@ export async function PUT(
       return NextResponse.json({ error: "Email sudah digunakan user lain!" }, { status: 400 });
     }
 
-    // Siapkan data update
     const updateData: any = {
       name,
       email,
@@ -156,7 +151,8 @@ export async function PUT(
       },
     });
 
-    logger.log("✅ User updated - id:", updatedUser.id);
+    // 🔥 Invalidate cache
+    revalidateTag("admin-stats", "max");
 
     return NextResponse.json(updatedUser);
   } catch (error) {

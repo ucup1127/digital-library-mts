@@ -5,8 +5,9 @@ import { requireAdmin, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { createBukuFisikSchema, formatZodError } from "@/lib/validations";
 import { logAdminActivityServer } from "@/lib/admin-log-server";
+import { revalidateTag } from "next/cache";
 
-// GET - Ambil daftar buku fisik dengan pagination dan filter schoolId
+// GET - Ambil daftar buku fisik
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -14,23 +15,18 @@ export async function GET(request: Request) {
     const search = searchParams.get("search") || "";
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "10");
-    
-    logger.log("📚 GET Buku Fisik - schoolId:", schoolId, "page:", page, "limit:", limit);
-    
+
     const where: any = {};
-    
-    // Filter berdasarkan schoolId
+
     if (schoolId && schoolId !== "") {
       where.schoolId = schoolId;
     } else {
-      // Jika tidak ada schoolId, return empty (untuk SUPER_ADMIN yang belum pilih sekolah)
       return NextResponse.json({
         books: [],
         pagination: { currentPage: page, pageSize: limit, totalPages: 1, totalItems: 0 },
       });
     }
-    
-    // Filter pencarian
+
     if (search) {
       where.OR = [
         { judul: { contains: search, mode: "insensitive" } },
@@ -39,22 +35,18 @@ export async function GET(request: Request) {
         { barcode: { contains: search, mode: "insensitive" } },
       ];
     }
-    
-    // Hitung total data
+
     const totalItems = await db.bukuFisik.count({ where });
     const totalPages = Math.ceil(totalItems / limit);
     const skip = (page - 1) * limit;
-    
-    // Ambil data dengan pagination
+
     const bukuFisik = await db.bukuFisik.findMany({
       where,
       orderBy: { judul: "asc" },
       skip,
       take: limit,
     });
-    
-   logger.log(`✅ Menemukan ${bukuFisik.length} dari ${totalItems} buku`);
-    
+
     return NextResponse.json({
       books: bukuFisik,
       pagination: {
@@ -79,7 +71,6 @@ export async function POST(request: Request) {
     await requireAdmin();
     const body = await request.json();
 
-    // 🔥 Validasi pakai Zod
     const parseResult = createBukuFisikSchema.safeParse(body);
     if (!parseResult.success) {
       return NextResponse.json(
@@ -88,9 +79,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const { judul, penulis, penerbit, tahun, isbn, lokasiRak, stok, deskripsi, schoolId } = parseResult.data;
-
-    logger.log("📝 POST Buku Fisik - judul:", judul, "schoolId:", schoolId);
+    const { judul, penulis, penerbit, tahun, isbn, lokasiRak, stok, deskripsi, schoolId } =
+      parseResult.data;
 
     // Generate barcode
     const timestamp = Date.now().toString().slice(-8);
@@ -122,7 +112,8 @@ export async function POST(request: Request) {
       targetName: bukuFisik.judul,
     });
 
-    logger.log("✅ Buku Fisik created:", bukuFisik.id, "barcode:", barcode);
+    // 🔥 Invalidate cache
+    revalidateTag("admin-stats", "max");
 
     return NextResponse.json(bukuFisik, { status: 201 });
   } catch (error) {
@@ -131,6 +122,5 @@ export async function POST(request: Request) {
     }
     logger.error("Error creating buku fisik:", error);
     return NextResponse.json({ error: "Gagal menambah buku" }, { status: 500 });
-    // ← FIX: hapus " + (error as Error).message"
   }
 }

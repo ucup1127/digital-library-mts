@@ -5,7 +5,9 @@ import { requireAuth, requireAdmin, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { createPeminjamanSchema, returnPeminjamanSchema, formatZodError } from "@/lib/validations";
 import { logAdminActivityServer } from "@/lib/admin-log-server";
-// GET - Ambil daftar peminjaman dengan filter schoolId
+import { revalidateTag } from "next/cache";
+
+// GET - Ambil daftar peminjaman
 export async function GET(request: Request) {
   try {
     const session = await requireAuth();
@@ -16,11 +18,9 @@ export async function GET(request: Request) {
 
     const where: any = {};
 
-    // USER biasa: cuma lihat miliknya
     if (session.role !== "ADMIN" && session.role !== "SUPER_ADMIN") {
       where.userId = session.userId;
     } else if (userId) {
-      // Admin bisa filter by userId
       where.userId = userId;
     }
 
@@ -42,7 +42,6 @@ export async function GET(request: Request) {
             email: true,
             memberId: true,
             className: true,
-            // ❌ password TIDAK di-select
           },
         },
         bukuFisik: {
@@ -56,8 +55,6 @@ export async function GET(request: Request) {
       },
       orderBy: { tglPinjam: "desc" },
     });
-
-    logger.log(`✅ Menemukan ${peminjaman.length} peminjaman`);
 
     return NextResponse.json(peminjaman);
   } catch (error) {
@@ -75,10 +72,9 @@ export async function GET(request: Request) {
 // POST - Pinjam buku fisik
 export async function POST(request: Request) {
   try {
-    const session = await requireAdmin();
+    await requireAdmin();
     const body = await request.json();
 
-    // 🔥 Validasi pakai Zod
     const parseResult = createPeminjamanSchema.safeParse(body);
     if (!parseResult.success) {
       return NextResponse.json(
@@ -89,7 +85,6 @@ export async function POST(request: Request) {
 
     const { userId, bukuFisikId } = parseResult.data;
 
-    // TRANSAKSI — anti race condition stok
     const peminjaman = await db.$transaction(async (tx) => {
       const user = await tx.user.findUnique({ where: { id: userId } });
       if (!user) throw new Error("User tidak ditemukan");
@@ -150,6 +145,9 @@ export async function POST(request: Request) {
       targetName: `${peminjaman.bukuFisik.judul} - ${peminjaman.user.name}`,
     });
 
+    // 🔥 Invalidate cache
+    revalidateTag("admin-stats", "max");
+
     return NextResponse.json(peminjaman, { status: 201 });
   } catch (error) {
     if (error instanceof AuthError) {
@@ -170,7 +168,6 @@ export async function PUT(request: Request) {
     await requireAdmin();
     const body = await request.json();
 
-    // 🔥 Validasi pakai Zod
     const parseResult = returnPeminjamanSchema.safeParse(body);
     if (!parseResult.success) {
       return NextResponse.json(
@@ -195,7 +192,6 @@ export async function PUT(request: Request) {
         throw new Error("Buku sudah dikembalikan sebelumnya");
       }
 
-      // Hitung denda
       let denda = 0;
       const today = new Date();
       const tglKembali = new Date(peminjaman.tglKembali);
@@ -238,6 +234,9 @@ export async function PUT(request: Request) {
       targetName: `${updated.bukuFisik.judul} - ${updated.user.name}`,
       changes: { denda: updated.denda },
     });
+
+    // 🔥 Invalidate cache
+    revalidateTag("admin-stats", "max");
 
     return NextResponse.json(updated);
   } catch (error) {

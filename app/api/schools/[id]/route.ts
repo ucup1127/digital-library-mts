@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireSuperAdmin, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
+import { revalidateTag } from "next/cache";
 
 // GET - Ambil detail sekolah
 export async function GET(
@@ -11,7 +12,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    
+
     const school = await db.school.findUnique({
       where: { id },
       include: {
@@ -19,11 +20,11 @@ export async function GET(
         books: { select: { id: true } },
       },
     });
-    
+
     if (!school) {
       return NextResponse.json({ error: "Sekolah tidak ditemukan" }, { status: 404 });
     }
-    
+
     return NextResponse.json(school);
   } catch (error) {
     logger.error("GET error:", error);
@@ -41,29 +42,35 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
     const { name, slug, logo } = body;
-    
+
     if (!name || !slug) {
       return NextResponse.json({ error: "Nama dan slug harus diisi" }, { status: 400 });
     }
-    
+
     const updatedSchool = await db.school.update({
       where: { id },
-      data: { 
-        name, 
+      data: {
+        name,
         slug,
         logo: logo || null,
       },
     });
-    
+
+    // 🔥 Invalidate cache
+    revalidateTag("schools", "max");
+    revalidateTag("schools-public", "max");
+    revalidateTag("admin-stats", "max");
+    revalidateTag("school-profile", "max");
+
     return NextResponse.json(updatedSchool);
-    } catch (error) {
-        if (error instanceof AuthError) {
-          return NextResponse.json({ error: error.message }, { status: error.status });
-        }
-        logger.error("Update school error:", error);
-        return NextResponse.json({ error: "Gagal memperbarui sekolah" }, { status: 500 });
-      }
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
     }
+    logger.error("Update school error:", error);
+    return NextResponse.json({ error: "Gagal memperbarui sekolah" }, { status: 500 });
+  }
+}
 
 // DELETE - Hapus sekolah
 export async function DELETE(
@@ -71,9 +78,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireSuperAdmin(); 
+    await requireSuperAdmin();
     const { id } = await params;
-    
+
     const school = await db.school.findUnique({
       where: { id },
       include: {
@@ -81,26 +88,32 @@ export async function DELETE(
         books: { select: { id: true } },
       },
     });
-    
+
     if (!school) {
       return NextResponse.json({ error: "Sekolah tidak ditemukan" }, { status: 404 });
     }
-    
+
     await db.school.delete({
       where: { id },
     });
-    
-    return NextResponse.json({ 
-      success: true, 
+
+    // 🔥 Invalidate cache
+    revalidateTag("schools", "max");
+    revalidateTag("schools-public", "max");
+    revalidateTag("admin-stats", "max");
+    revalidateTag("school-profile", "max");
+
+    return NextResponse.json({
+      success: true,
       message: `Sekolah "${school.name}" berhasil dihapus`,
       deletedUsers: school.users.length,
       deletedBooks: school.books.length,
     });
-    } catch (error) {
-        if (error instanceof AuthError) {
-          return NextResponse.json({ error: error.message }, { status: error.status });
-        }
-        logger.error("Delete school error:", error);
-        return NextResponse.json({ error: "Gagal menghapus sekolah" }, { status: 500 });
-      }
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
     }
+    logger.error("Delete school error:", error);
+    return NextResponse.json({ error: "Gagal menghapus sekolah" }, { status: 500 });
+  }
+}

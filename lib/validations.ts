@@ -6,44 +6,75 @@ import { z } from "zod";
 // ============================================
 
 export const loginSchema = z.object({
-  email: z
-    .string({ message: "Email wajib diisi" })
-    .min(1, "Email wajib diisi")
-    .email("Format email tidak valid")
-    .max(255, "Email terlalu panjang")
-    .toLowerCase()
-    .trim(),
+  login: z
+    .string({ message: "Username/Email wajib diisi" })
+    .min(1, "Username/Email wajib diisi")
+    .max(255, "Username/Email terlalu panjang")
+    .trim()
+    .toLowerCase(),
   password: z
     .string({ message: "Password wajib diisi" })
     .min(1, "Password wajib diisi")
     .max(100, "Password terlalu panjang"),
-  role: z.enum(["ADMIN", "USER"], {
-    message: "Role tidak valid",
-  }).optional(),
+  type: z.enum(["user", "admin"], {
+    message: "Tipe login tidak valid",
+  }),
   rememberMe: z.boolean().optional(),
 });
 
-export const registerSchema = z.object({
-  name: z
-    .string({ message: "Nama wajib diisi" })
-    .min(1, "Nama wajib diisi")
-    .max(100, "Nama maksimal 100 karakter")
-    .trim(),
-  email: z
-    .string({ message: "Email wajib diisi" })
-    .min(1, "Email wajib diisi")
-    .email("Format email tidak valid")
-    .max(255, "Email terlalu panjang")
-    .toLowerCase()
-    .trim(),
-  password: z
-    .string({ message: "Password wajib diisi" })
-    .min(6, "Password minimal 6 karakter")
-    .max(100, "Password maksimal 100 karakter"),
-  schoolId: z
-    .string({ message: "Sekolah wajib dipilih" })
-    .min(1, "Sekolah wajib dipilih"),
-});
+const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
+
+export const registerSchema = z
+  .object({
+    nisn: z
+      .string({ message: "NISN wajib diisi" })
+      .length(10, "NISN harus 10 digit")
+      .regex(/^\d{10}$/, "NISN harus 10 digit angka")
+      .trim(),
+    name: z
+      .string({ message: "Nama wajib diisi" })
+      .min(2, "Nama minimal 2 karakter")
+      .max(100, "Nama maksimal 100 karakter")
+      .trim(),
+    className: z
+      .string({ message: "Kelas wajib diisi" })
+      .min(1, "Kelas wajib diisi")
+      .max(50, "Kelas maksimal 50 karakter")
+      .trim(),
+    username: z
+      .string({ message: "Username wajib diisi" })
+      .min(4, "Username minimal 4 karakter")
+      .max(20, "Username maksimal 20 karakter")
+      .regex(/^[a-z0-9_]+$/, "Username hanya boleh huruf kecil, angka, dan underscore")
+      .trim()
+      .toLowerCase(),
+    password: z
+      .string({ message: "Password wajib diisi" })
+      .min(8, "Password minimal 8 karakter")
+      .max(100, "Password maksimal 100 karakter")
+      .regex(
+        passwordRegex,
+        "Password harus mengandung huruf besar, huruf kecil, angka, dan simbol"
+      ),
+    confirmPassword: z
+      .string({ message: "Konfirmasi password wajib diisi" })
+      .min(1, "Konfirmasi password wajib diisi"),
+    schoolId: z
+      .string({ message: "Sekolah wajib dipilih" })
+      .min(1, "Sekolah wajib dipilih"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Password dan konfirmasi password tidak cocok",
+    path: ["confirmPassword"],
+  })
+  .refine((data) => data.password !== data.username, {
+    message: "Password tidak boleh sama dengan username",
+    path: ["password"],
+  })
+  .refine((data) => data.password !== data.nisn, {
+    message: "Password tidak boleh sama dengan NISN",
+    path: ["password"],
+  });
 
 // ============================================
 // 👥 ADMIN — USER MANAGEMENT
@@ -51,12 +82,27 @@ export const registerSchema = z.object({
 
 export const createUserSchema = z.object({
   email: z
-    .string({ message: "Email wajib diisi" })
-    .min(1, "Email wajib diisi")
+    .string()
     .email("Format email tidak valid")
     .max(255, "Email terlalu panjang")
     .toLowerCase()
-    .trim(),
+    .trim()
+    .optional()
+    .or(z.literal("")),
+  username: z
+    .string({ message: "Username wajib diisi" })
+    .min(4, "Username minimal 4 karakter")
+    .max(20, "Username maksimal 20 karakter")
+    .regex(/^[a-z0-9_]+$/, "Username hanya boleh huruf kecil, angka, dan underscore")
+    .trim()
+    .toLowerCase(),
+  nisn: z
+    .string()
+    .length(10, "NISN harus 10 digit")
+    .regex(/^\d{10}$/, "NISN harus 10 digit angka")
+    .trim()
+    .optional()
+    .or(z.literal("")),
   password: z
     .string({ message: "Password wajib diisi" })
     .min(6, "Password minimal 6 karakter")
@@ -67,7 +113,7 @@ export const createUserSchema = z.object({
     .trim()
     .optional()
     .or(z.literal("")),
-    role: z.enum(["USER", "ADMIN", "SUPER_ADMIN"], {
+  role: z.enum(["USER", "ADMIN", "SUPER_ADMIN"], {
     message: "Role tidak valid",
   }).default("USER"),
   className: z
@@ -256,12 +302,29 @@ export const adminUpdateUserSchema = z.object({
     .max(100, "Nama maksimal 100 karakter")
     .trim(),
   email: z
-    .string({ message: "Email wajib diisi" })
-    .min(1, "Email wajib diisi")
+    .string()
     .email("Format email tidak valid")
     .max(255, "Email terlalu panjang")
     .toLowerCase()
-    .trim(),
+    .trim()
+    .optional()
+    .or(z.literal("")),
+  username: z
+    .string()
+    .min(4, "Username minimal 4 karakter")
+    .max(20, "Username maksimal 20 karakter")
+    .regex(/^[a-z0-9_]+$/, "Username hanya boleh huruf kecil, angka, dan underscore")
+    .trim()
+    .toLowerCase()
+    .optional()
+    .or(z.literal("")),
+  nisn: z
+    .string()
+    .length(10, "NISN harus 10 digit")
+    .regex(/^\d{10}$/, "NISN harus 10 digit angka")
+    .trim()
+    .optional()
+    .or(z.literal("")),
   role: z.enum(["USER", "ADMIN", "SUPER_ADMIN"], {
     message: "Role tidak valid",
   }),

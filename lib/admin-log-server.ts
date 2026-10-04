@@ -16,19 +16,19 @@ export async function logAdminActivityServer(data: LogData) {
     }
 
     await db.adminLog.create({
-      data: {
-        adminId: session.userId,
-        adminName: session.name ?? "Unknown",
-        adminEmail: session.email,
-        adminRole: session.role,
-        schoolId: session.schoolId,
-        action: data.action,
-        targetType: data.targetType,
-        targetId: data.targetId ?? null,
-        targetName: data.targetName ?? null,
-        changes: data.changes ?? undefined,
-      },
-    });
+    data: {
+      adminId: session.userId,
+      adminName: session.name ?? "Unknown",
+      adminEmail: session.email ?? "",   // ← handle null
+      adminRole: session.role,
+      schoolId: session.schoolId,
+      action: data.action,
+      targetType: data.targetType,
+      targetId: data.targetId ?? null,
+      targetName: data.targetName ?? null,
+      changes: data.changes ?? undefined,
+    },
+  });
   } catch (error) {
     logger.error("Failed to log admin activity (server):", error);
   }

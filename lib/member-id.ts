@@ -3,15 +3,17 @@ import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 
 /**
- * Generate memberId unik untuk user di sekolah tertentu.
+ * Generate memberId unik untuk ADMIN/SUPER_ADMIN di sekolah tertentu.
  * Format: MTS001, MTS002, dst.
+ * 
+ * ⚠️ Untuk SISWA (role USER), memberId = NISN (di-handle di register route).
  */
-export async function generateMemberId(schoolId: string): Promise<string> {
-  // Ambil semua memberId di sekolah ini
+export async function generateMemberId(schoolId: string | null): Promise<string> {
+  // Ambil semua memberId yang format MTSxxx (admin only)
   const allUsers = await db.user.findMany({
     where: {
-      schoolId,
-      memberId: { not: null },
+      schoolId: schoolId || undefined,
+      memberId: { startsWith: "MTS" },
     },
     select: { memberId: true },
   });
@@ -35,7 +37,7 @@ export async function generateMemberId(schoolId: string): Promise<string> {
   const maxAttempts = 5;
   while (attempts < maxAttempts) {
     const existing = await db.user.findFirst({
-      where: { memberId, schoolId },
+      where: { memberId },
       select: { id: true },
     });
 
@@ -45,6 +47,6 @@ export async function generateMemberId(schoolId: string): Promise<string> {
     memberId = `MTS${String(newNumber + attempts).padStart(3, "0")}`;
   }
 
-  logger.log(`📌 Generated memberId: ${memberId}`);
+  logger.log(`📌 Generated memberId (admin): ${memberId}`);
   return memberId;
 }

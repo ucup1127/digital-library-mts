@@ -23,56 +23,78 @@ export async function POST(request: Request) {
       );
     }
 
-    const { email, password, role, rememberMe } = parseResult.data;
+    const { login, password, type, rememberMe } = parseResult.data;
 
     // 🔥 Cek rate limit
     const ip = getClientIp(request);
-    const rateKey = `login:${ip}:${email}`;
+    const rateKey = `login:${ip}:${login}`;
     const rateCheck = checkRateLimit(rateKey, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
 
     if (!rateCheck.allowed) {
-      logger.log(`🚫 Rate limit exceeded: ${ip} - ${email}`);
+      logger.log(`🚫 Rate limit exceeded: ${ip} - ${login}`);
       return NextResponse.json(
         {
           error: `Terlalu banyak percobaan login. Coba lagi dalam ${Math.ceil((rateCheck.retryAfter || 0) / 60)} menit.`,
         },
         {
           status: 429,
-          headers: {
-            "Retry-After": String(rateCheck.retryAfter || 60),
-          },
+          headers: { "Retry-After": String(rateCheck.retryAfter || 60) },
         }
       );
     }
 
-    const user = await db.user.findUnique({ where: { email } });
+    // 🔥 Cari user berdasarkan tipe login
+    let user = null;
+
+    if (type === "user") {
+      // Siswa: cari di username, role harus USER
+      user = await db.user.findUnique({
+        where: { username: login },
+      });
+
+      if (!user || user.role !== "USER") {
+        return NextResponse.json(
+          { error: "Username atau password salah" },
+          { status: 401 }
+        );
+      }
+    } else if (type === "admin") {
+      // Admin: cari di email ATAU username, role ADMIN/SUPER_ADMIN
+      user = await db.user.findFirst({
+        where: {
+          OR: [{ email: login }, { username: login }],
+          role: { in: ["ADMIN", "SUPER_ADMIN"] },
+        },
+      });
+
+      if (!user) {
+        return NextResponse.json(
+          { error: "Email/Username atau password salah" },
+          { status: 401 }
+        );
+      }
+    }
 
     if (!user) {
       return NextResponse.json(
-        { error: "Email atau password salah" },
+        { error: "Username atau password salah" },
         { status: 401 }
       );
     }
 
-    // Cek role
-    if (role === "ADMIN" && user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") {
+    // 🔥 Cek user aktif
+    if (!user.isActive) {
       return NextResponse.json(
-        { error: "Akses ditolak. Bukan admin." },
+        { error: "Akun Anda tidak aktif. Hubungi admin." },
         { status: 403 }
       );
     }
 
-    if (role === "USER" && user.role !== "USER") {
-      return NextResponse.json(
-        { error: "Akses ditolak. Bukan user." },
-        { status: 403 }
-      );
-    }
-
+    // 🔥 Cek password
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) {
       return NextResponse.json(
-        { error: "Email atau password salah" },
+        { error: type === "user" ? "Username atau password salah" : "Email/Username atau password salah" },
         { status: 401 }
       );
     }
@@ -103,7 +125,10 @@ export async function POST(request: Request) {
         id: user.id,
         name: user.name,
         email: user.email,
+        username: user.username,
+        nisn: user.nisn,
         role: user.role,
+        memberId: user.memberId,
         schoolId: user.schoolId,
         schoolName: schoolData?.name || "",
         schoolSlug: schoolData?.slug || "",

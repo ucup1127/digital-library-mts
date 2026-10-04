@@ -23,11 +23,8 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get("limit") || "10");
     const status = searchParams.get("status");
 
-    logger.log("📥 GET Users - schoolId:", schoolId, "status:", status);
-
     const where: any = {};
 
-    // 🔥 Filter berdasarkan status
     if (status === "active") {
       where.isActive = true;
     } else if (status === "inactive") {
@@ -49,47 +46,44 @@ export async function GET(request: Request) {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
         { email: { contains: search, mode: "insensitive" } },
+        { username: { contains: search, mode: "insensitive" } },
+        { nisn: { contains: search, mode: "insensitive" } },
         { memberId: { contains: search, mode: "insensitive" } },
       ];
     }
 
     const skip = (page - 1) * limit;
 
-  const [totalItems, users] = await Promise.all([
-    db.user.count({ where }),
-    db.user.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      skip,
-      take: limit,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        className: true,
-        createdAt: true,
-        schoolId: true,
-        memberId: true,
-        barcode: true,
-        isActive: true,
-        graduatedAt: true,
-      },
-       }),
+    const [totalItems, users] = await Promise.all([
+      db.user.count({ where }),
+      db.user.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          username: true,
+          nisn: true,
+          role: true,
+          className: true,
+          createdAt: true,
+          schoolId: true,
+          memberId: true,
+          barcode: true,
+          isActive: true,
+          graduatedAt: true,
+        },
+      }),
     ]);
 
-  const totalPages = Math.ceil(totalItems / limit);
-
-    logger.log(`✅ Menemukan ${users.length} user dari total ${totalItems}`);
+    const totalPages = Math.ceil(totalItems / limit);
 
     return NextResponse.json({
       users,
-      pagination: {
-        currentPage: page,
-        pageSize: limit,
-        totalPages,
-        totalItems,
-      },
+      pagination: { currentPage: page, pageSize: limit, totalPages, totalItems },
     });
   } catch (error) {
     if (error instanceof AuthError) {
@@ -111,7 +105,6 @@ export async function POST(request: Request) {
     const session = await requireAdmin();
     const body = await request.json();
 
-    // 🔥 Validasi pakai Zod
     const parseResult = createUserSchema.safeParse(body);
     if (!parseResult.success) {
       return NextResponse.json(
@@ -120,15 +113,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const { email, password, name, role, className, schoolId } = parseResult.data;
-
-    logger.log("📝 Membuat user baru - email:", email, "role:", role, "schoolId:", schoolId);
+    const { email, username, nisn, password, name, role, className, schoolId } = parseResult.data;
 
     // 🔥 Hanya SUPER_ADMIN yang bisa bikin ADMIN atau SUPER_ADMIN
-    if (
-      (role === "ADMIN" || role === "SUPER_ADMIN") &&
-      session.role !== "SUPER_ADMIN"
-    ) {
+    if ((role === "ADMIN" || role === "SUPER_ADMIN") && session.role !== "SUPER_ADMIN") {
       return NextResponse.json(
         { error: "Hanya Super Admin yang bisa membuat Admin atau Super Admin" },
         { status: 403 }
@@ -136,32 +124,50 @@ export async function POST(request: Request) {
     }
 
     // 🔥 ADMIN hanya bisa bikin user di sekolahnya sendiri
-    if (
-      session.role !== "SUPER_ADMIN" &&
-      session.schoolId !== schoolId
-    ) {
+    if (session.role !== "SUPER_ADMIN" && session.schoolId !== schoolId) {
       return NextResponse.json(
         { error: "Tidak bisa menambah user di sekolah lain" },
         { status: 403 }
       );
     }
 
-    // 🔥 Cek email duplikat
-    const existingUser = await db.user.findUnique({ where: { email } });
-    if (existingUser) {
-      return NextResponse.json({ error: "Email sudah terdaftar!" }, { status: 400 });
+    // 🔥 Cek username unik (global)
+    const existingUsername = await db.user.findUnique({ where: { username } });
+    if (existingUsername) {
+      return NextResponse.json({ error: "Username sudah dipakai!" }, { status: 400 });
     }
 
-    // 🔥 Generate memberId — pakai helper
-    const memberId = await generateMemberId(schoolId);
+    // 🔥 Cek email unik (kalau ada)
+    if (email && email !== "") {
+      const existingEmail = await db.user.findUnique({ where: { email } });
+      if (existingEmail) {
+        return NextResponse.json({ error: "Email sudah terdaftar!" }, { status: 400 });
+      }
+    }
 
-    // 🔥 Hash password
+    // 🔥 Cek NISN unik (kalau role USER + ada NISN)
+    if (role === "USER" && nisn && nisn !== "") {
+      const existingNisn = await db.user.findUnique({ where: { nisn } });
+      if (existingNisn) {
+        return NextResponse.json({ error: "NISN sudah terdaftar!" }, { status: 400 });
+      }
+    }
+
+    // 🔥 Tentukan memberId
+    let memberId: string;
+    if (role === "USER" && nisn) {
+      memberId = nisn; // siswa: NISN
+    } else {
+      memberId = await generateMemberId(schoolId); // admin: generate
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 🔥 Buat user
     const user = await db.user.create({
       data: {
-        email,
+        email: email && email !== "" ? email : null,
+        username,
+        nisn: role === "USER" && nisn ? nisn : null,
         password: hashedPassword,
         name: name || "",
         role: role || "USER",
@@ -174,6 +180,8 @@ export async function POST(request: Request) {
       select: {
         id: true,
         email: true,
+        username: true,
+        nisn: true,
         name: true,
         role: true,
         className: true,
@@ -185,18 +193,14 @@ export async function POST(request: Request) {
       },
     });
 
-    logger.log("✅ User berhasil dibuat - id:", user.id, "memberId:", user.memberId);
-
-    // 🔥 Log audit
     await logAdminActivityServer({
       action: "CREATE",
       targetType: "USER",
       targetId: user.id,
-      targetName: user.email || user.name || user.id,
+      targetName: user.username || user.email || user.id,
       changes: { role: user.role },
     });
 
-    // 🔥 Invalidate cache stats (total user berubah)
     revalidateTag("admin-stats", "max");
 
     return NextResponse.json(user, { status: 201 });
@@ -223,97 +227,63 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "ID tidak ditemukan" }, { status: 400 });
     }
 
-    logger.log("🗑️ DELETE User - id:", id, "permanent:", permanent);
-
-    // 🔥 Ambil data target dulu
     const targetUser = await db.user.findUnique({
       where: { id },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        schoolId: true,
-      },
+      select: { id: true, email: true, username: true, name: true, role: true, schoolId: true },
     });
 
     if (!targetUser) {
       return NextResponse.json({ error: "User tidak ditemukan" }, { status: 404 });
     }
 
-    // 🔥 Tidak bisa hapus diri sendiri
     if (targetUser.id === session.userId) {
-      return NextResponse.json(
-        { error: "Tidak bisa menghapus akun sendiri" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Tidak bisa menghapus akun sendiri" }, { status: 400 });
     }
 
-    // 🔥 ADMIN tidak bisa hapus ADMIN/SUPER_ADMIN
-    if (
-      session.role !== "SUPER_ADMIN" &&
-      (targetUser.role === "ADMIN" || targetUser.role === "SUPER_ADMIN")
-    ) {
+    if (session.role !== "SUPER_ADMIN" && (targetUser.role === "ADMIN" || targetUser.role === "SUPER_ADMIN")) {
       return NextResponse.json(
         { error: "Hanya Super Admin yang bisa menghapus Admin atau Super Admin" },
         { status: 403 }
       );
     }
 
-    // 🔥 ADMIN hanya bisa hapus user di sekolahnya sendiri
-    if (
-      session.role !== "SUPER_ADMIN" &&
-      session.schoolId !== targetUser.schoolId
-    ) {
-      return NextResponse.json(
-        { error: "Tidak bisa menghapus user dari sekolah lain" },
-        { status: 403 }
-      );
+    if (session.role !== "SUPER_ADMIN" && session.schoolId !== targetUser.schoolId) {
+      return NextResponse.json({ error: "Tidak bisa menghapus user dari sekolah lain" }, { status: 403 });
     }
+
+    const displayName = targetUser.username || targetUser.email || targetUser.name || targetUser.id;
 
     if (permanent) {
       await db.user.delete({ where: { id } });
 
-      // 🔥 Log audit
       await logAdminActivityServer({
         action: "DELETE",
         targetType: "USER",
         targetId: targetUser.id,
-        targetName: targetUser.email || targetUser.name || targetUser.id,
+        targetName: displayName,
         changes: { role: targetUser.role, permanent: true },
       });
 
       revalidateTag("admin-stats", "max");
-
       return NextResponse.json({ success: true, message: "User dihapus permanen" });
     }
 
     const user = await db.user.update({
       where: { id },
-      data: {
-        isActive: false,
-        graduatedAt: new Date(),
-      },
+      data: { isActive: false, graduatedAt: new Date() },
     });
 
-    logger.log("✅ User dinonaktifkan - id:", user.id);
-
-    // 🔥 Log audit
     await logAdminActivityServer({
       action: "DEACTIVATE_USER",
       targetType: "USER",
       targetId: user.id,
-      targetName: user.email || user.name || user.id,
+      targetName: displayName,
       changes: { role: user.role, permanent: false },
     });
 
     revalidateTag("admin-stats", "max");
 
-    return NextResponse.json({
-      success: true,
-      message: "User berhasil dinonaktifkan",
-      user,
-    });
+    return NextResponse.json({ success: true, message: "User berhasil dinonaktifkan", user });
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });

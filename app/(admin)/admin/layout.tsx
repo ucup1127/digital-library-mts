@@ -43,7 +43,7 @@ export default async function AdminLayout({
       user={{
         userId: session.userId,
         name: session.name || "Admin",
-        email: session.email,
+        email: session.email ?? "",
         role: session.role,
         schoolId: session.schoolId,
         schoolName: school?.name || "",

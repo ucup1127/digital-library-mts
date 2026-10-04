@@ -120,7 +120,7 @@ export async function POST(request: Request) {
       data: {
         adminId: session.userId,
         adminName: session.name ?? "Unknown",
-        adminEmail: session.email,
+        adminEmail: session.email ?? "",
         adminRole: session.role,
         schoolId: session.schoolId,
         action,

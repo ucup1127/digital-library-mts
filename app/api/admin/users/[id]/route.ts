@@ -9,14 +9,14 @@ import { logAdminActivityServer } from "@/lib/admin-log-server";
 import { revalidateTag } from "next/cache";
 
 // ============================================
-// PATCH — Aktifkan / Nonaktifkan user (Soft Delete)
+// PATCH — Aktifkan / Nonaktifkan
 // ============================================
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await requireAdmin();
+    await requireAdmin();
     const { id } = await params;
     const body = await req.json();
     const { isActive } = body;
@@ -27,36 +27,23 @@ export async function PATCH(
 
     const user = await db.user.update({
       where: { id },
-      data: {
-        isActive,
-        graduatedAt: isActive ? null : new Date(),
-      },
+      data: { isActive, graduatedAt: isActive ? null : new Date() },
       select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        className: true,
-        schoolId: true,
-        memberId: true,
-        barcode: true,
-        isActive: true,
-        createdAt: true,
+        id: true, email: true, username: true, nisn: true, name: true, role: true,
+        className: true, schoolId: true, memberId: true, barcode: true,
+        isActive: true, createdAt: true,
       },
     });
 
-    // 🔥 Log aktivitas
     await logAdminActivityServer({
       action: isActive ? "ACTIVATE_USER" : "DEACTIVATE_USER",
       targetType: "USER",
       targetId: user.id,
-      targetName: user.email || user.name || user.id,
+      targetName: user.username || user.email || user.name || user.id,
       changes: { isActive },
     });
 
-    // 🔥 Invalidate cache
     revalidateTag("admin-stats", "max");
-
     return NextResponse.json(user);
   } catch (error) {
     if (error instanceof AuthError) {
@@ -68,7 +55,7 @@ export async function PATCH(
 }
 
 // ============================================
-// PUT — Update user (edit profile)
+// PUT — Update user
 // ============================================
 export async function PUT(
   req: Request,
@@ -87,36 +74,61 @@ export async function PUT(
       );
     }
 
-    const { name, email, role, className, password } = parseResult.data;
+    const { name, email, username, nisn, role, className, password } = parseResult.data;
 
-    // 🔥 Hanya SUPER_ADMIN yang bisa ubah role ke ADMIN atau SUPER_ADMIN
-    if (
-      (role === "ADMIN" || role === "SUPER_ADMIN") &&
-      session.role !== "SUPER_ADMIN"
-    ) {
+    if ((role === "ADMIN" || role === "SUPER_ADMIN") && session.role !== "SUPER_ADMIN") {
       return NextResponse.json(
         { error: "Hanya Super Admin yang bisa mengubah role ke Admin atau Super Admin" },
         { status: 403 }
       );
     }
 
-    const existingUser = await db.user.findFirst({
-      where: {
-        email,
-        id: { not: id },
-      },
-    });
+    // Cek username bentrok (kalau diisi)
+    if (username && username !== "") {
+      const existingUsername = await db.user.findFirst({
+        where: { username, id: { not: id } },
+      });
+      if (existingUsername) {
+        return NextResponse.json({ error: "Username sudah dipakai user lain!" }, { status: 400 });
+      }
+    }
 
-    if (existingUser) {
-      return NextResponse.json({ error: "Email sudah digunakan user lain!" }, { status: 400 });
+    // Cek email bentrok (kalau diisi)
+    if (email && email !== "") {
+      const existingEmail = await db.user.findFirst({
+        where: { email, id: { not: id } },
+      });
+      if (existingEmail) {
+        return NextResponse.json({ error: "Email sudah digunakan user lain!" }, { status: 400 });
+      }
+    }
+
+    // Cek NISN bentrok (kalau diisi)
+    if (nisn && nisn !== "") {
+      const existingNisn = await db.user.findFirst({
+        where: { nisn, id: { not: id } },
+      });
+      if (existingNisn) {
+        return NextResponse.json({ error: "NISN sudah dipakai user lain!" }, { status: 400 });
+      }
     }
 
     const updateData: any = {
       name,
-      email,
+      email: email && email !== "" ? email : null,
       role,
       className,
     };
+
+    if (username && username !== "") {
+      updateData.username = username;
+    }
+
+    if (role === "USER" && nisn && nisn !== "") {
+      updateData.nisn = nisn;
+      updateData.memberId = nisn;
+      updateData.barcode = nisn;
+    }
 
     if (password && password.length > 0) {
       updateData.password = await bcrypt.hash(password, 10);
@@ -126,34 +138,21 @@ export async function PUT(
       where: { id },
       data: updateData,
       select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        className: true,
-        schoolId: true,
-        memberId: true,
-        barcode: true,
-        isActive: true,
-        createdAt: true,
+        id: true, email: true, username: true, nisn: true, name: true, role: true,
+        className: true, schoolId: true, memberId: true, barcode: true,
+        isActive: true, createdAt: true,
       },
     });
 
-    // 🔥 Log aktivitas
     await logAdminActivityServer({
       action: "UPDATE",
       targetType: "USER",
       targetId: updatedUser.id,
-      targetName: updatedUser.email || updatedUser.name || updatedUser.id,
-      changes: {
-        role,
-        passwordChanged: !!updateData.password,
-      },
+      targetName: updatedUser.username || updatedUser.email || updatedUser.id,
+      changes: { role, passwordChanged: !!updateData.password },
     });
 
-    // 🔥 Invalidate cache
     revalidateTag("admin-stats", "max");
-
     return NextResponse.json(updatedUser);
   } catch (error) {
     if (error instanceof AuthError) {
@@ -165,7 +164,7 @@ export async function PUT(
 }
 
 // ============================================
-// GET — Ambil detail user
+// GET — Detail user
 // ============================================
 export async function GET(
   req: Request,
@@ -178,16 +177,9 @@ export async function GET(
     const user = await db.user.findUnique({
       where: { id },
       select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        className: true,
-        memberId: true,
-        isActive: true,
-        graduatedAt: true,
-        createdAt: true,
-        schoolId: true,
+        id: true, name: true, email: true, username: true, nisn: true, role: true,
+        className: true, memberId: true, isActive: true, graduatedAt: true,
+        createdAt: true, schoolId: true,
       },
     });
 

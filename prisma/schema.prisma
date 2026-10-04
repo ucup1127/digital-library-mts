@@ -35,29 +35,40 @@ model Category {
 
 model User {
   id           String   @id @default(cuid())
-  email        String   @unique
+  
+  // 🔐 Login (dual mode)
+  email        String?  @unique    // Admin: wajib, Siswa: NULL
+  username     String?  @unique    // Admin & Siswa: wajib (login)
+  nisn         String?  @unique    // Siswa: 10 digit, Admin: NULL
   password     String   @db.Text
-  name         String?  
-  className    String?  
-  image        String?  
+  
+  // 👤 Data profil
+  name         String?
+  className    String?
+  image        String?
   role         String   @default("USER")
   schoolId     String?
   school       School?  @relation(fields: [schoolId], references: [id], onDelete: SetNull)
-  memberId     String?  @unique
-  barcode      String?  @unique
   
-  // 🔥 TAMBAHKAN INI
-  isActive     Boolean  @default(true)  // true = aktif, false = nonaktif
-  graduatedAt  DateTime? // tanggal lulus
+  // 🎫 No anggota
+  memberId     String?  @unique    // Siswa = NISN, Admin = generate (MTS001)
+  barcode      String?  @unique    // Siswa = NISN, Admin = memberId
   
+  // 📊 Status
+  isActive     Boolean  @default(true)
+  graduatedAt  DateTime?
+  
+  // 🔗 Relasi
   peminjamanFisik PeminjamanFisik[]
-  sessions  Session[] 
+  sessions  Session[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @default(now()) @updatedAt
 
   @@index([schoolId])
   @@index([role])
   @@index([barcode])
+  @@index([username])
+  @@index([nisn])
   @@index([isActive])
   @@index([schoolId, isActive])
   @@index([schoolId, role])

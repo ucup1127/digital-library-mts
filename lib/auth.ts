@@ -65,7 +65,8 @@ export async function clearSessionCookie() {
 
 export interface SessionData {
   userId: string;
-  email: string;
+  email: string | null;       // ← nullable (siswa NULL)
+  username: string | null;    // ← BARU
   name: string | null;
   role: string;
   schoolId: string | null;
@@ -88,6 +89,7 @@ export async function getSession(): Promise<SessionData | null> {
         select: {
           id: true,
           email: true,
+          username: true,
           name: true,
           role: true,
           schoolId: true,
@@ -107,6 +109,7 @@ export async function getSession(): Promise<SessionData | null> {
   return {
     userId: session.user.id,
     email: session.user.email,
+    username: session.user.username,
     name: session.user.name,
     role: session.user.role,
     schoolId: session.user.schoolId,

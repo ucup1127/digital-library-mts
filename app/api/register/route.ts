@@ -3,13 +3,12 @@ import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { logger } from "@/lib/logger";
-import { generateMemberId } from "@/lib/member-id";
 import { registerSchema, formatZodError } from "@/lib/validations";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    logger.log("Register attempt:", { email: body.email, schoolId: body.schoolId });
+    logger.log("Register attempt:", { nisn: body.nisn, username: body.username });
 
     // 🔥 Validasi pakai Zod
     const parseResult = registerSchema.safeParse(body);
@@ -20,19 +19,27 @@ export async function POST(request: Request) {
       );
     }
 
-    const { name, email, password, schoolId } = parseResult.data;
+    const { nisn, name, className, username, password, schoolId } = parseResult.data;
 
-    // Cek email sudah terdaftar
-    const existingUser = await db.user.findUnique({ where: { email } });
-    if (existingUser) {
-      logger.log("Email already exists:", email);
+    // 🔥 Cek NISN sudah terdaftar
+    const existingNisn = await db.user.findUnique({ where: { nisn } });
+    if (existingNisn) {
       return NextResponse.json(
-        { error: "Email sudah terdaftar" },
+        { error: "NISN sudah terdaftar" },
         { status: 400 }
       );
     }
 
-    // Cek schoolId valid
+    // 🔥 Cek username sudah dipakai (global — siswa + admin)
+    const existingUsername = await db.user.findUnique({ where: { username } });
+    if (existingUsername) {
+      return NextResponse.json(
+        { error: "Username sudah dipakai. Pilih username lain." },
+        { status: 400 }
+      );
+    }
+
+    // 🔥 Cek schoolId valid
     const school = await db.school.findUnique({ where: { id: schoolId } });
     if (!school) {
       logger.log("School not found:", schoolId);
@@ -42,33 +49,35 @@ export async function POST(request: Request) {
       );
     }
 
-    // Hash password
+    // 🔥 Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Generate memberId
-    const memberId = await generateMemberId(schoolId);
-
-    // Buat user baru
+    // 🔥 Buat user baru (NISN = memberId = barcode)
     const user = await db.user.create({
       data: {
-        name: name || "",
-        email,
+        nisn,
+        username,
+        name,
+        className,
         password: hashedPassword,
         schoolId,
         role: "USER",
-        memberId,
-        barcode: memberId,
+        memberId: nisn,     // ← NISN jadi no anggota
+        barcode: nisn,      // ← NISN jadi barcode
+        email: null,        // ← siswa nggak wajib email
+        isActive: true,
       },
     });
 
-    logger.log("User created:", user.id, "memberId:", user.memberId);
+    logger.log("User created:", user.id, "NISN:", user.nisn, "username:", user.username);
 
     return NextResponse.json({
       success: true,
       user: {
         id: user.id,
         name: user.name,
-        email: user.email,
+        nisn: user.nisn,
+        username: user.username,
         memberId: user.memberId,
       },
     });

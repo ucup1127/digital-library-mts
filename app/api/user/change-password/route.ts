@@ -57,7 +57,7 @@ export async function PUT(request: Request) {
       action: "CHANGE_PASSWORD",
       targetType: "USER",
       targetId: user.id,
-      targetName: user.email,
+      targetName: user.email ?? "",
       changes: { self: true },
     });
 

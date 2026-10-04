@@ -10,7 +10,7 @@ import { Eye, EyeOff, BookOpen, ArrowRight, Sparkles, ChevronRight, Library, Gra
 function LoginUserForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -44,22 +44,16 @@ function LoginUserForm() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, role: "USER", rememberMe }),
+        body: JSON.stringify({ login: username, password, type: "user", rememberMe }),
       });
 
       const data = await res.json();
 
       if (res.ok && data.success && data.user.role === "USER") {
-        localStorage.setItem("isLoggedIn", "true");
-        localStorage.setItem("user_id", data.user.id);
-        localStorage.setItem("user_name", data.user.name || "Pengguna");
-        localStorage.setItem("user_email", data.user.email);
-        localStorage.setItem("user_role", data.user.role);
-        localStorage.setItem("school_id", data.user.schoolId || "");
-        localStorage.setItem("school_name", data.user.schoolName || "");
-        localStorage.setItem("school_slug", data.user.schoolSlug || "");
-        localStorage.setItem("school_logo", data.user.schoolLogo || "");
-        localStorage.setItem("school_website", data.user.schoolWebsite || "");
+        localStorage.setItem("user_email", data.user.email || "");
+        localStorage.setItem("user_username", data.user.username || "");
+        localStorage.setItem("user_nisn", data.user.nisn || "");
+        localStorage.setItem("user_member_id", data.user.memberId || "");
 
         toast.success(`Selamat datang, ${data.user.name || "Pengguna"}! 🎉`, {
           duration: 1500,
@@ -173,16 +167,17 @@ function LoginUserForm() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
-                  Alamat Email
+                  Username
                 </label>
                 <div className="relative">
                   <input
-                    type="email"
-                    placeholder="nama@email.com"
+                    type="text"
+                    placeholder="username kamu"
                     className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-gray-400"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
                     required
+                    minLength={4}
                   />
                 </div>
               </div>

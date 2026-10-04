@@ -87,7 +87,7 @@ function AdminLoginForm() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, role: "ADMIN", rememberMe }),
+        body: JSON.stringify({ login: email, password, type: "admin", rememberMe }),
       });
 
       const data = await res.json();
@@ -248,11 +248,11 @@ function AdminLoginForm() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
-                  Email Admin
+                  Email atau Username
                 </label>
                 <input
-                  type="email"
-                  placeholder="admin@sekolah.sch.id"
+                  type="text"
+                  placeholder="admin@sekolah.sch.id atau username"
                   className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all placeholder:text-gray-400"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}

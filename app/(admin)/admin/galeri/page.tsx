@@ -171,7 +171,7 @@ export default function KelolaGaleriPage() {
       const data = await res.json();
       
       if (res.ok) {
-        toast.success("✅ Gambar berhasil ditambahkan!", { id: "save" });
+        toast.success("Gambar berhasil ditambahkan!", { id: "save" });
         setShowAddModal(false);
         setFormData({ title: "", description: "", imageUrl: "", category: "kegiatan" });
         fetchGallery();
@@ -215,7 +215,7 @@ export default function KelolaGaleriPage() {
       });
       
       if (res.ok) {
-        toast.success("✅ Gambar berhasil diperbarui!", { id: "edit" });
+        toast.success("Gambar berhasil diperbarui!", { id: "edit" });
         setShowEditModal(false);
         setEditingImage(null);
         fetchGallery();
@@ -243,7 +243,7 @@ export default function KelolaGaleriPage() {
       });
       
       if (res.ok) {
-        toast.success("✅ Gambar berhasil dihapus!", { id: "delete" });
+        toast.success("Gambar berhasil dihapus!", { id: "delete" });
         setShowDeleteModal(false);
         setSelectedImage(null);
         fetchGallery();

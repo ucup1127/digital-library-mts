@@ -135,7 +135,7 @@ export default function KategoriPage() {
       const data = await res.json();
 
       if (res.ok) {
-        toast.success("✅ Kategori berhasil ditambahkan!", { id: "add" });
+        toast.success("Kategori berhasil ditambahkan!", { id: "add" });
         setNewCategoryName("");
         fetchCategories();
       } else {
@@ -164,7 +164,7 @@ export default function KategoriPage() {
       const res = await fetch(`/api/kategori/${deletingCategory.id}`, { method: "DELETE" });
 
       if (res.ok) {
-        toast.success(`✅ Kategori "${deletingCategory.name}" berhasil dihapus!`, { id: "delete" });
+        toast.success(`Kategori "${deletingCategory.name}" berhasil dihapus!`, { id: "delete" });
         fetchCategories();
       } else {
         const data = await res.json();
@@ -206,7 +206,7 @@ export default function KategoriPage() {
       const data = await res.json();
 
       if (res.ok) {
-        toast.success("✅ Kategori berhasil diperbarui!", { id: "edit" });
+        toast.success("Kategori berhasil diperbarui!", { id: "edit" });
         setShowEditModal(false);
         setEditingCategory(null);
         setEditingName("");

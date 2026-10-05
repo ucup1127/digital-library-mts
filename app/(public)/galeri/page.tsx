@@ -217,13 +217,6 @@ export default function GaleriPage() {
         </div>
 
         <div className="relative z-10 max-w-6xl mx-auto px-5 text-center">
-          <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-1.5 rounded-full border border-white/10 mb-4">
-            <Sparkles className="w-3 h-3 text-yellow-300" />
-            <span className="text-[10px] font-medium text-white uppercase tracking-wider">
-              Galeri
-            </span>
-          </div>
-
           <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-2xl border border-white/10">
             <ImageIcon className="w-10 h-10 text-white" />
           </div>

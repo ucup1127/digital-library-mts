@@ -22,7 +22,6 @@ function LoginUserForm() {
       toast.success("Anda berhasil keluar dari sistem", {
         duration: 3000,
         position: "top-center",
-        icon: "👋",
       });
     }
 
@@ -55,7 +54,7 @@ function LoginUserForm() {
         localStorage.setItem("user_nisn", data.user.nisn || "");
         localStorage.setItem("user_member_id", data.user.memberId || "");
 
-        toast.success(`Selamat datang, ${data.user.name || "Pengguna"}! 🎉`, {
+        toast.success(`Selamat datang, ${data.user.name || "Pengguna"}!`, {
           duration: 1500,
           position: "top-center",
         });
@@ -134,7 +133,7 @@ function LoginUserForm() {
             <p className="text-sm italic text-blue-100">
               "Membaca adalah jendela dunia. Mari jelajahi dunia melalui buku."
             </p>
-            <p className="text-[10px] text-blue-200 mt-1">— MUHAPATI Library</p>
+            <p className="text-[10px] text-blue-200 mt-1">— Library MTs Muhammadiyah Banyumas</p>
           </div>
         </div>
       </div>
@@ -151,16 +150,14 @@ function LoginUserForm() {
               </div>
               <h1 className="text-2xl font-black tracking-tight">
                 <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  MUHAPATI
+                  MASUK
                 </span>
               </h1>
               <p className="text-gray-500 text-sm mt-0.5">Perpustakaan Digital</p>
               <div className="flex items-center justify-center gap-2 mt-2">
-                <Sparkles className="w-3 h-3 text-blue-400" />
                 <span className="text-[9px] font-medium text-gray-400 uppercase tracking-widest">
                   Masuk sebagai Anggota
                 </span>
-                <Sparkles className="w-3 h-3 text-blue-400" />
               </div>
             </div>
 
@@ -272,7 +269,7 @@ function LoginUserForm() {
               ← Kembali ke Beranda
             </Link>
             <span className="text-gray-300 text-xs mx-2">•</span>
-            <span className="text-[10px] text-gray-400">© {new Date().getFullYear()} MUHAPATI</span>
+            <span className="text-[10px] text-gray-400">© {new Date().getFullYear()} LIBRARY</span>
           </div>
         </div>
       </div>

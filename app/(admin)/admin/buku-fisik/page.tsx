@@ -264,7 +264,7 @@ export default function BukuFisikPage() {
           });
         }
         
-        toast.success("✅ Buku berhasil ditambahkan!", { id: "save" });
+        toast.success("Buku berhasil ditambahkan!", { id: "save" });
         setShowAddModal(false);
         resetForm();
         fetchBooks();
@@ -351,7 +351,7 @@ export default function BukuFisikPage() {
           body: JSON.stringify({ kategoriIds: editForm.kategoriIds }),
         });
         
-        toast.success("✅ Buku berhasil diperbarui!", { id: "edit" });
+        toast.success("Buku berhasil diperbarui!", { id: "edit" });
         setShowEditModal(false);
         setEditingBook(null);
         fetchBooks();
@@ -384,7 +384,7 @@ export default function BukuFisikPage() {
       });
       
       if (res.ok) {
-        toast.success(`✅ Buku "${deletingBook.judul}" berhasil dihapus!`, { id: "delete" });
+        toast.success(`Buku "${deletingBook.judul}" berhasil dihapus!`, { id: "delete" });
         setShowDeleteModal(false);
         setDeletingBook(null);
         fetchBooks();

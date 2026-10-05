@@ -128,7 +128,7 @@ export default function AdminProfilePage() {
       const data = await res.json();
       
       if (res.ok) {
-        toast.success("✅ Profil berhasil diperbarui!", { id: "save" });
+        toast.success("Profil berhasil diperbarui!", { id: "save" });
         localStorage.setItem("user_name", formData.name);
         localStorage.setItem("user_email", formData.email);
         
@@ -177,7 +177,7 @@ export default function AdminProfilePage() {
       const data = await res.json();
       
       if (res.ok) {
-        toast.success("✅ Password berhasil diubah!", { id: "password" });
+        toast.success("Password berhasil diubah!", { id: "password" });
         setShowPasswordModal(false);
         setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
       } else {

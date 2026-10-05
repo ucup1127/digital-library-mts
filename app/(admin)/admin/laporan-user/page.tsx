@@ -189,7 +189,7 @@ export default function LaporanUserPage() {
       
       window.URL.revokeObjectURL(url);
       
-      toast.success("✅ File Excel berhasil didownload!", { id: "export" });
+      toast.success("File Excel berhasil didownload!", { id: "export" });
     } catch (error) {
       console.error("Export error:", error);
       toast.error("Gagal mengexport data", { id: "export" });

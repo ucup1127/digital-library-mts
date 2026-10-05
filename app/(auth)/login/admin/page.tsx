@@ -32,7 +32,6 @@ function AdminLoginForm() {
       toast.success("Anda berhasil keluar dari sistem", {
         duration: 3000,
         position: "top-center",
-        icon: "👋",
       });
     }
 
@@ -114,7 +113,7 @@ function AdminLoginForm() {
             targetName: data.user.name || "Super Admin",
           });
 
-          toast.success(`✅ Login berhasil! Selamat datang, Super Admin`, {
+          toast.success(`Login berhasil! Selamat datang, Super Admin`, {
             duration: 1500,
             position: "top-center",
           });
@@ -217,7 +216,7 @@ function AdminLoginForm() {
             <p className="text-sm italic text-indigo-100">
               "Kelola perpustakaan dengan lebih efisien dan profesional."
             </p>
-            <p className="text-[10px] text-indigo-200 mt-1">— MUHAPATI Admin</p>
+            <p className="text-[10px] text-indigo-200 mt-1">— Libary Admin</p>
           </div>
         </div>
       </div>
@@ -237,11 +236,6 @@ function AdminLoginForm() {
               </h1>
               <p className="text-gray-500 text-sm mt-0.5">Perpustakaan Digital</p>
               <div className="flex items-center justify-center gap-2 mt-2">
-                <Sparkles className="w-3 h-3 text-indigo-400" />
-                <span className="text-[9px] font-medium text-gray-400 uppercase tracking-widest">
-                  Admin Panel
-                </span>
-                <Sparkles className="w-3 h-3 text-indigo-400" />
               </div>
             </div>
 
@@ -323,36 +317,10 @@ function AdminLoginForm() {
                 )}
               </button>
             </form>
-
-            <div className="relative my-5">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200"></div>
-              </div>
-              <div className="relative flex justify-center text-xs">
-                <span className="px-3 bg-white text-gray-400">Bukan admin?</span>
-              </div>
-            </div>
-
-            <Link
-              href="/login/user"
-              className="w-full py-3 bg-gray-50 border border-gray-200 text-gray-700 rounded-xl font-medium text-sm hover:bg-gray-100 hover:border-gray-300 transition-all flex items-center justify-center gap-2 group"
-            >
-              Login sebagai Pengguna
-              <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </Link>
-
-            <div className="mt-4 text-center">
-              <Link
-                href="/"
-                className="text-xs text-gray-400 hover:text-indigo-500 transition inline-flex items-center gap-1 group"
-              >
-                ← Kembali ke Beranda
-              </Link>
-            </div>
           </div>
 
           <div className="text-center mt-5">
-            <span className="text-[10px] text-gray-400">© {new Date().getFullYear()} MUHAPATI • Admin Panel</span>
+            <span className="text-[10px] text-gray-400">© {new Date().getFullYear()} Library • Admin Panel</span>
           </div>
         </div>
       </div>

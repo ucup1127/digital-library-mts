@@ -171,7 +171,7 @@ export default function KelolaSekolahPage() {
         changes: { name: addForm.name, slug: addForm.slug, logo: logoPath || "-" },
       });
 
-      toast.success("✅ Sekolah berhasil ditambahkan!");
+      toast.success("Sekolah berhasil ditambahkan!");
       setShowAddModal(false);
       fetchSchools();
     } catch (error) {
@@ -248,7 +248,7 @@ export default function KelolaSekolahPage() {
           },
         });
 
-        toast.success("✅ Sekolah berhasil diperbarui!");
+        toast.success("Sekolah berhasil diperbarui!");
         setShowEditModal(false);
         fetchSchools();
       } else {
@@ -300,7 +300,7 @@ export default function KelolaSekolahPage() {
       }
 
       if (res.ok) {
-        toast.success(`✅ Sekolah "${school.name}" berhasil dihapus`);
+        toast.success(`Sekolah "${school.name}" berhasil dihapus`);
         setSchools(schools.filter((s) => s.id !== school.id));
       } else {
         toast.error(data.error || "Gagal menghapus sekolah");

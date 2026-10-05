@@ -64,7 +64,7 @@ export default function SettingsPage() {
       const data = await res.json();
 
       if (res.ok) {
-        toast.success(`✅ ${data.message}`, { id: "backup" });
+        toast.success(`${data.message}`, { id: "backup" });
       } else {
         toast.error(data.error || "Gagal backup", { id: "backup" });
       }
@@ -96,8 +96,8 @@ export default function SettingsPage() {
 
         toast.success(
           !maintenanceMode
-            ? "✅ Maintenance mode AKTIF!"
-            : "✅ Maintenance mode NONAKTIF!",
+            ? "Maintenance mode AKTIF!"
+            : "Maintenance mode NONAKTIF!",
           { id: "maintenance", duration: 3000 }
         );
 

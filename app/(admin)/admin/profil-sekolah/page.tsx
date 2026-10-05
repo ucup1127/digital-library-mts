@@ -127,7 +127,7 @@ export default function AdminProfilSekolahPage() {
         throw new Error(`HTTP ${res.status}`);
       }
       
-      toast.success("✅ Profil sekolah berhasil diperbarui!", { id: "save" });
+      toast.success("Profil sekolah berhasil diperbarui!", { id: "save" });
     } catch (error) {
       console.error("Error saving profile:", error);
       toast.error("Gagal menyimpan profil", { id: "save" });

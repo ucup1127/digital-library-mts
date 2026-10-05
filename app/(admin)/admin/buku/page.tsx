@@ -24,7 +24,8 @@ import {
   User,
   Calendar,
   X,
-  AlertCircle
+  AlertCircle,
+  Lock
 } from "lucide-react";
 
 interface Buku {
@@ -38,6 +39,9 @@ interface Buku {
   views: number;
   createdAt: string;
   schoolId: string;
+  isShared: boolean;
+  uploadedBy: string | null;
+  school?: { id: string; name: string; slug: string };
   categories: { category: { id: string; name: string } }[];
 }
 
@@ -102,6 +106,11 @@ export default function BukuPage() {
     }
   }, [selectedSchoolId, currentPage, search, pageSize]);
 
+    const isOwner = (book: Buku) => {
+    if (userRole === "SUPER_ADMIN") return true;
+    return book.schoolId === selectedSchoolId;
+    };
+
   const fetchBooks = async () => {
     if (userRole === "SUPER_ADMIN" && !selectedSchoolId) {
       setBooks([]);
@@ -150,7 +159,7 @@ export default function BukuPage() {
       });
       
       if (res.ok) {
-        toast.success(`✅ Buku "${deletingBook.title}" berhasil dihapus!`, { id: "delete" });
+        toast.success(`Buku "${deletingBook.title}" berhasil dihapus!`, { id: "delete" });
         setShowDeleteModal(false);
         setDeletingBook(null);
         fetchBooks();
@@ -203,11 +212,14 @@ export default function BukuPage() {
             <Library className="w-6 h-6 text-blue-600" />
             Kelola Buku Digital
           </h1>
-          <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs text-gray-400 mt-0.5">
             Manajemen koleksi buku digital perpustakaan
             {selectedSchoolName && (
               <span className="text-blue-600 ml-1">- {selectedSchoolName}</span>
             )}
+          </p>
+          <p className="text-[10px] text-gray-400 mt-0.5">
+            💡 Termasuk buku yang di-share dari sekolah lain (read-only)
           </p>
         </div>
         <div className="flex gap-3 flex-wrap">
@@ -311,21 +323,26 @@ export default function BukuPage() {
               
               {!loading && books.map((book) => (
                 <tr key={book.id} className="hover:bg-gray-50 transition group">
-                  <td className="px-5 py-3">
-                    {book.coverUrl ? (
-                      <div className="w-12 h-16 rounded-lg overflow-hidden shadow-sm bg-gray-100">
-                        <Image
-                          src={book.coverUrl}
-                          alt={book.title}
-                          width={48}
-                          height={64}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    ) : (
-                      <div className="w-12 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 text-xs border border-gray-200">
-                        <BookOpen className="w-5 h-5" />
-                      </div>
+                                    <td className="px-5 py-3">
+                    <p className="font-medium text-gray-800 text-sm line-clamp-2">
+                      {book.title}
+                    </p>
+                    {book.year && (
+                      <p className="text-[9px] text-gray-400 flex items-center gap-1 mt-0.5">
+                        <Calendar className="w-3 h-3" />
+                        {book.year}
+                      </p>
+                    )}
+                    {/* 🔥 Label shared / sekolah lain */}
+                    {book.isShared && !isOwner(book) && (
+                      <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 text-[8px] font-medium bg-blue-50 text-blue-600 rounded-full">
+                        🌐 Shared dari {book.school?.name || "sekolah lain"}
+                      </span>
+                    )}
+                    {!book.isShared && isOwner(book) && (
+                      <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 text-[8px] font-medium bg-gray-100 text-gray-600 rounded-full">
+                        🔒 Eksklusif sekolah ini
+                      </span>
                     )}
                   </td>
                   <td className="px-5 py-3">
@@ -358,22 +375,33 @@ export default function BukuPage() {
                   <td className="px-5 py-3 text-center">
                     <span className="text-sm font-semibold text-gray-700">{book.views}</span>
                   </td>
-                  <td className="px-5 py-3 text-center">
+                                    <td className="px-5 py-3 text-center">
                     <div className="flex items-center justify-center gap-1">
-                      <Link
-                        href={`/admin/buku/edit/${book.id}`}
-                        className="p-1.5 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition group-hover:scale-110"
-                        title="Edit Buku"
-                      >
-                        <Edit className="w-3.5 h-3.5" />
-                      </Link>
-                      <button
-                        onClick={() => handleDeleteClick(book)}
-                        className="p-1.5 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition group-hover:scale-110"
-                        title="Hapus Buku"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {isOwner(book) ? (
+                        <>
+                          <Link
+                            href={`/admin/buku/edit/${book.id}`}
+                            className="p-1.5 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition group-hover:scale-110"
+                            title="Edit Buku"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </Link>
+                          <button
+                            onClick={() => handleDeleteClick(book)}
+                            className="p-1.5 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition group-hover:scale-110"
+                            title="Hapus Buku"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      ) : (
+                        <span
+                          className="p-1.5 text-gray-300 bg-gray-50 rounded-lg cursor-not-allowed"
+                          title="Cuma pemilik buku yang bisa edit/hapus"
+                        >
+                          <Lock className="w-3.5 h-3.5" />
+                        </span>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -425,7 +453,17 @@ export default function BukuPage() {
               <p className="text-sm text-gray-500 mt-2">
                 Apakah Anda yakin ingin menghapus buku <strong>"{deletingBook.title}"</strong>?
               </p>
-              <p className="text-xs text-red-500 mt-2">⚠️ Tindakan ini tidak dapat dibatalkan!</p>
+                            <p className="text-xs text-red-500 mt-2">⚠️ Tindakan ini tidak dapat dibatalkan!</p>
+              {deletingBook.isShared && (
+                <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-left">
+                  <p className="text-xs font-semibold text-amber-700">
+                    ⚠️ Buku ini di-share ke semua sekolah
+                  </p>
+                  <p className="text-[10px] text-amber-600 mt-0.5">
+                    Kalau dihapus, buku akan hilang dari semua sekolah yang mengaksesnya.
+                  </p>
+                </div>
+              )}
               <div className="flex gap-3 mt-6">
                 <button
                   onClick={() => setShowDeleteModal(false)}

@@ -181,7 +181,7 @@ export default function AkunPage() {
       const data = await res.json();
 
       if (res.ok) {
-        toast.success("✅ Profil berhasil diperbarui!", { id: "update" });
+        toast.success("Profil berhasil diperbarui!", { id: "update" });
         setEditMode(false);
         fetchUserData(user.id);
       } else {
@@ -227,7 +227,7 @@ export default function AkunPage() {
       const data = await res.json();
 
       if (res.ok) {
-        toast.success("✅ Password berhasil diubah!", { id: "password" });
+        toast.success("Password berhasil diubah!", { id: "password" });
         setShowPasswordModal(false);
         setPasswordForm({
           currentPassword: "",
@@ -265,7 +265,7 @@ export default function AkunPage() {
       const data = await res.json();
 
       if (res.ok) {
-        toast.success("✅ Pengajuan perpanjangan dikirim!", { id: "extend" });
+        toast.success("Pengajuan perpanjangan dikirim!", { id: "extend" });
         setShowExtendModal(false);
         setExtendLoan(null);
         setExtendReason("");

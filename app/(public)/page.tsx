@@ -5,6 +5,7 @@ import Image from "next/image";
 import BookFilter from "@/components/public/BookFilter";
 import RecentlyRead from "@/components/public/RecentlyRead";
 import Pagination from "@/components/public/Pagination";
+import { getSession } from "@/lib/auth";
 
 export default async function Home({
   searchParams,
@@ -17,79 +18,99 @@ export default async function Home({
   const currentPage = parseInt(params.page || "1");
   const itemsPerPage = 12;
 
-  const categories = await db.category.findMany() || [];
+  // 🔥 Ambil session — untuk filter buku per sekolah
+  const session = await getSession();
+  const userSchoolId = session?.schoolId;
 
+  const categories = (await db.category.findMany()) || [];
+
+  // 🔥 FILTER: buku sekolah sendiri + buku shared
   const where: any = {};
+
+  if (userSchoolId) {
+    // User login — lihat buku sekolahnya + buku shared
+    where.OR = [
+      { schoolId: userSchoolId },
+      { isShared: true },
+    ];
+  } else {
+    // Belum login — cuma lihat buku shared
+    where.isShared = true;
+  }
+
+  // Filter kategori
   if (categoryId) {
     where.categories = {
-      some: { categoryId: categoryId }
+      some: { categoryId: categoryId },
     };
   }
-  
+
+  // Filter search — gabung dengan where via AND
+  const andConditions: any[] = [];
   if (searchQuery) {
-    where.OR = [
-      { title: { contains: searchQuery, mode: "insensitive" } },
-      { author: { contains: searchQuery, mode: "insensitive" } },
-    ];
+    andConditions.push({
+      OR: [
+        { title: { contains: searchQuery, mode: "insensitive" } },
+        { author: { contains: searchQuery, mode: "insensitive" } },
+      ],
+    });
   }
 
-  const totalBooks = await db.book.count({ where });
+  const finalWhere = andConditions.length > 0
+    ? { AND: [where, ...andConditions] }
+    : where;
+
+  const totalBooks = await db.book.count({ where: finalWhere });
   const totalPages = Math.ceil(totalBooks / itemsPerPage);
 
-  const books = await db.book.findMany({
-    where,
-    include: {
-      categories: {
-        include: { category: true }
-      }
-    },
-    orderBy: { createdAt: "desc" },
-    skip: (currentPage - 1) * itemsPerPage,
-    take: itemsPerPage,
-  }) || [];
+  const books =
+    (await db.book.findMany({
+      where: finalWhere,
+      include: {
+        categories: {
+          include: { category: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      skip: (currentPage - 1) * itemsPerPage,
+      take: itemsPerPage,
+    })) || [];
 
   return (
     <div className="bg-gray-50 min-h-screen pb-12 pt-10">
-
-      {/* ============================================= */}
-      {/* 🔥 SEARCH & FILTER */}
-      {/* ============================================= */}
+      {/* SEARCH & FILTER */}
       <div className="max-w-7xl mx-auto px-4 -mt-6">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
           <BookFilter categories={categories} />
         </div>
       </div>
 
-      {/* ============================================= */}
-      {/* 🔥 CATEGORY FILTER */}
-      {/* ============================================= */}
+      {/* CATEGORY FILTER */}
       <div className="max-w-7xl mx-auto px-4 mt-6">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-             Kategori
+            Kategori
           </h2>
-          <span className="text-[9px] text-gray-400">
-            {totalBooks} buku
-          </span>
+          <span className="text-[9px] text-gray-400">{totalBooks} buku</span>
         </div>
         <div className="flex overflow-x-auto gap-2 pb-2 no-scrollbar">
-          <Link 
+          <Link
             href={`/?${searchQuery ? `q=${searchQuery}` : ""}`}
             className={`flex-none px-4 py-1.5 rounded-full border text-[10px] font-medium transition-all ${
-              !categoryId 
-                ? "bg-blue-600 border-blue-600 text-white shadow-sm" 
+              !categoryId
+                ? "bg-blue-600 border-blue-600 text-white shadow-sm"
                 : "bg-white border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600"
             }`}
           >
             Semua
           </Link>
           {categories.map((cat) => (
-            <Link 
-              key={cat.id} 
+            <Link
+              key={cat.id}
               href={`/?category=${cat.id}&page=1${searchQuery ? `&q=${searchQuery}` : ""}`}
               className={`flex-none px-4 py-1.5 rounded-full border text-[10px] font-medium transition-all whitespace-nowrap ${
-                categoryId === cat.id 
-                  ? "bg-blue-600 border-blue-600 text-white shadow-sm" 
+                categoryId === cat.id
+                  ? "bg-blue-600 border-blue-600 text-white shadow-sm"
                   : "bg-white border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600"
               }`}
             >
@@ -99,14 +120,10 @@ export default async function Home({
         </div>
       </div>
 
-      {/* ============================================= */}
-      {/* 🔥 RECENTLY READ */}
-      {/* ============================================= */}
+      {/* RECENTLY READ */}
       <RecentlyRead />
 
-      {/* ============================================= */}
-      {/* 🔥 BOOK GRID */}
-      {/* ============================================= */}
+      {/* BOOK GRID */}
       <div className="max-w-7xl mx-auto px-4 mt-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
@@ -152,17 +169,14 @@ export default async function Home({
                   <h3 className="font-medium text-gray-800 text-[10px] sm:text-xs mt-1.5 line-clamp-1 group-hover:text-blue-600 transition">
                     {book.title}
                   </h3>
-                  <p className="text-[8px] text-gray-400 truncate">
-                    {book.author}
-                  </p>
+                  <p className="text-[8px] text-gray-400 truncate">{book.author}</p>
                 </Link>
               ))}
             </div>
 
-            {/* Pagination */}
             {totalPages > 1 && (
               <div className="mt-8">
-                <Pagination 
+                <Pagination
                   currentPage={currentPage}
                   totalPages={totalPages}
                   baseUrl={`/?${categoryId ? `category=${categoryId}&` : ""}${searchQuery ? `q=${searchQuery}&` : ""}`}
@@ -173,10 +187,14 @@ export default async function Home({
         )}
       </div>
 
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-      `}} />
+      `,
+        }}
+      />
     </div>
   );
 }

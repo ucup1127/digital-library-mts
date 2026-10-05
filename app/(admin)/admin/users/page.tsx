@@ -228,7 +228,7 @@ export default function UsersPage() {
       const data = await res.json();
 
       if (res.ok) {
-        toast.success("✅ User berhasil ditambahkan!", { id: "save" });
+        toast.success("User berhasil ditambahkan!", { id: "save" });
         setShowAddModal(false);
         setFormData({ name: "", email: "", username: "", nisn: "", password: "", role: "USER", className: "" });
         fetchUsers();
@@ -276,7 +276,7 @@ export default function UsersPage() {
       const data = await res.json();
 
       if (res.ok) {
-        toast.success("✅ User berhasil diperbarui!", { id: "edit" });
+        toast.success("User berhasil diperbarui!", { id: "edit" });
         setShowEditModal(false);
         setSelectedUser(null);
         fetchUsers();
@@ -462,7 +462,7 @@ export default function UsersPage() {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
 
-      toast.success("✅ Export berhasil!", { id: "export" });
+      toast.success("Export berhasil!", { id: "export" });
     } catch (error) {
       console.error("Export error:", error);
       toast.error("Gagal export data", { id: "export" });
@@ -579,8 +579,8 @@ export default function UsersPage() {
               className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none bg-white"
             >
               <option value="">-- Semua Status --</option>
-              <option value="active">✅ Aktif</option>
-              <option value="inactive">❌ Nonaktif</option>
+              <option value="active">Aktif</option>
+              <option value="inactive">Nonaktif</option>
             </select>
           </div>
           <div>

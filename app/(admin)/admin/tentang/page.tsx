@@ -129,7 +129,7 @@ export default function KelolaTentangPage() {
       const data = await res.json();
 
       if (res.ok) {
-        toast.success("✅ Data berhasil disimpan!", { id: "save" });
+        toast.success("Data berhasil disimpan!", { id: "save" });
       } else {
         toast.error(data.error || "Gagal menyimpan data", { id: "save" });
       }

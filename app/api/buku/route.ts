@@ -7,6 +7,10 @@ import { createBookSchema, formatZodError } from "@/lib/validations";
 import { logAdminActivityServer } from "@/lib/admin-log-server";
 import { revalidateTag } from "next/cache";
 
+// ============================================
+// GET — Ambil daftar buku
+// Tampilkan: buku sekolah sendiri + buku shared dari sekolah lain
+// ============================================
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -21,7 +25,11 @@ export async function GET(request: Request) {
     const where: any = {};
 
     if (schoolId) {
-      where.schoolId = schoolId;
+      // 🔥 Sekolah sendiri + shared dari sekolah lain
+      where.OR = [
+        { schoolId },
+        { isShared: true },
+      ];
     } else {
       return NextResponse.json({
         books: [],
@@ -30,9 +38,13 @@ export async function GET(request: Request) {
     }
 
     if (search) {
-      where.OR = [
-        { title: { contains: search, mode: "insensitive" } },
-        { author: { contains: search, mode: "insensitive" } },
+      where.AND = [
+        {
+          OR: [
+            { title: { contains: search, mode: "insensitive" } },
+            { author: { contains: search, mode: "insensitive" } },
+          ],
+        },
       ];
     }
 
@@ -77,6 +89,9 @@ export async function GET(request: Request) {
           categories: {
             include: { category: true },
           },
+          school: {
+            select: { id: true, name: true, slug: true },
+          },
         },
         orderBy,
         skip: (page - 1) * limit,
@@ -99,9 +114,12 @@ export async function GET(request: Request) {
   }
 }
 
+// ============================================
+// POST — Tambah buku
+// ============================================
 export async function POST(request: Request) {
   try {
-    await requireAdmin();
+    const session = await requireAdmin();
     const body = await request.json();
 
     const parseResult = createBookSchema.safeParse(body);
@@ -112,8 +130,25 @@ export async function POST(request: Request) {
       );
     }
 
-    const { title, author, description, coverUrl, fileUrl, year, schoolId, categories } =
-      parseResult.data;
+    const {
+      title,
+      author,
+      description,
+      coverUrl,
+      fileUrl,
+      year,
+      schoolId,
+      categories,
+      isShared,
+    } = parseResult.data;
+
+    // 🔥 ADMIN hanya bisa upload buku untuk sekolahnya sendiri
+    if (session.role !== "SUPER_ADMIN" && session.schoolId !== schoolId) {
+      return NextResponse.json(
+        { error: "Tidak bisa upload buku untuk sekolah lain" },
+        { status: 403 }
+      );
+    }
 
     const book = await db.book.create({
       data: {
@@ -124,6 +159,8 @@ export async function POST(request: Request) {
         fileUrl: fileUrl || null,
         year: year || null,
         schoolId,
+        uploadedBy: session.userId,
+        isShared: isShared ?? true,
       },
     });
 
@@ -136,15 +173,14 @@ export async function POST(request: Request) {
       });
     }
 
-    // 🔥 Log aktivitas
     await logAdminActivityServer({
       action: "CREATE",
       targetType: "BOOK",
       targetId: book.id,
       targetName: book.title,
+      changes: { isShared: book.isShared },
     });
 
-    // 🔥 Invalidate cache
     revalidateTag("admin-stats", "max");
 
     return NextResponse.json(book, { status: 201 });

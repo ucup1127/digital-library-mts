@@ -20,6 +20,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         categories: {
           include: { category: true },
         },
+        school: {
+          select: { id: true, name: true, slug: true },
+        },
       },
     });
 
@@ -42,7 +45,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 // PUT - Update buku lengkap
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requireAdmin();
+    const session = await requireAdmin();
     const { id } = await params;
     const body = await req.json();
 
@@ -54,7 +57,27 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       );
     }
 
-    const { title, author, year, description, categories } = parseResult.data;
+    const { title, author, year, description, categories, isShared } = parseResult.data;
+
+    // 🔥 Cek owner — cuma owner yang bisa edit
+    const existing = await db.book.findUnique({
+      where: { id },
+      select: { schoolId: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "Buku tidak ditemukan" }, { status: 404 });
+    }
+
+    if (
+      session.role !== "SUPER_ADMIN" &&
+      session.schoolId !== existing.schoolId
+    ) {
+      return NextResponse.json(
+        { error: "Hanya pemilik buku (sekolah uploader) yang bisa edit" },
+        { status: 403 }
+      );
+    }
 
     const updatedBook = await db.book.update({
       where: { id },
@@ -63,31 +86,25 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         author,
         year: year || null,
         description: description || null,
+        ...(isShared !== undefined ? { isShared } : {}),
       },
     });
 
     if (categories && categories.length > 0) {
-      await db.bookCategory.deleteMany({
-        where: { bookId: id },
-      });
-
+      await db.bookCategory.deleteMany({ where: { bookId: id } });
       await db.bookCategory.createMany({
-        data: categories.map((categoryId) => ({
-          bookId: id,
-          categoryId,
-        })),
+        data: categories.map((categoryId) => ({ bookId: id, categoryId })),
       });
     }
 
-    // 🔥 Log aktivitas
     await logAdminActivityServer({
       action: "UPDATE",
       targetType: "BOOK",
       targetId: updatedBook.id,
       targetName: updatedBook.title,
+      changes: { isShared: updatedBook.isShared },
     });
 
-    // 🔥 Invalidate cache
     revalidateTag("admin-stats", "max");
 
     return NextResponse.json({
@@ -107,10 +124,30 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 // PATCH - Update sebagian
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requireAdmin();
+    const session = await requireAdmin();
     const { id } = await params;
     const body = await req.json();
     const { categoryIds, ...bookData } = body;
+
+    // Cek owner
+    const existing = await db.book.findUnique({
+      where: { id },
+      select: { schoolId: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "Buku tidak ditemukan" }, { status: 404 });
+    }
+
+    if (
+      session.role !== "SUPER_ADMIN" &&
+      session.schoolId !== existing.schoolId
+    ) {
+      return NextResponse.json(
+        { error: "Hanya pemilik buku yang bisa edit" },
+        { status: 403 }
+      );
+    }
 
     await db.book.update({
       where: { id },
@@ -118,10 +155,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     });
 
     if (categoryIds && categoryIds.length > 0) {
-      await db.bookCategory.deleteMany({
-        where: { bookId: id },
-      });
-
+      await db.bookCategory.deleteMany({ where: { bookId: id } });
       await db.bookCategory.createMany({
         data: categoryIds.map((categoryId: string) => ({
           bookId: id,
@@ -130,9 +164,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       });
     }
 
-    // 🔥 Invalidate cache
     revalidateTag("admin-stats", "max");
-
     return NextResponse.json({ success: true });
   } catch (error) {
     if (error instanceof AuthError) {
@@ -146,7 +178,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 // DELETE - Hapus buku
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requireAdmin();
+    const session = await requireAdmin();
     const { id } = await params;
 
     const book = await db.book.findUnique({ where: { id } });
@@ -155,18 +187,26 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       return NextResponse.json({ error: "Buku tidak ditemukan" }, { status: 404 });
     }
 
-    // 🔥 Helper: validasi path biar nggak path traversal
+    // 🔥 Cek owner
+    if (
+      session.role !== "SUPER_ADMIN" &&
+      session.schoolId !== book.schoolId
+    ) {
+      return NextResponse.json(
+        { error: "Hanya pemilik buku (sekolah uploader) yang bisa hapus" },
+        { status: 403 }
+      );
+    }
+
     const safeUnlink = async (url: string | null, subFolder: string) => {
       if (!url) return;
       const fileName = path.basename(url);
       const filePath = path.join(process.cwd(), "public", "uploads", subFolder, fileName);
-
       const uploadsDir = path.join(process.cwd(), "public", "uploads");
       if (!filePath.startsWith(uploadsDir)) {
         logger.warn("⚠️ Path traversal terdeteksi, skip:", url);
         return;
       }
-
       await unlink(filePath).catch(() => logger.log("File tidak ditemukan:", filePath));
     };
 
@@ -175,7 +215,14 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
     await db.book.delete({ where: { id } });
 
-    // 🔥 Invalidate cache
+    await logAdminActivityServer({
+      action: "DELETE",
+      targetType: "BOOK",
+      targetId: book.id,
+      targetName: book.title,
+      changes: { isShared: book.isShared },
+    });
+
     revalidateTag("admin-stats", "max");
 
     return NextResponse.json({ message: "Buku berhasil dihapus!" });

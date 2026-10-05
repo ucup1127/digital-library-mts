@@ -176,28 +176,14 @@ export const createBookSchema = z.object({
     .max(5000, "Deskripsi maksimal 5000 karakter")
     .optional()
     .nullable(),
-  coverUrl: z
-    .string()
-    .max(500)
-    .optional()
-    .nullable(),
-  fileUrl: z
-    .string()
-    .max(500)
-    .optional()
-    .nullable(),
-  year: z
-    .string()
-    .max(10)
-    .optional()
-    .nullable(),
+  coverUrl: z.string().max(500).optional().nullable(),
+  fileUrl: z.string().max(500).optional().nullable(),
+  year: z.string().max(10).optional().nullable(),
   schoolId: z
     .string({ message: "SchoolId wajib diisi" })
     .min(1, "SchoolId wajib diisi"),
-  categories: z
-    .array(z.string())
-    .optional()
-    .default([]),
+  categories: z.array(z.string()).optional().default([]),
+  isShared: z.boolean().optional().default(true),
 });
 
 // ============================================
@@ -458,10 +444,8 @@ export const updateBookSchema = z.object({
     .max(5000, "Deskripsi maksimal 5000 karakter")
     .optional()
     .nullable(),
-  categories: z
-    .array(z.string())
-    .optional()
-    .default([]),
+  categories: z.array(z.string()).optional().default([]),
+  isShared: z.boolean().optional(),
 });
 
 // ============================================

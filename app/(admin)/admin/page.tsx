@@ -191,7 +191,7 @@ export default function AdminDashboard() {
       const data = await res.json();
 
       if (res.ok) {
-        toast.success(`✅ ${data.message}`, { id: "backup" });
+        toast.success(`${data.message}`, { id: "backup" });
       } else {
         toast.error(data.error || "Gagal backup", { id: "backup" });
       }

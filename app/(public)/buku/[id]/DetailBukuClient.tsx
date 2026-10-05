@@ -30,6 +30,9 @@ interface Book {
   fileUrl: string | null;
   year: string | null;
   views: number;
+  schoolId: string;
+  isShared: boolean;
+  school?: { id: string; name: string; slug: string } | null;
   category: { id: string; name: string } | null;
 }
 
@@ -40,10 +43,11 @@ export default function DetailBukuClient({ book }: { book: Book }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [schoolId, setSchoolId] = useState<string | null>(null);
+  const [userSchoolId, setUserSchoolId] = useState<string | null>(null);
   const [isReading, setIsReading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
-  const catatAktivitas = async () => {
+  const catatAktivitas = async (uid: string, uemail: string | null, uschool: string | null) => {
     try {
       await fetch("/api/visitor-log", {
         method: "POST",
@@ -52,9 +56,9 @@ export default function DetailBukuClient({ book }: { book: Book }) {
           action: "READ",
           bookId: book.id,
           bookTitle: book.title,
-          userId: userId,
-          userEmail: userEmail,
-          schoolId: schoolId,
+          userId: uid,
+          userEmail: uemail,
+          schoolId: uschool,
         }),
       });
     } catch (error) {
@@ -63,20 +67,37 @@ export default function DetailBukuClient({ book }: { book: Book }) {
   };
 
   useEffect(() => {
-    const authStatus = localStorage.getItem("isLoggedIn") === "true";
-    const id = localStorage.getItem("user_id");
-    const email = localStorage.getItem("user_email");
-    const school = localStorage.getItem("school_id");
-    
-    setIsLoggedIn(authStatus);
-    setUserId(id);
-    setUserEmail(email);
-    setSchoolId(school);
-    setIsChecking(false);
-    
-    if (authStatus && book.id) {
-      catatAktivitas();
-    }
+    const checkAuth = async () => {
+      try {
+        const meRes = await fetch("/api/auth/me");
+        const meData = await meRes.json();
+
+        if (meData.user) {
+          setIsLoggedIn(true);
+          setUserId(meData.user.userId || meData.user.id);
+          setUserEmail(meData.user.email);
+          setUserSchoolId(meData.user.schoolId);
+
+          // Catat aktivitas baca
+           if (book.id) {
+            catatAktivitas(
+              meData.user.userId || meData.user.id,
+              meData.user.email,
+              meData.user.schoolId
+            );
+          }
+        } else {
+          setIsLoggedIn(false);
+        }
+      } catch (error) {
+        console.error("Auth check error:", error);
+        setIsLoggedIn(false);
+      } finally {
+        setIsChecking(false);
+      }
+    };
+
+    checkAuth();
   }, [book.id]);
 
   const handleReadBook = () => {
@@ -97,9 +118,10 @@ export default function DetailBukuClient({ book }: { book: Book }) {
       ].slice(0, 10);
       localStorage.setItem('recently_read', JSON.stringify(newRecent));
       
+      const pdfUrl = `/api/pdf${book.fileUrl!.replace("/uploads/", "/")}`;
       setTimeout(() => {
         setIsReading(false);
-        window.open(book.fileUrl!, '_blank');
+        window.open(pdfUrl, "_blank");
       }, 500);
     } else if (!isLoggedIn) {
       localStorage.setItem('redirect_after_login', `/buku/${book.id}`);
@@ -111,8 +133,9 @@ export default function DetailBukuClient({ book }: { book: Book }) {
     if (book.fileUrl) {
       setIsDownloading(true);
       setTimeout(() => {
+        const pdfUrl = `/api/pdf${book.fileUrl!.replace("/uploads/", "/")}`;
         const link = document.createElement('a');
-        link.href = book.fileUrl!;
+        link.href = pdfUrl;
         link.download = `${book.title}.pdf`;
         document.body.appendChild(link);
         link.click();
@@ -168,9 +191,19 @@ export default function DetailBukuClient({ book }: { book: Book }) {
 
           {/* Info Buku */}
           <div className="flex-1 text-white text-center sm:text-left">
-            <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full border border-white/10 mb-3">
-              <Tag className="w-3 h-3" />
-              <span className="text-[10px] font-medium">{book.category?.name || "Koleksi"}</span>
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full border border-white/10">
+                <Tag className="w-3 h-3" />
+                <span className="text-[10px] font-medium">{book.category?.name || "Koleksi"}</span>
+              </div>
+              {book.isShared && (
+                <div className="inline-flex items-center gap-2 bg-emerald-500/30 backdrop-blur-sm px-3 py-1 rounded-full border border-emerald-300/30">
+                  <Globe className="w-3 h-3" />
+                  <span className="text-[10px] font-medium">
+                    Shared{book.school?.name && ` dari ${book.school.name}`}
+                  </span>
+                </div>
+              )}
             </div>
             
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold leading-tight">

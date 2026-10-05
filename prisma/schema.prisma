@@ -201,8 +201,9 @@ model Book {
   year          String?
   isRecommended Boolean   @default(false)
   views         Int       @default(0)
-  schoolId      String    // ✅ Wajib: buku digital per sekolah
-  isShared      Boolean   @default(true)
+  schoolId      String    // owner — sekolah yang upload
+  uploadedBy    String?   // user ID admin yang upload
+  isShared      Boolean   @default(true)  // true = bisa diakses semua sekolah
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -218,9 +219,11 @@ model Book {
   @@index([schoolId, createdAt])
   @@index([schoolId, views])
   @@index([schoolId, isRecommended])
-  @@index([schoolId, title])       
-  @@index([schoolId, author])      
-  @@index([schoolId, year]) 
+  @@index([schoolId, title])
+  @@index([schoolId, author])
+  @@index([schoolId, year])
+  @@index([isShared])
+  @@index([isShared, createdAt])
 }
 
 // Junction Table

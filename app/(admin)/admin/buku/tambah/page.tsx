@@ -19,7 +19,9 @@ import {
   Calendar,
   Save,
   Sparkles,
-  AlertCircle
+  AlertCircle,
+  Globe,
+  Lock
 } from "lucide-react";
 
 interface Category {
@@ -46,6 +48,7 @@ export default function TambahBukuPage() {
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [isShared, setIsShared] = useState(true);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -160,6 +163,7 @@ export default function TambahBukuPage() {
           fileUrl: pdfUrl,
           schoolId,
           categories: selectedCategories,
+          isShared, 
         }),
       });
       
@@ -173,7 +177,7 @@ export default function TambahBukuPage() {
           targetName: formData.title,
           changes: { title: formData.title, author: formData.author, year: formData.year },
         });
-        toast.success("✅ Buku berhasil ditambahkan!", { id: "upload" });
+        toast.success("Buku berhasil ditambahkan!", { id: "upload" });
         router.push("/admin/buku");
       } else {
         throw new Error(data.error || "Gagal menyimpan buku");
@@ -401,6 +405,70 @@ export default function TambahBukuPage() {
             <p className="text-[9px] text-gray-400 mt-2">
               Terpilih <span className="font-semibold text-gray-600">{selectedCategories.length}</span> kategori
             </p>
+          </div>
+
+          {/* Shared Section */}
+          <div className="border-t border-gray-100 pt-6">
+            <label className="block text-xs font-semibold text-gray-700 mb-3">
+              Akses Buku
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Shared */}
+              <label
+                className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition ${
+                  isShared
+                    ? "border-blue-500 bg-blue-50 shadow-sm"
+                    : "border-gray-200 hover:border-blue-200 hover:bg-gray-50"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="isShared"
+                  checked={isShared === true}
+                  onChange={() => setIsShared(true)}
+                  className="mt-0.5 w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <Globe className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm font-semibold text-gray-800">
+                      Bagikan ke Semua Sekolah
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-gray-500 mt-1">
+                    Siswa dari semua sekolah bisa membaca buku ini. Admin sekolah lain hanya bisa melihat (read-only).
+                  </p>
+                </div>
+              </label>
+
+              {/* Eksklusif */}
+              <label
+                className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition ${
+                  !isShared
+                    ? "border-amber-500 bg-amber-50 shadow-sm"
+                    : "border-gray-200 hover:border-amber-200 hover:bg-gray-50"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="isShared"
+                  checked={isShared === false}
+                  onChange={() => setIsShared(false)}
+                  className="mt-0.5 w-4 h-4 text-amber-600 border-gray-300 focus:ring-amber-500"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-amber-600" />
+                    <span className="text-sm font-semibold text-gray-800">
+                      Eksklusif Sekolah Ini
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-gray-500 mt-1">
+                    Cuma siswa sekolah ini yang bisa akses buku ini. Sekolah lain nggak akan lihat.
+                  </p>
+                </div>
+              </label>
+            </div>
           </div>
 
           {/* Action Buttons */}

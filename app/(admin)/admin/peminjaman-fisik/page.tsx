@@ -200,7 +200,7 @@ export default function PeminjamanFisikPage() {
       if (res.ok) {
         toast.success(
           extendActionType === "APPROVED"
-            ? "✅ Perpanjangan disetujui!"
+            ? "Perpanjangan disetujui!"
             : "Perpanjangan ditolak",
           { id: "extend-action" }
         );
@@ -298,7 +298,7 @@ export default function PeminjamanFisikPage() {
       const data = await res.json();
 
       if (res.ok) {
-        toast.success(`✅ Berhasil meminjam "${selectedBook.judul}"!`, { id: "pinjam" });
+        toast.success(`Berhasil meminjam "${selectedBook.judul}"!`, { id: "pinjam" });
         setShowPinjamModal(false);
         setSelectedUser(null);
         setSelectedBook(null);
@@ -338,7 +338,7 @@ export default function PeminjamanFisikPage() {
       if (res.ok) {
         const dendaMsg = data.denda > 0 ? ` Denda: Rp${data.denda.toLocaleString()}` : "";
         toast.success(
-          `✅ Buku "${selectedLoan.bukuFisik.judul}" berhasil dikembalikan!${dendaMsg}`,
+          `Buku "${selectedLoan.bukuFisik.judul}" berhasil dikembalikan!${dendaMsg}`,
           { id: "kembali" }
         );
         setShowKembaliModal(false);

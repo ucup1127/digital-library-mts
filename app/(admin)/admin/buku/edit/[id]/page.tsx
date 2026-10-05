@@ -14,7 +14,9 @@ import {
   User,
   Calendar,
   AlertCircle,
-  Sparkles
+  Sparkles,
+  Globe,
+  Lock
 } from "lucide-react";
 
 interface Category {
@@ -30,6 +32,7 @@ interface Book {
   description: string;
   coverUrl: string;
   fileUrl: string;
+  isShared: boolean;
   categories: { categoryId: string }[];
 }
 
@@ -48,7 +51,7 @@ export default function EditBukuPage({ params }: { params: Promise<{ id: string 
   });
   
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-
+  const [isShared, setIsShared] = useState(true); 
   useEffect(() => {
     const getParams = async () => {
       const resolvedParams = await params;
@@ -78,6 +81,7 @@ export default function EditBukuPage({ params }: { params: Promise<{ id: string 
           description: book.description || "",
         });
         setSelectedCategories(book.categories?.map((c: any) => c.categoryId) || []);
+        setIsShared(book.isShared ?? true);
       } catch (error) {
         console.error("Error fetching data:", error);
         toast.error("Gagal memuat data");
@@ -131,6 +135,7 @@ export default function EditBukuPage({ params }: { params: Promise<{ id: string 
           year: formData.year || null,
           description: formData.description || null,
           categories: selectedCategories,
+          isShared: isShared,
         }),
       });
       
@@ -144,7 +149,7 @@ export default function EditBukuPage({ params }: { params: Promise<{ id: string 
           targetName: formData.title,
           changes: { new: formData },
         });
-        toast.success("✅ Buku berhasil diperbarui!", { id: "save" });
+        toast.success("Buku berhasil diperbarui!", { id: "save" });
         router.push("/admin/buku");
       } else {
         throw new Error(data.error || "Gagal memperbarui buku");
@@ -274,6 +279,68 @@ export default function EditBukuPage({ params }: { params: Promise<{ id: string 
             <p className="text-[9px] text-gray-400 mt-2">
               Terpilih <span className="font-semibold text-gray-600">{selectedCategories.length}</span> kategori
             </p>
+          </div>
+
+          {/* Shared Section */}
+          <div className="border-t border-gray-100 pt-6">
+            <label className="block text-xs font-semibold text-gray-700 mb-3">
+              Akses Buku
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label
+                className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition ${
+                  isShared
+                    ? "border-blue-500 bg-blue-50 shadow-sm"
+                    : "border-gray-200 hover:border-blue-200 hover:bg-gray-50"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="isShared"
+                  checked={isShared === true}
+                  onChange={() => setIsShared(true)}
+                  className="mt-0.5 w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <Globe className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm font-semibold text-gray-800">
+                      Bagikan ke Semua Sekolah
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-gray-500 mt-1">
+                    Siswa dari semua sekolah bisa membaca buku ini.
+                  </p>
+                </div>
+              </label>
+
+              <label
+                className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition ${
+                  !isShared
+                    ? "border-amber-500 bg-amber-50 shadow-sm"
+                    : "border-gray-200 hover:border-amber-200 hover:bg-gray-50"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="isShared"
+                  checked={isShared === false}
+                  onChange={() => setIsShared(false)}
+                  className="mt-0.5 w-4 h-4 text-amber-600 border-gray-300 focus:ring-amber-500"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-amber-600" />
+                    <span className="text-sm font-semibold text-gray-800">
+                      Eksklusif Sekolah Ini
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-gray-500 mt-1">
+                    Cuma siswa sekolah ini yang bisa akses.
+                  </p>
+                </div>
+              </label>
+            </div>
           </div>
 
           {/* Action Buttons */}

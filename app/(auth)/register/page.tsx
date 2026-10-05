@@ -176,16 +176,14 @@ export default function RegisterPage() {
               </div>
               <h1 className="text-2xl font-black tracking-tight">
                 <span className="bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                  MUHAPATI
+                  DAFTAR
                 </span>
               </h1>
               <p className="text-gray-500 text-sm mt-0.5">Perpustakaan Digital</p>
               <div className="flex items-center justify-center gap-2 mt-2">
-                <Sparkles className="w-3 h-3 text-green-400" />
                 <span className="text-[9px] font-medium text-gray-400 uppercase tracking-widest">
                   Daftar Anggota
                 </span>
-                <Sparkles className="w-3 h-3 text-green-400" />
               </div>
             </div>
 

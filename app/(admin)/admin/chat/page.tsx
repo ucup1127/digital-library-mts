@@ -36,6 +36,7 @@ export default function ChatPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [lastFetchTime, setLastFetchTime] = useState<string | null>(null);
   const [isPolling, setIsPolling] = useState(false);
+    const [isTabActive, setIsTabActive] = useState(true);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -58,6 +59,9 @@ export default function ChatPage() {
         const data = await res.json();
         setMessages(data.messages || []);
         setLastFetchTime(data.serverTime);
+
+        // 🔥 Mark as read saat buka chat
+        await fetch("/api/chat/read", { method: "POST" }).catch(() => {});
       } catch (error) {
         console.error("Init error:", error);
         toast.error("Gagal memuat chat");
@@ -69,11 +73,21 @@ export default function ChatPage() {
     init();
   }, []);
 
+    // 🔥 Pause polling kalau tab nggak aktif
+  useEffect(() => {
+    const handleVisibility = () => {
+      setIsTabActive(!document.hidden);
+    };
+    handleVisibility(); // cek awal
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, []);
+
   // ============================================
   // POLLING — Fetch pesan baru tiap 5 detik
   // ============================================
-  useEffect(() => {
-    if (loading || !lastFetchTime) return;
+   useEffect(() => {
+    if (loading || !lastFetchTime || !isTabActive) return;
 
     const interval = setInterval(async () => {
       try {
@@ -86,7 +100,6 @@ export default function ChatPage() {
         const data = await res.json();
         if (data.messages && data.messages.length > 0) {
           setMessages((prev) => {
-            // Merge — buang duplikat by id
             const existingIds = new Set(prev.map((m) => m.id));
             const newMsgs = data.messages.filter(
               (m: ChatMessage) => !existingIds.has(m.id)
@@ -103,7 +116,7 @@ export default function ChatPage() {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [loading, lastFetchTime]);
+  }, [loading, lastFetchTime, isTabActive]);
 
   // ============================================
   // AUTO-SCROLL — Scroll ke bawah saat pesan baru
@@ -111,6 +124,11 @@ export default function ChatPage() {
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+
+      // 🔥 Mark as read setelah auto-scroll (user lihat pesan baru)
+      if (messages.length > 0) {
+        fetch("/api/chat/read", { method: "POST" }).catch(() => {});
+      }
     }
   }, [messages.length]);
 
@@ -221,10 +239,21 @@ export default function ChatPage() {
     });
   };
 
-  // Auto-link URL di pesan
+    // 🔥 Escape HTML — anti XSS
+  const escapeHtml = (text: string) => {
+    return text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  };
+
+  // Auto-link URL di pesan (setelah di-escape)
   const renderMessage = (text: string) => {
+    const escaped = escapeHtml(text);
     const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const parts = text.split(urlRegex);
+    const parts = escaped.split(urlRegex);
 
     return parts.map((part, idx) => {
       if (part.match(urlRegex)) {

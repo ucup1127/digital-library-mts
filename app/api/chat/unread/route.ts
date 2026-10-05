@@ -6,14 +6,22 @@ import { logger } from "@/lib/logger";
 
 export async function GET() {
   try {
-    await requireAdmin();
+    const session = await requireAdmin();
 
-    // Hitung pesan chat dalam 24 jam terakhir
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    // 🔥 Ambil lastReadAt user
+    const readState = await db.chatReadState.findUnique({
+      where: { userId: session.userId },
+      select: { lastReadAt: true },
+    });
 
+    // Kalau belum ada state → hitung dari awal
+    const since = readState?.lastReadAt || new Date(0);
+
+    // Hitung pesan SETELAH lastReadAt DAN bukan dari user sendiri
     const count = await db.chatMessage.count({
       where: {
-        createdAt: { gte: since },
+        createdAt: { gt: since },
+        userId: { not: session.userId },
       },
     });
 

@@ -5,10 +5,8 @@ import { requireAdmin, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { z } from "zod";
 import { formatZodError } from "@/lib/validations";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
-// ============================================
-// SCHEMA
-// ============================================
 const sendMessageSchema = z.object({
   message: z
     .string({ message: "Pesan wajib diisi" })
@@ -17,15 +15,16 @@ const sendMessageSchema = z.object({
     .trim(),
 });
 
+// 🔥 Rate limit: max 10 pesan/menit per admin
+const CHAT_RATE_LIMIT = 10;
+const CHAT_RATE_WINDOW = 60 * 1000; // 1 menit
+
 // ============================================
-// GET — Ambil pesan (polling)
-// Query params:
-//   ?since=<ISO timestamp>  → ambil pesan setelah timestamp
-//   ?limit=50               → jumlah pesan (default 50)
+// GET — Ambil pesan
 // ============================================
 export async function GET(request: Request) {
   try {
-    await requireAdmin();
+    const session = await requireAdmin();
 
     const { searchParams } = new URL(request.url);
     const since = searchParams.get("since");
@@ -33,7 +32,6 @@ export async function GET(request: Request) {
 
     const where: any = {};
 
-    // Kalau ada ?since → cuma ambil pesan baru
     if (since) {
       const sinceDate = new Date(since);
       if (!isNaN(sinceDate.getTime())) {
@@ -61,11 +59,8 @@ export async function GET(request: Request) {
       },
     });
 
-    // Reverse biar urut dari lama ke baru
-    const ordered = messages.reverse();
-
     return NextResponse.json({
-      messages: ordered,
+      messages: messages.reverse(),
       serverTime: new Date().toISOString(),
     });
   } catch (error) {
@@ -83,6 +78,25 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const session = await requireAdmin();
+    const ip = getClientIp(request);
+
+    // 🔥 Rate limit per user
+    const rateKey = `chat:${session.userId}`;
+    const rateCheck = checkRateLimit(rateKey, CHAT_RATE_LIMIT, CHAT_RATE_WINDOW);
+
+    if (!rateCheck.allowed) {
+      logger.log(`🚫 Chat rate limit exceeded: ${session.userId}`);
+      return NextResponse.json(
+        {
+          error: `Terlalu banyak kirim pesan. Coba lagi dalam ${Math.ceil((rateCheck.retryAfter || 0) / 1000)} detik.`,
+        },
+        {
+          status: 429,
+          headers: { "Retry-After": String(rateCheck.retryAfter || 60) },
+        }
+      );
+    }
+
     const body = await request.json();
 
     const parseResult = sendMessageSchema.safeParse(body);
@@ -114,6 +128,13 @@ export async function POST(request: Request) {
           },
         },
       },
+    });
+
+    // 🔥 Update lastReadAt untuk pengirim sendiri (biar pesan sendiri nggak dihitung unread)
+    await db.chatReadState.upsert({
+      where: { userId: session.userId },
+      update: { lastReadAt: new Date() },
+      create: { userId: session.userId, lastReadAt: new Date() },
     });
 
     logger.log(`💬 Chat message from ${session.userId}`);

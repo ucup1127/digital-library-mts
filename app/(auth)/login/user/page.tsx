@@ -5,7 +5,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { Eye, EyeOff, BookOpen, ArrowRight, Sparkles, ChevronRight, Library, GraduationCap } from "lucide-react";
+import { Eye, EyeOff, BookOpen, ArrowRight, Sparkles, ChevronRight, Library } from "lucide-react";
 
 function LoginUserForm() {
   const router = useRouter();
@@ -262,16 +262,6 @@ function LoginUserForm() {
               Daftar Sekarang
               <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
-
-            <div className="mt-4 text-center">
-              <Link
-                href="/login/admin"
-                className="text-xs text-gray-400 hover:text-blue-500 transition inline-flex items-center gap-1 group"
-              >
-                Login sebagai Admin
-                <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
-              </Link>
-            </div>
           </div>
 
           <div className="text-center mt-5">

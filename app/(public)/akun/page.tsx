@@ -5,32 +5,27 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import {
-  User,
-  Mail,
   BookOpen,
   Calendar,
   Clock,
   AlertCircle,
   CheckCircle,
-  Settings,
-  UserCircle,
   GraduationCap,
-  Wallet,
-  ArrowRight,
-  Sparkles,
-  Lock,
   Edit2,
   X,
   BookMarked,
   Library,
   RefreshCw,
   Send,
+  Lock,
 } from "lucide-react";
 
 interface UserData {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
+  username: string | null;
+  nisn: string | null;
   className: string;
   memberId: string;
   createdAt: string;
@@ -77,23 +72,40 @@ export default function AkunPage() {
   });
   const [changingPassword, setChangingPassword] = useState(false);
 
-  // 🔥 State perpanjangan
+  // State perpanjangan
   const [showExtendModal, setShowExtendModal] = useState(false);
   const [extendLoan, setExtendLoan] = useState<Peminjaman | null>(null);
   const [extendReason, setExtendReason] = useState("");
   const [submittingExtend, setSubmittingExtend] = useState(false);
 
+  // 🔥 FIX: Cek auth via API, bukan localStorage
   useEffect(() => {
-    const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
-    const userId = localStorage.getItem("user_id");
+    const init = async () => {
+      try {
+        const meRes = await fetch("/api/auth/me");
+        const meData = await meRes.json();
 
-    if (!isLoggedIn || !userId) {
-      router.push("/login/user");
-      return;
-    }
+        if (!meData.user) {
+          router.push("/login/user");
+          return;
+        }
 
-    fetchUserData(userId);
-    fetchUserLoans(userId);
+        // Ambil userId dari session
+        const userId = meData.user.userId || meData.user.id;
+        if (!userId) {
+          router.push("/login/user");
+          return;
+        }
+
+        await fetchUserData(userId);
+        await fetchUserLoans(userId);
+      } catch (error) {
+        console.error("Error init:", error);
+        router.push("/login/user");
+      }
+    };
+
+    init();
   }, [router]);
 
   const fetchUserData = async (userId: string) => {
@@ -105,6 +117,7 @@ export default function AkunPage() {
           toast.error("User tidak ditemukan");
           router.push("/login/user");
         }
+        setLoading(false);
         return;
       }
 
@@ -112,6 +125,7 @@ export default function AkunPage() {
 
       if (data.error) {
         toast.error(data.error);
+        setLoading(false);
         return;
       }
 
@@ -170,7 +184,6 @@ export default function AkunPage() {
         toast.success("✅ Profil berhasil diperbarui!", { id: "update" });
         setEditMode(false);
         fetchUserData(user.id);
-        localStorage.setItem("user_name", editForm.name);
       } else {
         toast.error(data.error || "Gagal memperbarui", { id: "update" });
       }
@@ -232,7 +245,6 @@ export default function AkunPage() {
     }
   };
 
-  // 🔥 Ajukan perpanjangan
   const handleExtend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!extendLoan) return;
@@ -269,7 +281,6 @@ export default function AkunPage() {
     }
   };
 
-  // 🔥 Cek bisa perpanjang?
   const canExtend = (loan: Peminjaman) => {
     if (loan.status === "DIKEMBALIKAN") return false;
     if (loan.extendedCount >= 1) return false;
@@ -358,7 +369,9 @@ export default function AkunPage() {
             </div>
             <div className="flex-1 text-center sm:text-left">
               <h1 className="text-2xl font-bold text-white">{user.name}</h1>
-              <p className="text-blue-100 text-sm">{user.email || "-"}</p>
+              <p className="text-blue-100 text-sm">
+                {user.email || `@${user.username || "-"}`}
+              </p>
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mt-2 text-blue-100 text-xs">
                 <span className="flex items-center gap-1">
                   <GraduationCap className="w-3.5 h-3.5" />
@@ -409,7 +422,7 @@ export default function AkunPage() {
                   if (user) {
                     setEditForm({
                       name: user.name,
-                      email: user.email,
+                      email: user.email || "",
                       className: user.className || "",
                     });
                   }
@@ -450,7 +463,9 @@ export default function AkunPage() {
                 <input
                   type="text"
                   value={editForm.className}
-                  onChange={(e) => setEditForm({ ...editForm, className: e.target.value })}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, className: e.target.value })
+                  }
                   className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
                   placeholder="Contoh: 9A"
                 />
@@ -463,7 +478,7 @@ export default function AkunPage() {
                     if (user) {
                       setEditForm({
                         name: user.name,
-                        email: user.email,
+                        email: user.email || "",
                         className: user.className || "",
                       });
                     }
@@ -491,7 +506,9 @@ export default function AkunPage() {
             <p className="text-xl font-bold text-gray-800">
               {activeLoans.length + historyLoans.length}
             </p>
-            <p className="text-[9px] text-gray-400 uppercase tracking-wider">Total Pinjam</p>
+            <p className="text-[9px] text-gray-400 uppercase tracking-wider">
+              Total Pinjam
+            </p>
           </div>
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-center">
             <Clock className="w-5 h-5 text-amber-500 mx-auto mb-1" />
@@ -561,7 +578,6 @@ export default function AkunPage() {
                             </p>
                           )}
 
-                          {/* 🔥 Info perpanjangan */}
                           {loan.extendedCount > 0 && (
                             <p className="text-[9px] text-blue-600 font-medium">
                               ✓ Sudah diperpanjang {loan.extendedCount}x
@@ -578,7 +594,6 @@ export default function AkunPage() {
                             </span>
                           )}
 
-                          {/* 🔥 Tombol Perpanjang */}
                           {canExtend(loan) && (
                             <button
                               onClick={() => {

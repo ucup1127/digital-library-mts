@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 // 🔥 Route yang BUTUH login (redirect ke /login/user)
-const PROTECTED_ROUTES = ["/baca", "/tentang", "/galeri", "/profil-sekolah"];
+const PROTECTED_ROUTES = ["/baca"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

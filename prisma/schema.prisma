@@ -61,6 +61,7 @@ model User {
   // 🔗 Relasi
   peminjamanFisik PeminjamanFisik[]
   sessions  Session[]
+  notifications Notification[] 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @default(now()) @updatedAt
 
@@ -116,6 +117,14 @@ model PeminjamanFisik {
   status        String      @default("DIPINJAM")
   denda         Int         @default(0)
   petugas       String?
+  
+  // 🔥 FIELD BARU — Perpanjangan
+  extendedAt       DateTime?
+  extendedCount    Int       @default(0)
+  extensionStatus  String?   // "NONE" | "PENDING" | "APPROVED" | "REJECTED"
+  extensionReason  String?   @db.Text
+  extensionNote    String?   @db.Text
+  
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
@@ -129,6 +138,24 @@ model PeminjamanFisik {
   @@index([tglPinjam])
   @@index([userId, tglPinjam])
   @@index([bukuFisikId, tglPinjam])
+  @@index([extensionStatus])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String   @db.Text
+  type      String   // "DUE_TODAY" | "OVERDUE" | "EXTEND_PENDING" | "EXTEND_APPROVED" | "EXTEND_REJECTED"
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@index([type])
+  @@index([createdAt])
 }
 
 model Organization {

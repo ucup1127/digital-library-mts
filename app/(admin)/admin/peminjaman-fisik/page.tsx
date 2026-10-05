@@ -3,11 +3,11 @@
 
 import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
-import { 
-  BookOpen, 
-  Plus, 
-  Search, 
-  User, 
+import {
+  BookOpen,
+  Plus,
+  Search,
+  User,
   BookMarked,
   Calendar,
   Clock,
@@ -16,21 +16,17 @@ import {
   XCircle,
   ArrowLeft,
   ArrowRight,
-  ChevronLeft,
   ChevronRight,
   Library,
   Users,
   X,
-  Save,
-  Sparkles,
   Barcode,
   UserCheck,
   BookCheck,
   RefreshCw,
-  Eye,
-  FileText,
-  BadgeCheck,
-  AlertTriangle
+  AlertTriangle,
+  Check,
+  Send,
 } from "lucide-react";
 
 interface User {
@@ -60,6 +56,10 @@ interface Peminjaman {
   tglDikembalikan: string | null;
   status: string;
   denda: number;
+  extendedCount: number;
+  extensionStatus: string | null;
+  extensionReason: string | null;
+  extensionNote: string | null;
   user: User;
   bukuFisik: BukuFisik;
 }
@@ -72,10 +72,10 @@ export default function PeminjamanFisikPage() {
   const [showKembaliModal, setShowKembaliModal] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState<Peminjaman | null>(null);
   const [userRole, setUserRole] = useState("");
-  
+
   const [selectedSchoolId, setSelectedSchoolId] = useState("");
   const [selectedSchoolName, setSelectedSchoolName] = useState("");
-  
+
   const [step, setStep] = useState<"user" | "book">("user");
   const [searchUser, setSearchUser] = useState("");
   const [searchBook, setSearchBook] = useState("");
@@ -85,13 +85,21 @@ export default function PeminjamanFisikPage() {
   const [selectedBook, setSelectedBook] = useState<BukuFisik | null>(null);
   const [searchingUser, setSearchingUser] = useState(false);
   const [searchingBook, setSearchingBook] = useState(false);
-  const [userTotalItems, setUserTotalItems] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+
+  // 🔥 Tab Perpanjangan
+  const [activeTab, setActiveTab] = useState<"aktif" | "riwayat" | "perpanjangan">("aktif");
+  const [extendRequests, setExtendRequests] = useState<Peminjaman[]>([]);
+  const [showExtendActionModal, setShowExtendActionModal] = useState(false);
+  const [extendActionLoan, setExtendActionLoan] = useState<Peminjaman | null>(null);
+  const [extendActionType, setExtendActionType] = useState<"APPROVED" | "REJECTED">("APPROVED");
+  const [extendNote, setExtendNote] = useState("");
+  const [processingExtend, setProcessingExtend] = useState(false);
 
   useEffect(() => {
     const role = localStorage.getItem("user_role") || "";
     setUserRole(role);
-    
+
     if (role === "SUPER_ADMIN") {
       const savedSchoolId = localStorage.getItem("selected_school_id") || "";
       const savedSchoolName = localStorage.getItem("selected_school_name") || "";
@@ -121,7 +129,7 @@ export default function PeminjamanFisikPage() {
         setStep("user");
       }
     };
-    
+
     window.addEventListener("schoolChanged", handleSchoolChange);
     return () => window.removeEventListener("schoolChanged", handleSchoolChange);
   }, []);
@@ -130,12 +138,13 @@ export default function PeminjamanFisikPage() {
     if (selectedSchoolId) {
       fetchActiveLoans();
       fetchHistoryLoans();
+      fetchExtendRequests();
     }
   }, [selectedSchoolId]);
 
   const fetchActiveLoans = async () => {
     if (!selectedSchoolId) return;
-    
+
     try {
       const res = await fetch(`/api/peminjaman-fisik?status=DIPINJAM&schoolId=${selectedSchoolId}`);
       const data = await res.json();
@@ -149,7 +158,7 @@ export default function PeminjamanFisikPage() {
 
   const fetchHistoryLoans = async () => {
     if (!selectedSchoolId) return;
-    
+
     try {
       const res = await fetch(`/api/peminjaman-fisik?status=all&schoolId=${selectedSchoolId}`);
       const data = await res.json();
@@ -159,18 +168,70 @@ export default function PeminjamanFisikPage() {
     }
   };
 
+  const fetchExtendRequests = async () => {
+    if (!selectedSchoolId) return;
+    try {
+      const res = await fetch(`/api/peminjaman-fisik?status=all&schoolId=${selectedSchoolId}`);
+      const data = await res.json();
+      const all = Array.isArray(data) ? data : [];
+      setExtendRequests(all.filter((l: any) => l.extensionStatus === "PENDING"));
+    } catch (error) {
+      console.error("Error fetching extend requests:", error);
+    }
+  };
+
+  const handleExtendAction = async () => {
+    if (!extendActionLoan) return;
+    setProcessingExtend(true);
+    toast.loading("Memproses...", { id: "extend-action" });
+
+    try {
+      const res = await fetch(`/api/peminjaman-fisik/extend/${extendActionLoan.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: extendActionType,
+          note: extendNote,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        toast.success(
+          extendActionType === "APPROVED"
+            ? "✅ Perpanjangan disetujui!"
+            : "Perpanjangan ditolak",
+          { id: "extend-action" }
+        );
+        setShowExtendActionModal(false);
+        setExtendActionLoan(null);
+        setExtendNote("");
+        fetchActiveLoans();
+        fetchHistoryLoans();
+        fetchExtendRequests();
+      } else {
+        toast.error(data.error || "Gagal memproses", { id: "extend-action" });
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Terjadi kesalahan", { id: "extend-action" });
+    } finally {
+      setProcessingExtend(false);
+    }
+  };
+
   const searchUsers = async (query: string) => {
     if (query.length < 2) {
       setUsers([]);
       return;
     }
-    
+
     setSearchingUser(true);
     try {
       const res = await fetch(`/api/users?search=${encodeURIComponent(query)}&limit=10`);
       const data = await res.json();
       setUsers(data.users || []);
-      setUserTotalItems(data.users?.length || 0);
     } catch (error) {
       console.error("Error searching users:", error);
     } finally {
@@ -183,10 +244,12 @@ export default function PeminjamanFisikPage() {
       setBooks([]);
       return;
     }
-    
+
     setSearchingBook(true);
     try {
-      const res = await fetch(`/api/buku-fisik?search=${encodeURIComponent(query)}&schoolId=${selectedSchoolId}`);
+      const res = await fetch(
+        `/api/buku-fisik?search=${encodeURIComponent(query)}&schoolId=${selectedSchoolId}`
+      );
       const data = await res.json();
       const bookList = data.books || [];
       const availableBooks = bookList.filter((book: BukuFisik) => book.stokTersedia > 0);
@@ -274,7 +337,10 @@ export default function PeminjamanFisikPage() {
 
       if (res.ok) {
         const dendaMsg = data.denda > 0 ? ` Denda: Rp${data.denda.toLocaleString()}` : "";
-        toast.success(`✅ Buku "${selectedLoan.bukuFisik.judul}" berhasil dikembalikan!${dendaMsg}`, { id: "kembali" });
+        toast.success(
+          `✅ Buku "${selectedLoan.bukuFisik.judul}" berhasil dikembalikan!${dendaMsg}`,
+          { id: "kembali" }
+        );
         setShowKembaliModal(false);
         setSelectedLoan(null);
         fetchActiveLoans();
@@ -293,13 +359,29 @@ export default function PeminjamanFisikPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "DIPINJAM":
-        return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-medium bg-yellow-100 text-yellow-700 rounded-full"><Clock className="w-3 h-3" /> Dipinjam</span>;
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-medium bg-yellow-100 text-yellow-700 rounded-full">
+            <Clock className="w-3 h-3" /> Dipinjam
+          </span>
+        );
       case "TERLAMBAT":
-        return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-medium bg-red-100 text-red-700 rounded-full animate-pulse"><AlertCircle className="w-3 h-3" /> Terlambat</span>;
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-medium bg-red-100 text-red-700 rounded-full animate-pulse">
+            <AlertCircle className="w-3 h-3" /> Terlambat
+          </span>
+        );
       case "DIKEMBALIKAN":
-        return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-medium bg-green-100 text-green-700 rounded-full"><CheckCircle className="w-3 h-3" /> Dikembalikan</span>;
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-medium bg-green-100 text-green-700 rounded-full">
+            <CheckCircle className="w-3 h-3" /> Dikembalikan
+          </span>
+        );
       default:
-        return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-medium bg-gray-100 text-gray-600 rounded-full">{status}</span>;
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-medium bg-gray-100 text-gray-600 rounded-full">
+            {status}
+          </span>
+        );
     }
   };
 
@@ -308,7 +390,7 @@ export default function PeminjamanFisikPage() {
     const kembali = new Date(tglKembali);
     today.setHours(0, 0, 0, 0);
     kembali.setHours(0, 0, 0, 0);
-    
+
     if (today > kembali) {
       return Math.ceil((today.getTime() - kembali.getTime()) / (1000 * 3600 * 24));
     }
@@ -321,7 +403,7 @@ export default function PeminjamanFisikPage() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Peminjaman Buku Fisik</h1>
-            <p className="text-xs text-gray-400 mt-1">Manajemen peminjaman buku fisik perpustakaan</p>
+            <p className="text-xs text-gray-400 mt-1">Manajemen peminjaman buku fisik</p>
           </div>
         </div>
         <div className="bg-yellow-50 rounded-2xl border border-yellow-200 p-8 text-center">
@@ -369,8 +451,152 @@ export default function PeminjamanFisikPage() {
         </button>
       </div>
 
-      {/* Peminjaman Aktif */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      {/* 🔥 Tab Navigation */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-1.5 flex gap-1">
+        <button
+          onClick={() => setActiveTab("aktif")}
+          className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-2 ${
+            activeTab === "aktif"
+              ? "bg-amber-600 text-white shadow-md shadow-amber-200"
+              : "text-gray-600 hover:bg-gray-50"
+          }`}
+        >
+          <RefreshCw className="w-4 h-4" />
+          Aktif ({activeLoans.length})
+        </button>
+        <button
+          onClick={() => setActiveTab("perpanjangan")}
+          className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-2 ${
+            activeTab === "perpanjangan"
+              ? "bg-blue-600 text-white shadow-md shadow-blue-200"
+              : "text-gray-600 hover:bg-gray-50"
+          }`}
+        >
+          <Clock className="w-4 h-4" />
+          Perpanjangan
+          {extendRequests.length > 0 && (
+            <span
+              className={`px-2 py-0.5 text-[9px] font-bold rounded-full ${
+                activeTab === "perpanjangan"
+                  ? "bg-white/20 text-white"
+                  : "bg-red-100 text-red-600"
+              }`}
+            >
+              {extendRequests.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab("riwayat")}
+          className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-2 ${
+            activeTab === "riwayat"
+              ? "bg-blue-600 text-white shadow-md shadow-blue-200"
+              : "text-gray-600 hover:bg-gray-50"
+          }`}
+        >
+          <Library className="w-4 h-4" />
+          Riwayat ({historyLoans.length})
+        </button>
+      </div>
+
+      {/* TAB: PERPANJANGAN */}
+      {activeTab === "perpanjangan" && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/80 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-blue-500" />
+              <h2 className="font-bold text-gray-800 text-sm">🔄 Pengajuan Perpanjangan</h2>
+            </div>
+            <span className="text-[9px] text-gray-400">{extendRequests.length} pengajuan</span>
+          </div>
+
+          {extendRequests.length === 0 ? (
+            <div className="px-5 py-12 text-center">
+              <Clock className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-400 text-sm">Tidak ada pengajuan perpanjangan</p>
+              <p className="text-xs text-gray-300 mt-1">
+                Pengajuan dari siswa akan muncul di sini
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-50">
+              {extendRequests.map((loan) => (
+                <div key={loan.id} className="p-5 hover:bg-gray-50 transition">
+                  <div className="flex flex-col sm:flex-row justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="px-2 py-0.5 text-[9px] font-bold bg-amber-100 text-amber-700 rounded-full">
+                          MENUNGGU
+                        </span>
+                        <span className="text-[10px] text-gray-400">
+                          {new Date(loan.tglPinjam).toLocaleDateString("id-ID")}
+                        </span>
+                      </div>
+                      <p className="text-sm font-semibold text-gray-800">
+                        📖 {loan.bukuFisik?.judul}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Peminjam: <strong>{loan.user?.name}</strong>
+                        {loan.user?.className && ` (${loan.user.className})`}
+                        {loan.user?.memberId && (
+                          <span className="ml-2 font-mono text-blue-600">
+                            No: {loan.user.memberId}
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Jatuh tempo: {new Date(loan.tglKembali).toLocaleDateString("id-ID")}
+                      </p>
+                      {loan.extensionReason && (
+                        <div className="mt-2 bg-blue-50 border border-blue-100 rounded-lg p-2">
+                          <p className="text-[10px] font-semibold text-blue-700">Alasan siswa:</p>
+                          <p className="text-xs text-gray-700 mt-0.5">
+                            {loan.extensionReason}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-2 sm:w-40">
+                      <button
+                        onClick={() => {
+                          setExtendActionLoan(loan);
+                          setExtendActionType("APPROVED");
+                          setExtendNote("");
+                          setShowExtendActionModal(true);
+                        }}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 transition flex items-center justify-center gap-2"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        Setujui
+                      </button>
+                      <button
+                        onClick={() => {
+                          setExtendActionLoan(loan);
+                          setExtendActionType("REJECTED");
+                          setExtendNote("");
+                          setShowExtendActionModal(true);
+                        }}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-700 transition flex items-center justify-center gap-2"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        Tolak
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB: PEMINJAMAN AKTIF */}
+      <div
+        className={`bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden ${
+          activeTab !== "aktif" ? "hidden" : ""
+        }`}
+      >
         <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/80 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <RefreshCw className="w-4 h-4 text-amber-500" />
@@ -382,13 +608,27 @@ export default function PeminjamanFisikPage() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Peminjam</th>
-                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Buku</th>
-                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Tgl Pinjam</th>
-                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Tgl Kembali</th>
-                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Terlambat</th>
-                <th className="px-4 py-3 text-center text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-4 py-3 text-center text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Aksi</th>
+                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+                  Peminjam
+                </th>
+                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+                  Buku
+                </th>
+                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+                  Tgl Pinjam
+                </th>
+                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+                  Tgl Kembali
+                </th>
+                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+                  Terlambat
+                </th>
+                <th className="px-4 py-3 text-center text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-4 py-3 text-center text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+                  Aksi
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -405,7 +645,7 @@ export default function PeminjamanFisikPage() {
                 activeLoans.map((loan) => {
                   const lateDays = getLateDays(loan.tglKembali);
                   const isLate = lateDays > 0;
-                  
+
                   return (
                     <tr key={loan.id} className="hover:bg-gray-50 transition group">
                       <td className="px-4 py-3">
@@ -417,20 +657,30 @@ export default function PeminjamanFisikPage() {
                           <BookMarked className="w-3 h-3" />
                           {loan.user?.className || ""}
                           {loan.user?.memberId && (
-                            <span className="text-blue-600 font-mono">• No: {loan.user.memberId}</span>
+                            <span className="text-blue-600 font-mono">
+                              • No: {loan.user.memberId}
+                            </span>
                           )}
                         </p>
                       </td>
                       <td className="px-4 py-3">
-                        <p className="text-sm text-gray-800 font-medium">{loan.bukuFisik?.judul || "-"}</p>
+                        <p className="text-sm text-gray-800 font-medium">
+                          {loan.bukuFisik?.judul || "-"}
+                        </p>
                         <p className="text-[9px] text-gray-400">{loan.bukuFisik?.penulis}</p>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-gray-400" />
-                        {new Date(loan.tglPinjam).toLocaleDateString("id-ID")}
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        <span className="flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                          {new Date(loan.tglPinjam).toLocaleDateString("id-ID")}
+                        </span>
                       </td>
                       <td className="px-4 py-3">
-                        <p className={`text-sm flex items-center gap-1.5 ${isLate ? "text-red-600 font-semibold" : "text-gray-600"}`}>
+                        <p
+                          className={`text-sm flex items-center gap-1.5 ${
+                            isLate ? "text-red-600 font-semibold" : "text-gray-600"
+                          }`}
+                        >
                           <Calendar className="w-3.5 h-3.5" />
                           {new Date(loan.tglKembali).toLocaleDateString("id-ID")}
                         </p>
@@ -447,6 +697,11 @@ export default function PeminjamanFisikPage() {
                       </td>
                       <td className="px-4 py-3 text-center">
                         {getStatusBadge(isLate ? "TERLAMBAT" : loan.status)}
+                        {loan.extendedCount > 0 && (
+                          <p className="text-[8px] text-blue-600 font-medium mt-1">
+                            ✓ Ext {loan.extendedCount}x
+                          </p>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <button
@@ -469,8 +724,12 @@ export default function PeminjamanFisikPage() {
         </div>
       </div>
 
-      {/* Riwayat Peminjaman */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      {/* TAB: RIWAYAT */}
+      <div
+        className={`bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden ${
+          activeTab !== "riwayat" ? "hidden" : ""
+        }`}
+      >
         <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/80 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Library className="w-4 h-4 text-blue-500" />
@@ -482,12 +741,24 @@ export default function PeminjamanFisikPage() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Peminjam</th>
-                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Buku</th>
-                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Tgl Pinjam</th>
-                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Tgl Kembali</th>
-                <th className="px-4 py-3 text-center text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Denda</th>
-                <th className="px-4 py-3 text-center text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+                  Peminjam
+                </th>
+                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+                  Buku
+                </th>
+                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+                  Tgl Pinjam
+                </th>
+                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+                  Tgl Kembali
+                </th>
+                <th className="px-4 py-3 text-center text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+                  Denda
+                </th>
+                <th className="px-4 py-3 text-center text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -509,19 +780,29 @@ export default function PeminjamanFisikPage() {
                         {loan.user?.name || "-"}
                       </p>
                       {loan.user?.memberId && (
-                        <p className="text-[9px] text-blue-600 font-mono">No: {loan.user.memberId}</p>
+                        <p className="text-[9px] text-blue-600 font-mono">
+                          No: {loan.user.memberId}
+                        </p>
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <p className="text-sm text-gray-800 font-medium">{loan.bukuFisik?.judul || "-"}</p>
+                      <p className="text-sm text-gray-800 font-medium">
+                        {loan.bukuFisik?.judul || "-"}
+                      </p>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-gray-400" />
-                      {new Date(loan.tglPinjam).toLocaleDateString("id-ID")}
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      <span className="flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                        {new Date(loan.tglPinjam).toLocaleDateString("id-ID")}
+                      </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 flex items-center gap-1.5">
-                      <CheckCircle className="w-3.5 h-3.5 text-green-500" />
-                      {loan.tglDikembalikan ? new Date(loan.tglDikembalikan).toLocaleDateString("id-ID") : "-"}
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      <span className="flex items-center gap-1.5">
+                        <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                        {loan.tglDikembalikan
+                          ? new Date(loan.tglDikembalikan).toLocaleDateString("id-ID")
+                          : "-"}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-center">
                       {loan.denda > 0 ? (
@@ -547,16 +828,16 @@ export default function PeminjamanFisikPage() {
         </div>
       </div>
 
-      {/* ========== MODAL PINJAM BUKU ========== */}
+      {/* MODAL PINJAM BUKU */}
       {showPinjamModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-fade-in-up">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex justify-between items-center">
               <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                 <BookOpen className="w-5 h-5 text-amber-600" />
                 Pinjam Buku
               </h2>
-              <button 
+              <button
                 onClick={() => {
                   setShowPinjamModal(false);
                   setSelectedUser(null);
@@ -566,7 +847,7 @@ export default function PeminjamanFisikPage() {
                   setUsers([]);
                   setBooks([]);
                   setStep("user");
-                }} 
+                }}
                 className="text-gray-400 hover:text-gray-600 transition"
               >
                 <X className="w-5 h-5" />
@@ -574,21 +855,23 @@ export default function PeminjamanFisikPage() {
             </div>
 
             <div className="p-6">
-              {/* Progress Step */}
               <div className="flex mb-6 bg-gray-50 rounded-xl p-1">
-                <div className={`flex-1 text-center py-2 rounded-lg text-sm font-medium transition ${
-                  step === "user" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500"
-                }`}>
+                <div
+                  className={`flex-1 text-center py-2 rounded-lg text-sm font-medium transition ${
+                    step === "user" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500"
+                  }`}
+                >
                   <span>1. Pilih Peminjam</span>
                 </div>
-                <div className={`flex-1 text-center py-2 rounded-lg text-sm font-medium transition ${
-                  step === "book" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500"
-                }`}>
+                <div
+                  className={`flex-1 text-center py-2 rounded-lg text-sm font-medium transition ${
+                    step === "book" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500"
+                  }`}
+                >
                   <span>2. Pilih Buku</span>
                 </div>
               </div>
 
-              {/* Step 1: Pilih User */}
               {step === "user" && (
                 <div className="space-y-4">
                   <div>
@@ -610,9 +893,6 @@ export default function PeminjamanFisikPage() {
                         autoFocus
                       />
                     </div>
-                    <p className="text-[9px] text-gray-400 mt-1.5">
-                      {searchUser.length < 2 ? "Ketik minimal 2 karakter untuk mulai mencari" : `Menampilkan ${users.length} user`}
-                    </p>
                   </div>
 
                   {searchingUser && (
@@ -640,8 +920,12 @@ export default function PeminjamanFisikPage() {
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-gray-800 text-sm">{user.name}</p>
                             <p className="text-xs text-gray-400 truncate">
-                              {user.email} • {user.className || "Tanpa Kelas"} 
-                              {user.memberId && <span className="ml-1 text-blue-600 font-medium">• No Anggota: {user.memberId}</span>}
+                              {user.email || "-"} • {user.className || "Tanpa Kelas"}
+                              {user.memberId && (
+                                <span className="ml-1 text-blue-600 font-medium">
+                                  • No Anggota: {user.memberId}
+                                </span>
+                              )}
                             </p>
                           </div>
                           <ChevronRight className="w-4 h-4 text-gray-300" />
@@ -654,7 +938,6 @@ export default function PeminjamanFisikPage() {
                     <div className="text-center py-8">
                       <Users className="w-12 h-12 text-gray-300 mx-auto mb-2" />
                       <p className="text-gray-400 text-sm">User tidak ditemukan</p>
-                      <p className="text-xs text-gray-300 mt-1">Pastikan user sudah terdaftar di sistem</p>
                     </div>
                   )}
 
@@ -667,7 +950,9 @@ export default function PeminjamanFisikPage() {
                             {selectedUser.name} ({selectedUser.className || "-"})
                           </p>
                           {selectedUser.memberId && (
-                            <p className="text-[9px] text-blue-600 font-mono">No Anggota: {selectedUser.memberId}</p>
+                            <p className="text-[9px] text-blue-600 font-mono">
+                              No Anggota: {selectedUser.memberId}
+                            </p>
                           )}
                         </div>
                       </div>
@@ -682,7 +967,6 @@ export default function PeminjamanFisikPage() {
                 </div>
               )}
 
-              {/* Step 2: Pilih Buku */}
               {step === "book" && (
                 <div className="space-y-4">
                   <div>
@@ -704,9 +988,6 @@ export default function PeminjamanFisikPage() {
                         autoFocus
                       />
                     </div>
-                    <p className="text-[9px] text-gray-400 mt-1.5">
-                      {searchBook.length < 2 ? "Ketik minimal 2 karakter untuk mulai mencari" : `Menampilkan ${books.length} buku dengan stok tersedia`}
-                    </p>
                   </div>
 
                   {searchingBook && (
@@ -729,7 +1010,11 @@ export default function PeminjamanFisikPage() {
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-gray-800 text-sm">{book.judul}</p>
                             <p className="text-xs text-gray-400">
-                              {book.penulis} • Rak: {book.lokasiRak || "-"} • Stok tersedia: <span className="font-semibold text-green-600">{book.stokTersedia}</span> dari {book.stok}
+                              {book.penulis} • Rak: {book.lokasiRak || "-"} • Stok:{" "}
+                              <span className="font-semibold text-green-600">
+                                {book.stokTersedia}
+                              </span>{" "}
+                              dari {book.stok}
                             </p>
                           </div>
                           <ChevronRight className="w-4 h-4 text-gray-300" />
@@ -742,7 +1027,6 @@ export default function PeminjamanFisikPage() {
                     <div className="text-center py-8">
                       <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-2" />
                       <p className="text-gray-400 text-sm">📚 Buku tidak ditemukan</p>
-                      <p className="text-xs text-gray-300 mt-1">Pastikan buku sudah diinput ke sistem dan stok tersedia</p>
                     </div>
                   )}
 
@@ -751,15 +1035,18 @@ export default function PeminjamanFisikPage() {
                       <div className="flex items-center gap-3">
                         <BookCheck className="w-5 h-5 text-green-600" />
                         <div>
-                          <p className="text-sm font-medium text-gray-800">{selectedBook.judul}</p>
-                          <p className="text-[9px] text-gray-500">Stok tersedia: {selectedBook.stokTersedia}</p>
+                          <p className="text-sm font-medium text-gray-800">
+                            {selectedBook.judul}
+                          </p>
+                          <p className="text-[9px] text-gray-500">
+                            Stok tersedia: {selectedBook.stokTersedia}
+                          </p>
                         </div>
                       </div>
                       <span className="text-[9px] text-gray-400">{selectedBook.penulis}</span>
                     </div>
                   )}
 
-                  {/* Tombol Navigasi */}
                   <div className="flex gap-3 pt-2">
                     <button
                       onClick={() => {
@@ -774,7 +1061,7 @@ export default function PeminjamanFisikPage() {
                     <button
                       onClick={handlePinjam}
                       disabled={!selectedBook || submitting}
-                      className="flex-1 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl text-sm font-medium hover:from-amber-700 hover:to-orange-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-amber-200"
+                      className="flex-1 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl text-sm font-medium hover:from-amber-700 hover:to-orange-700 transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-amber-200"
                     >
                       {submitting ? (
                         <>
@@ -796,23 +1083,23 @@ export default function PeminjamanFisikPage() {
         </div>
       )}
 
-      {/* ========== MODAL KONFIRMASI KEMBALIKAN ========== */}
+      {/* MODAL KONFIRMASI KEMBALIKAN */}
       {showKembaliModal && selectedLoan && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl animate-fade-in-up">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
             <div className="text-center">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-green-200">
                 <BookCheck className="w-8 h-8 text-green-600" />
               </div>
               <h3 className="text-xl font-bold text-gray-900">Konfirmasi Pengembalian</h3>
               <p className="text-sm text-gray-500 mt-2">
-                Yakin ingin mengembalikan buku <strong>"{selectedLoan.bukuFisik?.judul}"</strong>?
+                Yakin ingin mengembalikan buku{" "}
+                <strong>"{selectedLoan.bukuFisik?.judul}"</strong>?
               </p>
               <p className="text-xs text-gray-400 mt-1">
                 Peminjam: {selectedLoan.user?.name} ({selectedLoan.user?.className})
-                {selectedLoan.user?.memberId && <span className="ml-1 font-mono">No: {selectedLoan.user.memberId}</span>}
               </p>
-              
+
               {getLateDays(selectedLoan.tglKembali) > 0 && (
                 <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl">
                   <p className="text-xs text-red-600 font-semibold flex items-center gap-1.5">
@@ -820,11 +1107,12 @@ export default function PeminjamanFisikPage() {
                     Terlambat {getLateDays(selectedLoan.tglKembali)} hari
                   </p>
                   <p className="text-xs text-red-600">
-                    Denda: Rp{(getLateDays(selectedLoan.tglKembali) * 1000).toLocaleString()}
+                    Denda: Rp
+                    {(getLateDays(selectedLoan.tglKembali) * 1000).toLocaleString()}
                   </p>
                 </div>
               )}
-              
+
               <div className="flex gap-3 mt-6">
                 <button
                   onClick={() => setShowKembaliModal(false)}
@@ -835,7 +1123,7 @@ export default function PeminjamanFisikPage() {
                 <button
                   onClick={handleKembalikan}
                   disabled={submitting}
-                  className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 transition flex items-center justify-center gap-2 shadow-lg shadow-green-200 disabled:opacity-50"
+                  className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 transition flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {submitting ? (
                     <>
@@ -855,21 +1143,108 @@ export default function PeminjamanFisikPage() {
         </div>
       )}
 
-      <style jsx>{`
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px) scale(0.98);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-        .animate-fade-in-up {
-          animation: fadeInUp 0.3s ease-out;
-        }
-      `}</style>
+      {/* MODAL ACTION PERPANJANGAN */}
+      {showExtendActionModal && extendActionLoan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div className="text-center mb-4">
+              <div
+                className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg ${
+                  extendActionType === "APPROVED"
+                    ? "bg-green-100 shadow-green-200"
+                    : "bg-red-100 shadow-red-200"
+                }`}
+              >
+                {extendActionType === "APPROVED" ? (
+                  <Check className="w-8 h-8 text-green-600" />
+                ) : (
+                  <X className="w-8 h-8 text-red-600" />
+                )}
+              </div>
+              <h3 className="text-xl font-bold text-gray-800">
+                {extendActionType === "APPROVED"
+                  ? "Setujui Perpanjangan?"
+                  : "Tolak Perpanjangan?"}
+              </h3>
+              <p className="text-xs text-gray-400 mt-1">
+                {extendActionType === "APPROVED"
+                  ? "Masa pinjam akan diperpanjang 7 hari"
+                  : "Pengajuan perpanjangan akan ditolak"}
+              </p>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-3 mb-4">
+              <p className="text-xs text-gray-700">
+                📖 <strong>{extendActionLoan.bukuFisik?.judul}</strong>
+              </p>
+              <p className="text-[10px] text-gray-500 mt-1">
+                Peminjam: {extendActionLoan.user?.name}
+              </p>
+              <p className="text-[10px] text-gray-500">
+                Jatuh tempo:{" "}
+                {new Date(extendActionLoan.tglKembali).toLocaleDateString("id-ID")}
+              </p>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                Catatan (Opsional)
+              </label>
+              <textarea
+                value={extendNote}
+                onChange={(e) => setExtendNote(e.target.value)}
+                placeholder={
+                  extendActionType === "APPROVED"
+                    ? "Contoh: Disetujui karena masih dibutuhkan"
+                    : "Contoh: Buku sedang dipesan peminjam lain"
+                }
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition resize-none"
+                rows={3}
+                maxLength={500}
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowExtendActionModal(false);
+                  setExtendActionLoan(null);
+                  setExtendNote("");
+                }}
+                className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-200 transition"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleExtendAction}
+                disabled={processingExtend}
+                className={`flex-1 py-3 text-white rounded-xl text-sm font-medium transition flex items-center justify-center gap-2 disabled:opacity-50 ${
+                  extendActionType === "APPROVED"
+                    ? "bg-green-600 hover:bg-green-700"
+                    : "bg-red-600 hover:bg-red-700"
+                }`}
+              >
+                {processingExtend ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Memproses...
+                  </>
+                ) : extendActionType === "APPROVED" ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    Ya, Setujui
+                  </>
+                ) : (
+                  <>
+                    <X className="w-4 h-4" />
+                    Ya, Tolak
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

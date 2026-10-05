@@ -3,16 +3,16 @@
 
 import { useEffect, useState, useRef } from "react";
 import NextImage from "next/image";
-import { 
-  Image as ImageIcon,   // ← rename
-  X, 
-  Calendar, 
-  Tag, 
+import Link from "next/link";
+import {
+  Image as ImageIcon,
+  X,
+  Calendar,
+  Tag,
   Grid3x3,
   Sparkles,
-  Library,
   FolderOpen,
-  ChevronRight
+  Lock,
 } from "lucide-react";
 
 interface GalleryImage {
@@ -24,49 +24,117 @@ interface GalleryImage {
   createdAt: string;
 }
 
+// 🔥 Komponen Login Prompt — reusable
+function LoginPrompt() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center p-6">
+      <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border border-gray-100 p-8 text-center">
+        <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-lg shadow-blue-200">
+          <Lock className="w-10 h-10 text-white" />
+        </div>
+
+        <h1 className="text-2xl font-bold text-gray-800 mb-2">Anda Belum Login</h1>
+
+        <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+          Harap login/register agar kami bisa menampilkan informasi sesuai sekolah Anda.
+        </p>
+
+        <div className="space-y-3">
+          <Link
+            href="/login/user"
+            className="block w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold text-sm hover:from-blue-700 hover:to-indigo-700 transition shadow-lg shadow-blue-200"
+          >
+            Login Sekarang
+          </Link>
+          <Link
+            href="/register"
+            className="block w-full py-3 bg-gray-50 border border-gray-200 text-gray-700 rounded-xl font-medium text-sm hover:bg-gray-100 transition"
+          >
+            Daftar Akun Baru
+          </Link>
+          <Link
+            href="/"
+            className="block w-full py-3 text-gray-400 text-xs hover:text-gray-600 transition"
+          >
+            ← Kembali ke Beranda
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function GaleriPage() {
   const [images, setImages] = useState<GalleryImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState("semua");
   const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
   const categories = [
-    { value: "semua", label: "Semua"},
-    { value: "kegiatan", label: "Kegiatan"},
-    { value: "koleksi", label: "Koleksi"},
-    { value: "fasilitas", label: "Fasilitas"},
-    { value: "acara", label: "Acara"},
+    { value: "semua", label: "Semua" },
+    { value: "kegiatan", label: "Kegiatan" },
+    { value: "koleksi", label: "Koleksi" },
+    { value: "fasilitas", label: "Fasilitas" },
+    { value: "acara", label: "Acara" },
   ];
 
   useEffect(() => {
-    fetchGallery();
-  }, []);
+    const init = async () => {
+      try {
+        // 🔥 Cek auth via API (bukan localStorage)
+        const meRes = await fetch("/api/auth/me");
+        const meData = await meRes.json();
+        const loggedIn = !!meData.user;
+        setIsLoggedIn(loggedIn);
 
-  useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSelectedImage(null);
+        if (!loggedIn) {
+          setLoading(false);
+          return;
+        }
+
+        // 🔥 Ambil schoolId dari session
+        const schoolId = meData.user?.schoolId;
+        if (!schoolId) {
+          setError("Data sekolah tidak ditemukan");
+          setLoading(false);
+          return;
+        }
+
+        const res = await fetch(`/api/gallery?schoolId=${schoolId}&limit=100`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        const imagesData = data.images || (Array.isArray(data) ? data : []);
+        setImages(imagesData);
+      } catch (error) {
+        console.error("Error fetching gallery:", error);
+        setError("Gagal memuat galeri");
+      } finally {
+        setLoading(false);
+      }
     };
-    window.addEventListener("keydown", handleEsc);
-    return () => window.removeEventListener("keydown", handleEsc);
+
+    init();
   }, []);
 
+  // Retry button
   const fetchGallery = async () => {
-    const schoolId = localStorage.getItem("school_id");
-
-    if (!schoolId) {
-      setError("Data sekolah tidak ditemukan");
-      setLoading(false);
-      return;
-    }
-
+    setLoading(true);
+    setError(null);
     try {
+      const meRes = await fetch("/api/auth/me");
+      const meData = await meRes.json();
+      const schoolId = meData.user?.schoolId;
+      if (!schoolId) {
+        setError("Data sekolah tidak ditemukan");
+        return;
+      }
       const res = await fetch(`/api/gallery?schoolId=${schoolId}&limit=100`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-
-      // 🔥 API return { images: [...], pagination: {...} }
       const imagesData = data.images || (Array.isArray(data) ? data : []);
       setImages(imagesData);
     } catch (error) {
@@ -77,26 +145,35 @@ export default function GaleriPage() {
     }
   };
 
-  const filteredImages = selectedCategory === "semua" 
-    ? images 
-    : images.filter(img => img.category === selectedCategory);
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelectedImage(null);
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, []);
+
+  const filteredImages =
+    selectedCategory === "semua"
+      ? images
+      : images.filter((img) => img.category === selectedCategory);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString("id-ID", {
       day: "numeric",
       month: "long",
-      year: "numeric"
+      year: "numeric",
     });
   };
 
-  // 🔥 Hitung jumlah per kategori
   const getCategoryCount = (categoryValue: string) => {
     if (categoryValue === "semua") return images.length;
-    return images.filter(img => img.category === categoryValue).length;
+    return images.filter((img) => img.category === categoryValue).length;
   };
 
-  if (loading) {
+  // Loading / cek auth
+  if (isLoggedIn === null || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-3">
@@ -107,14 +184,19 @@ export default function GaleriPage() {
     );
   }
 
+  // Belum login → prompt
+  if (!isLoggedIn) {
+    return <LoginPrompt />;
+  }
+
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
         <div className="text-center">
           <div className="text-6xl mb-4">😞</div>
           <p className="text-gray-500 text-sm">{error}</p>
-          <button 
-            onClick={fetchGallery} 
+          <button
+            onClick={fetchGallery}
             className="inline-block mt-4 px-6 py-2.5 bg-blue-600 text-white rounded-full text-sm font-medium hover:bg-blue-700 transition shadow-md"
           >
             Coba Lagi
@@ -126,34 +208,33 @@ export default function GaleriPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* ============================================= */}
-      {/* 🔥 HERO SECTION - PREMIUM */}
-      {/* ============================================= */}
+      {/* HERO SECTION */}
       <div className="relative bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 overflow-hidden pt-16 pb-10">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl" />
           <div className="absolute bottom-0 left-0 w-96 h-96 bg-white rounded-full blur-3xl" />
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-white/5 rounded-full blur-2xl" />
         </div>
-        
+
         <div className="relative z-10 max-w-6xl mx-auto px-5 text-center">
           <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-1.5 rounded-full border border-white/10 mb-4">
             <Sparkles className="w-3 h-3 text-yellow-300" />
-            <span className="text-[10px] font-medium text-white uppercase tracking-wider">Galeri</span>
+            <span className="text-[10px] font-medium text-white uppercase tracking-wider">
+              Galeri
+            </span>
           </div>
-          
+
           <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-2xl border border-white/10">
             <ImageIcon className="w-10 h-10 text-white" />
           </div>
-          
+
           <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">
             Galeri Perpustakaan
           </h1>
           <p className="text-blue-100 text-sm max-w-2xl mx-auto">
             Dokumentasi kegiatan dan koleksi perpustakaan
           </p>
-          
-          {/* Total foto */}
+
           <div className="mt-3 inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-3 py-1 rounded-full border border-white/10">
             <Grid3x3 className="w-3 h-3 text-white/70" />
             <span className="text-xs text-white/80">{images.length} foto</span>
@@ -161,16 +242,15 @@ export default function GaleriPage() {
         </div>
       </div>
 
-      {/* ============================================= */}
-      {/* 🔥 CONTENT */}
-      {/* ============================================= */}
+      {/* CONTENT */}
       <div className="max-w-6xl mx-auto px-5 -mt-4 pb-16 pt-10">
-        
-        {/* 🔥 Category Filter - Horizontal Scroll */}
+        {/* Category Filter */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
           <div className="flex items-center gap-2 mb-3">
             <FolderOpen className="w-4 h-4 text-gray-500" />
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Kategori</span>
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              Kategori
+            </span>
           </div>
           <div className="overflow-x-auto scrollbar-hide -mx-1 px-1">
             <div className="flex gap-2 min-w-max">
@@ -185,11 +265,13 @@ export default function GaleriPage() {
                   }`}
                 >
                   <span>{cat.label}</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                    selectedCategory === cat.value 
-                      ? "bg-white/20 text-white" 
-                      : "bg-gray-200 text-gray-400"
-                  }`}>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                      selectedCategory === cat.value
+                        ? "bg-white/20 text-white"
+                        : "bg-gray-200 text-gray-400"
+                    }`}
+                  >
                     {getCategoryCount(cat.value)}
                   </span>
                 </button>
@@ -202,8 +284,12 @@ export default function GaleriPage() {
         {filteredImages.length === 0 ? (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
             <div className="text-6xl mb-4">🖼️</div>
-            <p className="text-gray-500 text-sm font-medium">Belum ada foto dalam galeri</p>
-            <p className="text-gray-400 text-xs mt-1">Foto akan muncul setelah ditambahkan oleh admin</p>
+            <p className="text-gray-500 text-sm font-medium">
+              Belum ada foto dalam galeri
+            </p>
+            <p className="text-gray-400 text-xs mt-1">
+              Foto akan muncul setelah ditambahkan oleh admin
+            </p>
           </div>
         ) : (
           <>
@@ -222,29 +308,29 @@ export default function GaleriPage() {
                     sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
                     className="object-cover group-hover:scale-110 transition-transform duration-700"
                   />
-                  
-                  {/* Gradient Overlay */}
+
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity duration-300">
                     <div className="absolute bottom-0 left-0 right-0 p-3 text-left">
-                      <p className="text-white text-xs sm:text-sm font-medium line-clamp-2">{image.title}</p>
+                      <p className="text-white text-xs sm:text-sm font-medium line-clamp-2">
+                        {image.title}
+                      </p>
                       <p className="text-white/60 text-[9px] sm:text-[10px] mt-1 flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
                         {formatDate(image.createdAt)}
                       </p>
                     </div>
                   </div>
-                  
-                  {/* Category Badge */}
+
                   <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-sm rounded-full px-2 py-0.5">
                     <p className="text-white text-[8px] font-medium">
-                      {categories.find(c => c.value === image.category)?.label || image.category}
+                      {categories.find((c) => c.value === image.category)?.label ||
+                        image.category}
                     </p>
                   </div>
                 </button>
               ))}
             </div>
 
-            {/* Info jumlah foto */}
             <div className="flex items-center justify-center gap-2 mt-6">
               <div className="h-px flex-1 max-w-12 bg-gray-200"></div>
               <p className="text-gray-400 text-xs">
@@ -256,20 +342,17 @@ export default function GaleriPage() {
         )}
       </div>
 
-      {/* ============================================= */}
-      {/* 🔥 MODAL PREVIEW - PREMIUM */}
-      {/* ============================================= */}
+      {/* MODAL PREVIEW */}
       {selectedImage && (
-        <div 
+        <div
           className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/95 backdrop-blur-md"
           onClick={() => setSelectedImage(null)}
         >
-          <div 
+          <div
             ref={modalRef}
             className="relative max-w-[95vw] sm:max-w-3xl w-full bg-white rounded-2xl overflow-hidden shadow-2xl animate-fade-in-up"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Tombol Close */}
             <button
               onClick={() => setSelectedImage(null)}
               className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition active:scale-95 backdrop-blur-sm"
@@ -277,7 +360,6 @@ export default function GaleriPage() {
               <X className="w-4 h-4" />
             </button>
 
-            {/* Gambar */}
             <div className="relative bg-gray-900">
               <NextImage
                 src={selectedImage.imageUrl}
@@ -288,10 +370,11 @@ export default function GaleriPage() {
                 sizes="(max-width: 768px) 95vw, 768px"
               />
             </div>
-            
-            {/* Info */}
+
             <div className="p-5 sm:p-6">
-              <h3 className="font-bold text-gray-800 text-lg sm:text-xl">{selectedImage.title}</h3>
+              <h3 className="font-bold text-gray-800 text-lg sm:text-xl">
+                {selectedImage.title}
+              </h3>
               <div className="flex flex-wrap items-center gap-3 mt-2 mb-3">
                 <span className="flex items-center gap-1.5 text-[10px] sm:text-xs text-gray-400">
                   <Calendar className="w-3.5 h-3.5" />
@@ -300,7 +383,8 @@ export default function GaleriPage() {
                 <span className="w-1 h-1 rounded-full bg-gray-300"></span>
                 <span className="flex items-center gap-1.5 text-[10px] sm:text-xs text-gray-400 capitalize">
                   <Tag className="w-3.5 h-3.5" />
-                  {categories.find(c => c.value === selectedImage.category)?.label || selectedImage.category}
+                  {categories.find((c) => c.value === selectedImage.category)?.label ||
+                    selectedImage.category}
                 </span>
               </div>
               {selectedImage.description && (
@@ -313,7 +397,6 @@ export default function GaleriPage() {
         </div>
       )}
 
-      {/* CSS */}
       <style jsx>{`
         .scrollbar-hide::-webkit-scrollbar {
           display: none;

@@ -4,15 +4,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { 
-  User, 
-  Mail, 
-  BookOpen, 
-  Calendar, 
-  Clock, 
+import {
+  User,
+  Mail,
+  BookOpen,
+  Calendar,
+  Clock,
   AlertCircle,
   CheckCircle,
-  LogOut,
   Settings,
   UserCircle,
   GraduationCap,
@@ -23,7 +22,9 @@ import {
   Edit2,
   X,
   BookMarked,
-  Library
+  Library,
+  RefreshCw,
+  Send,
 } from "lucide-react";
 
 interface UserData {
@@ -42,6 +43,10 @@ interface Peminjaman {
   tglDikembalikan: string | null;
   status: string;
   denda: number;
+  extendedCount: number;
+  extensionStatus: string | null;
+  extensionReason: string | null;
+  extensionNote: string | null;
   bukuFisik: {
     judul: string;
     penulis: string;
@@ -55,7 +60,7 @@ export default function AkunPage() {
   const [activeLoans, setActiveLoans] = useState<Peminjaman[]>([]);
   const [historyLoans, setHistoryLoans] = useState<Peminjaman[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   const [editMode, setEditMode] = useState(false);
   const [editForm, setEditForm] = useState({
     name: "",
@@ -63,7 +68,7 @@ export default function AkunPage() {
     className: "",
   });
   const [submitting, setSubmitting] = useState(false);
-  
+
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
@@ -72,15 +77,21 @@ export default function AkunPage() {
   });
   const [changingPassword, setChangingPassword] = useState(false);
 
+  // 🔥 State perpanjangan
+  const [showExtendModal, setShowExtendModal] = useState(false);
+  const [extendLoan, setExtendLoan] = useState<Peminjaman | null>(null);
+  const [extendReason, setExtendReason] = useState("");
+  const [submittingExtend, setSubmittingExtend] = useState(false);
+
   useEffect(() => {
     const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
     const userId = localStorage.getItem("user_id");
-    
+
     if (!isLoggedIn || !userId) {
       router.push("/login/user");
       return;
     }
-    
+
     fetchUserData(userId);
     fetchUserLoans(userId);
   }, [router]);
@@ -88,7 +99,7 @@ export default function AkunPage() {
   const fetchUserData = async (userId: string) => {
     try {
       const res = await fetch(`/api/user/${userId}`);
-      
+
       if (!res.ok) {
         if (res.status === 404) {
           toast.error("User tidak ditemukan");
@@ -96,14 +107,14 @@ export default function AkunPage() {
         }
         return;
       }
-      
+
       const data = await res.json();
-      
+
       if (data.error) {
         toast.error(data.error);
         return;
       }
-      
+
       setUser(data);
       setEditForm({
         name: data.name || "",
@@ -123,7 +134,11 @@ export default function AkunPage() {
       const res = await fetch(`/api/peminjaman-fisik?userId=${userId}`);
       const data = await res.json();
       const loans = Array.isArray(data) ? data : [];
-      setActiveLoans(loans.filter((l: Peminjaman) => l.status === "DIPINJAM" || l.status === "TERLAMBAT"));
+      setActiveLoans(
+        loans.filter(
+          (l: Peminjaman) => l.status === "DIPINJAM" || l.status === "TERLAMBAT"
+        )
+      );
       setHistoryLoans(loans.filter((l: Peminjaman) => l.status === "DIKEMBALIKAN"));
     } catch (error) {
       console.error("Error fetching loans:", error);
@@ -133,10 +148,10 @@ export default function AkunPage() {
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    
+
     setSubmitting(true);
     toast.loading("Menyimpan perubahan...", { id: "update" });
-    
+
     try {
       const res = await fetch("/api/user/update", {
         method: "PATCH",
@@ -148,9 +163,9 @@ export default function AkunPage() {
           className: editForm.className,
         }),
       });
-      
+
       const data = await res.json();
-      
+
       if (res.ok) {
         toast.success("✅ Profil berhasil diperbarui!", { id: "update" });
         setEditMode(false);
@@ -169,22 +184,22 @@ export default function AkunPage() {
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!passwordForm.newPassword || passwordForm.newPassword.length < 6) {
       toast.error("Password baru minimal 6 karakter!");
       return;
     }
-    
+
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       toast.error("Konfirmasi password tidak sesuai!");
       return;
     }
-    
+
     if (!user) return;
-    
+
     setChangingPassword(true);
     toast.loading("Mengubah password...", { id: "password" });
-    
+
     try {
       const res = await fetch("/api/user/change-password", {
         method: "PUT",
@@ -195,13 +210,17 @@ export default function AkunPage() {
           newPassword: passwordForm.newPassword,
         }),
       });
-      
+
       const data = await res.json();
-      
+
       if (res.ok) {
         toast.success("✅ Password berhasil diubah!", { id: "password" });
         setShowPasswordModal(false);
-        setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+        setPasswordForm({
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        });
       } else {
         toast.error(data.error || "Gagal mengubah password", { id: "password" });
       }
@@ -213,14 +232,78 @@ export default function AkunPage() {
     }
   };
 
+  // 🔥 Ajukan perpanjangan
+  const handleExtend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!extendLoan) return;
+
+    setSubmittingExtend(true);
+    toast.loading("Mengirim pengajuan...", { id: "extend" });
+
+    try {
+      const res = await fetch("/api/peminjaman-fisik/extend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          peminjamanId: extendLoan.id,
+          reason: extendReason,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        toast.success("✅ Pengajuan perpanjangan dikirim!", { id: "extend" });
+        setShowExtendModal(false);
+        setExtendLoan(null);
+        setExtendReason("");
+        if (user) fetchUserLoans(user.id);
+      } else {
+        toast.error(data.error || "Gagal mengajukan", { id: "extend" });
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Terjadi kesalahan", { id: "extend" });
+    } finally {
+      setSubmittingExtend(false);
+    }
+  };
+
+  // 🔥 Cek bisa perpanjang?
+  const canExtend = (loan: Peminjaman) => {
+    if (loan.status === "DIKEMBALIKAN") return false;
+    if (loan.extendedCount >= 1) return false;
+    if (loan.extensionStatus === "PENDING") return false;
+    if (loan.extensionStatus === "APPROVED") return false;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tglKembali = new Date(loan.tglKembali);
+    tglKembali.setHours(0, 0, 0, 0);
+
+    return today <= tglKembali;
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "DIPINJAM":
-        return <span className="px-2.5 py-0.5 text-[9px] font-medium bg-yellow-100 text-yellow-700 rounded-full flex items-center gap-1"><Clock className="w-3 h-3" /> Dipinjam</span>;
+        return (
+          <span className="px-2.5 py-0.5 text-[9px] font-medium bg-yellow-100 text-yellow-700 rounded-full flex items-center gap-1">
+            <Clock className="w-3 h-3" /> Dipinjam
+          </span>
+        );
       case "TERLAMBAT":
-        return <span className="px-2.5 py-0.5 text-[9px] font-medium bg-red-100 text-red-700 rounded-full flex items-center gap-1 animate-pulse"><AlertCircle className="w-3 h-3" /> Terlambat</span>;
+        return (
+          <span className="px-2.5 py-0.5 text-[9px] font-medium bg-red-100 text-red-700 rounded-full flex items-center gap-1 animate-pulse">
+            <AlertCircle className="w-3 h-3" /> Terlambat
+          </span>
+        );
       default:
-        return <span className="px-2.5 py-0.5 text-[9px] font-medium bg-green-100 text-green-700 rounded-full flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Dikembalikan</span>;
+        return (
+          <span className="px-2.5 py-0.5 text-[9px] font-medium bg-green-100 text-green-700 rounded-full flex items-center gap-1">
+            <CheckCircle className="w-3 h-3" /> Dikembalikan
+          </span>
+        );
     }
   };
 
@@ -262,23 +345,20 @@ export default function AkunPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-12 pt-16">
       <div className="max-w-4xl mx-auto px-4">
-        
-        {/* ============================================= */}
-        {/* 🔥 HEADER */}
-        {/* ============================================= */}
+        {/* HEADER */}
         <div className="bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 rounded-2xl p-6 mb-6 relative overflow-hidden">
           <div className="absolute inset-0 opacity-10">
             <div className="absolute top-0 right-0 w-64 h-64 bg-white rounded-full blur-3xl" />
             <div className="absolute bottom-0 left-0 w-64 h-64 bg-white rounded-full blur-3xl" />
           </div>
-          
+
           <div className="relative z-10 flex flex-col sm:flex-row items-center gap-4">
             <div className="w-20 h-20 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center border-2 border-white/30 shadow-xl flex-shrink-0">
               <span className="text-3xl font-bold text-white">{getInitials()}</span>
             </div>
             <div className="flex-1 text-center sm:text-left">
               <h1 className="text-2xl font-bold text-white">{user.name}</h1>
-              <p className="text-blue-100 text-sm">{user.email}</p>
+              <p className="text-blue-100 text-sm">{user.email || "-"}</p>
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mt-2 text-blue-100 text-xs">
                 <span className="flex items-center gap-1">
                   <GraduationCap className="w-3.5 h-3.5" />
@@ -315,9 +395,7 @@ export default function AkunPage() {
           </div>
         </div>
 
-        {/* ============================================= */}
-        {/* 🔥 EDIT MODE */}
-        {/* ============================================= */}
+        {/* EDIT MODE */}
         {editMode && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
@@ -343,7 +421,9 @@ export default function AkunPage() {
             </div>
             <form onSubmit={handleUpdateProfile} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Nama Lengkap</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Nama Lengkap
+                </label>
                 <input
                   type="text"
                   value={editForm.name}
@@ -353,17 +433,20 @@ export default function AkunPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Email</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Email
+                </label>
                 <input
                   type="email"
                   value={editForm.email}
                   onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                   className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
-                  required
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Kelas</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Kelas
+                </label>
                 <input
                   type="text"
                   value={editForm.className}
@@ -401,13 +484,13 @@ export default function AkunPage() {
           </div>
         )}
 
-        {/* ============================================= */}
-        {/* 🔥 STATISTIK */}
-        {/* ============================================= */}
+        {/* STATISTIK */}
         <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-center">
             <BookOpen className="w-5 h-5 text-blue-500 mx-auto mb-1" />
-            <p className="text-xl font-bold text-gray-800">{activeLoans.length + historyLoans.length}</p>
+            <p className="text-xl font-bold text-gray-800">
+              {activeLoans.length + historyLoans.length}
+            </p>
             <p className="text-[9px] text-gray-400 uppercase tracking-wider">Total Pinjam</p>
           </div>
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-center">
@@ -422,9 +505,7 @@ export default function AkunPage() {
           </div>
         </div>
 
-        {/* ============================================= */}
-        {/* 🔥 PEMINJAMAN AKTIF */}
-        {/* ============================================= */}
+        {/* PEMINJAMAN AKTIF */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
           <div className="px-5 py-4 border-b border-gray-100 bg-gray-50/80 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -449,21 +530,67 @@ export default function AkunPage() {
                     <div key={loan.id} className="px-5 py-4 hover:bg-gray-50 transition">
                       <div className="flex flex-col sm:flex-row justify-between gap-3">
                         <div className="flex-1">
-                          <p className="font-medium text-gray-800 text-sm">{loan.bukuFisik?.judul}</p>
-                          <p className="text-[10px] text-gray-400">{loan.bukuFisik?.penulis}</p>
+                          <p className="font-medium text-gray-800 text-sm">
+                            {loan.bukuFisik?.judul}
+                          </p>
+                          <p className="text-[10px] text-gray-400">
+                            {loan.bukuFisik?.penulis}
+                          </p>
                           <p className="text-[10px] text-gray-400 mt-1">
                             Pinjam: {new Date(loan.tglPinjam).toLocaleDateString("id-ID")}
                           </p>
                         </div>
                         <div className="flex flex-col items-end gap-1">
-                          <p className={`text-xs font-semibold ${isLate ? "text-red-600" : "text-gray-600"}`}>
-                            {isLate ? "⚠️" : "📅"} Kembali: {new Date(loan.tglKembali).toLocaleDateString("id-ID")}
+                          <p
+                            className={`text-xs font-semibold ${
+                              isLate ? "text-red-600" : "text-gray-600"
+                            }`}
+                          >
+                            {isLate ? "⚠️" : "📅"} Kembali:{" "}
+                            {new Date(loan.tglKembali).toLocaleDateString("id-ID")}
                           </p>
                           {getStatusBadge(isLate ? "TERLAMBAT" : loan.status)}
                           {isLate && (
                             <p className="text-[9px] text-red-500 font-medium">
-                              +{Math.ceil((today.getTime() - tglKembali.getTime()) / (1000 * 3600 * 24))} hari terlambat
+                              +
+                              {Math.ceil(
+                                (today.getTime() - tglKembali.getTime()) /
+                                  (1000 * 3600 * 24)
+                              )}{" "}
+                              hari terlambat
                             </p>
+                          )}
+
+                          {/* 🔥 Info perpanjangan */}
+                          {loan.extendedCount > 0 && (
+                            <p className="text-[9px] text-blue-600 font-medium">
+                              ✓ Sudah diperpanjang {loan.extendedCount}x
+                            </p>
+                          )}
+                          {loan.extensionStatus === "PENDING" && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-medium bg-amber-100 text-amber-700 rounded-full">
+                              <Clock className="w-3 h-3" /> Menunggu Persetujuan
+                            </span>
+                          )}
+                          {loan.extensionStatus === "REJECTED" && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-medium bg-red-100 text-red-700 rounded-full">
+                              <X className="w-3 h-3" /> Ditolak
+                            </span>
+                          )}
+
+                          {/* 🔥 Tombol Perpanjang */}
+                          {canExtend(loan) && (
+                            <button
+                              onClick={() => {
+                                setExtendLoan(loan);
+                                setExtendReason("");
+                                setShowExtendModal(true);
+                              }}
+                              className="mt-1 inline-flex items-center gap-1 px-3 py-1 text-[10px] font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition"
+                            >
+                              <RefreshCw className="w-3 h-3" />
+                              Perpanjang
+                            </button>
                           )}
                         </div>
                       </div>
@@ -475,9 +602,7 @@ export default function AkunPage() {
           </div>
         </div>
 
-        {/* ============================================= */}
-        {/* 🔥 RIWAYAT PEMINJAMAN */}
-        {/* ============================================= */}
+        {/* RIWAYAT PEMINJAMAN */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100 bg-gray-50/80 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -498,18 +623,27 @@ export default function AkunPage() {
                   <div key={loan.id} className="px-5 py-4 hover:bg-gray-50 transition">
                     <div className="flex flex-col sm:flex-row justify-between gap-3">
                       <div className="flex-1">
-                        <p className="font-medium text-gray-800 text-sm">{loan.bukuFisik?.judul}</p>
-                        <p className="text-[10px] text-gray-400">{loan.bukuFisik?.penulis}</p>
+                        <p className="font-medium text-gray-800 text-sm">
+                          {loan.bukuFisik?.judul}
+                        </p>
+                        <p className="text-[10px] text-gray-400">
+                          {loan.bukuFisik?.penulis}
+                        </p>
                         <p className="text-[10px] text-gray-400 mt-1">
                           Dipinjam: {new Date(loan.tglPinjam).toLocaleDateString("id-ID")}
                         </p>
                       </div>
                       <div className="flex flex-col items-end gap-1">
                         <p className="text-xs text-gray-600">
-                          ✅ Dikembalikan: {loan.tglDikembalikan ? new Date(loan.tglDikembalikan).toLocaleDateString("id-ID") : "-"}
+                          ✅ Dikembalikan:{" "}
+                          {loan.tglDikembalikan
+                            ? new Date(loan.tglDikembalikan).toLocaleDateString("id-ID")
+                            : "-"}
                         </p>
                         {loan.denda > 0 ? (
-                          <p className="text-xs font-semibold text-orange-600">Denda: Rp{loan.denda.toLocaleString()}</p>
+                          <p className="text-xs font-semibold text-orange-600">
+                            Denda: Rp{loan.denda.toLocaleString()}
+                          </p>
                         ) : (
                           <p className="text-xs text-green-600">Tepat waktu ✅</p>
                         )}
@@ -523,38 +657,49 @@ export default function AkunPage() {
         </div>
       </div>
 
-      {/* ============================================= */}
-      {/* 🔥 MODAL GANTI PASSWORD */}
-      {/* ============================================= */}
+      {/* MODAL GANTI PASSWORD */}
       {showPasswordModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl animate-fade-in-up">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
             <div className="text-center mb-4">
               <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg shadow-amber-200">
                 <Lock className="w-8 h-8 text-amber-600" />
               </div>
               <h3 className="text-xl font-bold text-gray-800">Ganti Password</h3>
-              <p className="text-xs text-gray-400 mt-1">Masukkan password lama dan password baru</p>
+              <p className="text-xs text-gray-400 mt-1">
+                Masukkan password lama dan password baru
+              </p>
             </div>
 
             <form onSubmit={handleChangePassword} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Password Saat Ini</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Password Saat Ini
+                </label>
                 <input
                   type="password"
                   value={passwordForm.currentPassword}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                  onChange={(e) =>
+                    setPasswordForm({
+                      ...passwordForm,
+                      currentPassword: e.target.value,
+                    })
+                  }
                   className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none transition"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Password Baru</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Password Baru
+                </label>
                 <input
                   type="password"
                   value={passwordForm.newPassword}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                  onChange={(e) =>
+                    setPasswordForm({ ...passwordForm, newPassword: e.target.value })
+                  }
                   className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none transition"
                   placeholder="Minimal 6 karakter"
                   required
@@ -562,11 +707,18 @@ export default function AkunPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Konfirmasi Password Baru</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Konfirmasi Password Baru
+                </label>
                 <input
                   type="password"
                   value={passwordForm.confirmPassword}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                  onChange={(e) =>
+                    setPasswordForm({
+                      ...passwordForm,
+                      confirmPassword: e.target.value,
+                    })
+                  }
                   className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none transition"
                   required
                 />
@@ -577,7 +729,11 @@ export default function AkunPage() {
                   type="button"
                   onClick={() => {
                     setShowPasswordModal(false);
-                    setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+                    setPasswordForm({
+                      currentPassword: "",
+                      newPassword: "",
+                      confirmPassword: "",
+                    });
                   }}
                   className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-200 transition"
                 >
@@ -603,21 +759,82 @@ export default function AkunPage() {
         </div>
       )}
 
-      <style jsx>{`
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px) scale(0.98);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-        .animate-fade-in-up {
-          animation: fadeInUp 0.3s ease-out;
-        }
-      `}</style>
+      {/* MODAL PERPANJANG */}
+      {showExtendModal && extendLoan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div className="text-center mb-4">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg shadow-blue-200">
+                <RefreshCw className="w-8 h-8 text-blue-600" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-800">Ajukan Perpanjangan</h3>
+              <p className="text-xs text-gray-400 mt-1">
+                Perpanjang masa pinjam selama <strong>7 hari</strong>
+              </p>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 mb-4">
+              <p className="text-xs text-gray-700">
+                📖 <strong>{extendLoan.bukuFisik?.judul}</strong>
+              </p>
+              <p className="text-[10px] text-gray-500 mt-1">
+                Jatuh tempo sekarang:{" "}
+                {new Date(extendLoan.tglKembali).toLocaleDateString("id-ID")}
+              </p>
+              <p className="text-[10px] text-blue-600 font-medium mt-1">
+                Jika disetujui: +7 hari dari tanggal jatuh tempo
+              </p>
+            </div>
+
+            <form onSubmit={handleExtend} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Alasan (Opsional)
+                </label>
+                <textarea
+                  value={extendReason}
+                  onChange={(e) => setExtendReason(e.target.value)}
+                  placeholder="Contoh: Masih butuh untuk belajar UAS"
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition resize-none"
+                  rows={3}
+                  maxLength={500}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowExtendModal(false);
+                    setExtendLoan(null);
+                    setExtendReason("");
+                  }}
+                  className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-200 transition"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingExtend}
+                  className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {submittingExtend ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Mengirim...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      Ajukan
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

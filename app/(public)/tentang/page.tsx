@@ -3,20 +3,21 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { 
-  BookOpen, 
-  Target, 
-  ClipboardList, 
-  ScrollText, 
-  MapPin, 
-  Phone, 
-  Mail, 
-  Globe, 
+import {
+  BookOpen,
+  Target,
+  ClipboardList,
+  ScrollText,
+  MapPin,
+  Phone,
+  Mail,
+  Globe,
   ArrowRight,
   Sparkles,
   Award,
   Users,
-  Library
+  Library,
+  Lock,
 } from "lucide-react";
 
 interface TentangData {
@@ -27,10 +28,7 @@ interface TentangData {
   phone: string;
   email: string;
   website: string;
-  school: {
-    name: string;
-    logo: string;
-  };
+  school: { name: string; logo: string };
   stats: {
     totalBooks: number;
     totalUsers: number;
@@ -39,22 +37,74 @@ interface TentangData {
   };
 }
 
+// 🔥 Komponen Login Prompt — reusable
+function LoginPrompt() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center p-6">
+      <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border border-gray-100 p-8 text-center">
+        <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-lg shadow-blue-200">
+          <Lock className="w-10 h-10 text-white" />
+        </div>
+
+        <h1 className="text-2xl font-bold text-gray-800 mb-2">Anda Belum Login</h1>
+
+        <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+          Harap login/register agar kami bisa menampilkan informasi sesuai sekolah Anda.
+        </p>
+
+        <div className="space-y-3">
+          <Link
+            href="/login/user"
+            className="block w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold text-sm hover:from-blue-700 hover:to-indigo-700 transition shadow-lg shadow-blue-200"
+          >
+            Login Sekarang
+          </Link>
+          <Link
+            href="/register"
+            className="block w-full py-3 bg-gray-50 border border-gray-200 text-gray-700 rounded-xl font-medium text-sm hover:bg-gray-100 transition"
+          >
+            Daftar Akun Baru
+          </Link>
+          <Link
+            href="/"
+            className="block w-full py-3 text-gray-400 text-xs hover:text-gray-600 transition"
+          >
+            ← Kembali ke Beranda
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function TentangPage() {
   const [data, setData] = useState<TentangData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const fetchTentang = async () => {
-      const schoolId = localStorage.getItem("school_id");
-      
-      if (!schoolId) {
-        setError("Data sekolah tidak ditemukan");
-        setLoading(false);
-        return;
-      }
-      
+    const init = async () => {
       try {
+        // 🔥 Cek auth via API (bukan localStorage)
+        const meRes = await fetch("/api/auth/me");
+        const meData = await meRes.json();
+        const loggedIn = !!meData.user;
+        setIsLoggedIn(loggedIn);
+
+        if (!loggedIn) {
+          setLoading(false);
+          return;
+        }
+
+        // 🔥 Ambil schoolId dari session (bukan localStorage)
+        const schoolId = meData.user?.schoolId;
+        if (!schoolId) {
+          setError("Data sekolah tidak ditemukan");
+          setLoading(false);
+          return;
+        }
+
         const res = await fetch(`/api/tentang?schoolId=${schoolId}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const result = await res.json();
@@ -66,11 +116,12 @@ export default function TentangPage() {
         setLoading(false);
       }
     };
-    
-    fetchTentang();
+
+    init();
   }, []);
 
-  if (loading) {
+  // Loading
+  if (isLoggedIn === null || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-3">
@@ -81,13 +132,21 @@ export default function TentangPage() {
     );
   }
 
+  // Belum login → prompt
+  if (!isLoggedIn) {
+    return <LoginPrompt />;
+  }
+
   if (error || !data) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
         <div className="text-center">
           <div className="text-6xl mb-4">😞</div>
           <p className="text-gray-500 text-sm">{error || "Data tidak tersedia"}</p>
-          <Link href="/" className="inline-block mt-4 px-6 py-2.5 bg-blue-600 text-white rounded-full text-sm font-medium hover:bg-blue-700 transition shadow-md">
+          <Link
+            href="/"
+            className="inline-block mt-4 px-6 py-2.5 bg-blue-600 text-white rounded-full text-sm font-medium hover:bg-blue-700 transition shadow-md"
+          >
             Kembali ke Beranda
           </Link>
         </div>
@@ -95,57 +154,57 @@ export default function TentangPage() {
     );
   }
 
-  const missionList = data.mission?.split("\n").filter(m => m.trim()) || [];
+  const missionList = data.mission?.split("\n").filter((m) => m.trim()) || [];
 
   const stats = [
-    { 
-      icon: BookOpen, 
-      value: data.stats?.totalBooks || 0, 
+    {
+      icon: BookOpen,
+      value: data.stats?.totalBooks || 0,
       label: "Koleksi Buku",
-      color: "from-blue-500 to-blue-600"
+      color: "from-blue-500 to-blue-600",
     },
-    { 
-      icon: Users, 
-      value: data.stats?.totalUsers || 0, 
+    {
+      icon: Users,
+      value: data.stats?.totalUsers || 0,
       label: "Pengguna Aktif",
-      color: "from-green-500 to-emerald-600"
+      color: "from-green-500 to-emerald-600",
     },
-    { 
-      icon: Award, 
-      value: data.stats?.totalBukuDigital || 0, 
+    {
+      icon: Award,
+      value: data.stats?.totalBukuDigital || 0,
       label: "Buku Digital",
-      color: "from-amber-500 to-orange-600"
+      color: "from-amber-500 to-orange-600",
     },
-    { 
-      icon: Target, 
-      value: data.stats?.totalCategories || 0, 
+    {
+      icon: Target,
+      value: data.stats?.totalCategories || 0,
       label: "Kategori",
-      color: "from-purple-500 to-pink-600"
+      color: "from-purple-500 to-pink-600",
     },
   ];
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* ============================================= */}
-      {/* 🔥 HERO SECTION - TETAP DI ATAS */}
-      {/* ============================================= */}
+      {/* HERO SECTION */}
       <div className="relative bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 overflow-hidden pt-16 pb-16">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl" />
           <div className="absolute bottom-0 left-0 w-96 h-96 bg-white rounded-full blur-3xl" />
         </div>
-        
+
         <div className="relative z-10 max-w-6xl mx-auto px-5 text-center">
           <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-1.5 rounded-full border border-white/10 mb-4">
             <Sparkles className="w-3 h-3 text-yellow-300" />
-            <span className="text-[10px] font-medium text-white uppercase tracking-wider">Tentang Kami</span>
+            <span className="text-[10px] font-medium text-white uppercase tracking-wider">
+              Tentang Kami
+            </span>
           </div>
-          
+
           <div className="w-24 h-24 mx-auto mb-5 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-2xl border border-white/10">
             {data.school?.logo ? (
-              <img 
-                src={data.school.logo} 
-                alt={data.school.name} 
+              <img
+                src={data.school.logo}
+                alt={data.school.name}
                 className="w-16 h-16 rounded-full object-cover"
                 loading="eager"
                 decoding="async"
@@ -154,7 +213,7 @@ export default function TentangPage() {
               <Library className="w-12 h-12 text-white" />
             )}
           </div>
-          
+
           <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">
             {data.school?.name || "Perpustakaan Digital"}
           </h1>
@@ -164,30 +223,33 @@ export default function TentangPage() {
         </div>
       </div>
 
-      {/* ============================================= */}
-      {/* 🔥 CONTENT - DIBERI JARAK DARI HERO */}
-      {/* ============================================= */}
+      {/* CONTENT */}
       <div className="max-w-6xl mx-auto px-5 -mt-6 pb-16 pt-10">
-        
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {stats.map((stat, index) => (
-            <div 
+            <div
               key={index}
               className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-center hover:shadow-md transition-all duration-300 hover:-translate-y-1"
             >
-              <div className={`w-10 h-10 mx-auto rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center shadow-lg mb-2`}>
+              <div
+                className={`w-10 h-10 mx-auto rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center shadow-lg mb-2`}
+              >
                 <stat.icon className="w-5 h-5 text-white" />
               </div>
-              <p className="text-xl font-bold text-gray-800">{stat.value.toLocaleString()}</p>
-              <p className="text-[9px] text-gray-400 uppercase tracking-wider">{stat.label}</p>
+              <p className="text-xl font-bold text-gray-800">
+                {stat.value.toLocaleString()}
+              </p>
+              <p className="text-[9px] text-gray-400 uppercase tracking-wider">
+                {stat.label}
+              </p>
             </div>
           ))}
         </div>
 
         {/* Visi & Misi */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          {/* Visi Card */}
+          {/* Visi */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all duration-300 group">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-200 group-hover:scale-105 transition">
@@ -202,7 +264,7 @@ export default function TentangPage() {
             </div>
           </div>
 
-          {/* Misi Card */}
+          {/* Misi */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all duration-300 group">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-200 group-hover:scale-105 transition">
@@ -225,7 +287,7 @@ export default function TentangPage() {
           </div>
         </div>
 
-        {/* Sejarah Card */}
+        {/* Sejarah */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8 hover:shadow-md transition-all duration-300">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-200">
@@ -240,7 +302,7 @@ export default function TentangPage() {
           </div>
         </div>
 
-        {/* Kontak Card */}
+        {/* Kontak */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8 hover:shadow-md transition-all duration-300">
           <div className="flex items-center gap-3 mb-5">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg shadow-purple-200">
@@ -252,31 +314,46 @@ export default function TentangPage() {
             <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition">
               <MapPin className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" />
               <div>
-                <p className="text-[9px] text-gray-400 uppercase tracking-wider">Alamat</p>
+                <p className="text-[9px] text-gray-400 uppercase tracking-wider">
+                  Alamat
+                </p>
                 <p className="text-sm text-gray-700 mt-0.5">{data.address || "-"}</p>
               </div>
             </div>
             <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition">
               <Phone className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" />
               <div>
-                <p className="text-[9px] text-gray-400 uppercase tracking-wider">Telepon</p>
+                <p className="text-[9px] text-gray-400 uppercase tracking-wider">
+                  Telepon
+                </p>
                 <p className="text-sm text-gray-700 mt-0.5">{data.phone || "-"}</p>
               </div>
             </div>
             <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition">
               <Mail className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" />
               <div>
-                <p className="text-[9px] text-gray-400 uppercase tracking-wider">Email</p>
-                <p className="text-sm text-gray-700 mt-0.5 break-all">{data.email || "-"}</p>
+                <p className="text-[9px] text-gray-400 uppercase tracking-wider">
+                  Email
+                </p>
+                <p className="text-sm text-gray-700 mt-0.5 break-all">
+                  {data.email || "-"}
+                </p>
               </div>
             </div>
             <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition">
               <Globe className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" />
               <div>
-                <p className="text-[9px] text-gray-400 uppercase tracking-wider">Website</p>
+                <p className="text-[9px] text-gray-400 uppercase tracking-wider">
+                  Website
+                </p>
                 {data.website ? (
-                  <a href={data.website} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline break-all">
-                    {data.website.replace(/^https?:\/\//, '')}
+                  <a
+                    href={data.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-600 hover:underline break-all"
+                  >
+                    {data.website.replace(/^https?:\/\//, "")}
                   </a>
                 ) : (
                   <p className="text-sm text-gray-700 mt-0.5">-</p>
@@ -286,7 +363,7 @@ export default function TentangPage() {
           </div>
         </div>
 
-        {/* CTA Button */}
+        {/* CTA */}
         <div className="text-center">
           <Link
             href="/"

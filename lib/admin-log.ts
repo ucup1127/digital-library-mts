@@ -13,14 +13,27 @@ export interface LogData {
  * Log aktivitas admin — CLIENT-SIDE ONLY.
  * Kirim ke /api/admin-log, endpoint yang lengkapi data admin dari session.
  */
+import { getCsrfToken } from "@/lib/csrf-client";
+
 export async function logAdminActivity(data: LogData) {
   try {
-    await fetch("/api/admin-log", {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    const csrfToken = getCsrfToken();
+    if (csrfToken) {
+      headers["X-CSRF-Token"] = csrfToken;
+    }
+
+    const res = await fetch("/api/admin-log", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(data),
     });
+    return res.ok;
   } catch (error) {
-    logger.error("Failed to log admin activity (client):", error);
+    console.error("Failed to log admin activity:", error);
+    return false;
   }
 }

@@ -251,11 +251,15 @@ export const updateProfileSchema = z.object({
     .optional(),
   email: z
     .string()
-    .email("Format email tidak valid")
-    .max(255, "Email terlalu panjang")
+    .max(255, "Email maksimal 255 karakter")
     .toLowerCase()
     .trim()
-    .optional(),
+    .optional()
+    .or(z.literal(""))
+    .refine(
+      (val) => !val || val === "" || z.string().email().safeParse(val).success,
+      { message: "Format email tidak valid" }
+    ),
   password: z
     .string()
     .max(100, "Password maksimal 100 karakter")

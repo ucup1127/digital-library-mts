@@ -102,13 +102,16 @@ export async function POST(request: Request) {
     // 🔥 Login berhasil — reset rate limit
     resetRateLimit(rateKey);
 
-    const token = await createSession(user.id, {
+    const { token, csrfToken } = await createSession(user.id, {
       userAgent: request.headers.get("user-agent") || undefined,
       ipAddress: ip,
       rememberMe: !!rememberMe,
     });
 
-    await setSessionCookie(token, !!rememberMe);
+    await setSessionCookie(token, csrfToken, !!rememberMe);
+
+    // Return csrfToken ke client (buat disimpan)
+    // Client harus kirim di header X-CSRF-Token untuk setiap POST/PUT/DELETE
 
     // Ambil data sekolah
     let schoolData = null;
@@ -121,6 +124,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
+      csrfToken,
       user: {
         id: user.id,
         name: user.name,

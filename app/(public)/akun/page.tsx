@@ -447,13 +447,14 @@ export default function AkunPage() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Email
+                  Email <span className="text-gray-400 font-normal">(Opsional)</span>
                 </label>
                 <input
                   type="email"
                   value={editForm.email}
                   onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                   className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
+                  placeholder="Kosongkan jika tidak punya email"
                 />
               </div>
               <div>

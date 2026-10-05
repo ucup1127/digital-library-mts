@@ -14,17 +14,24 @@ const SESSION_DURATION_DAYS = 7;
  * Bikin session baru untuk user.
  * Return token yang harus di-set di cookie.
  */
+export interface CreateSessionResult {
+  token: string;
+  csrfToken: string;
+}
+
 export async function createSession(
   userId: string,
   options?: { userAgent?: string; ipAddress?: string; rememberMe?: boolean }
-): Promise<string> {
+): Promise<CreateSessionResult> {
   const token = randomBytes(32).toString("hex");
+  const csrfToken = randomBytes(32).toString("hex");
   const days = options?.rememberMe ? 30 : SESSION_DURATION_DAYS;
   const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 
   await db.session.create({
     data: {
       token,
+      csrfToken,
       userId,
       expiresAt,
       userAgent: options?.userAgent,
@@ -32,20 +39,34 @@ export async function createSession(
     },
   });
 
-  return token;
+  return { token, csrfToken };
 }
 
 /**
  * Set cookie session di response.
  */
-export async function setSessionCookie(token: string, rememberMe = false) {
+export async function setSessionCookie(
+  token: string,
+  csrfToken: string,
+  rememberMe = false
+) {
   const cookieStore = await cookies();
   const days = rememberMe ? 30 : SESSION_DURATION_DAYS;
 
+  // Session cookie — httpOnly (nggak bisa diakses JS)
   cookieStore.set(SESSION_COOKIE_NAME, token, {
-    httpOnly: true,           // JS nggak bisa baca
-    secure: process.env.NODE_ENV === "production", // HTTPS only di production
-    sameSite: "lax",          // CSRF protection
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: days * 24 * 60 * 60,
+  });
+
+  // 🔥 CSRF cookie — BISA diakses JS (biar client bisa kirim di header)
+  cookieStore.set("csrf_token", csrfToken, {
+    httpOnly: false,   // ← penting: client harus bisa baca
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
     path: "/",
     maxAge: days * 24 * 60 * 60,
   });
@@ -57,6 +78,7 @@ export async function setSessionCookie(token: string, rememberMe = false) {
 export async function clearSessionCookie() {
   const cookieStore = await cookies();
   cookieStore.delete(SESSION_COOKIE_NAME);
+  cookieStore.delete("csrf_token");
 }
 
 // ============================================
@@ -115,6 +137,40 @@ export async function getSession(): Promise<SessionData | null> {
     schoolId: session.user.schoolId,
     sessionId: session.id,
   };
+}
+
+/**
+ * 🔥 Verifikasi CSRF token dari header request
+ * Return true kalau valid, false kalau nggak
+ */
+export async function verifyCsrfToken(request: Request): Promise<boolean> {
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+  const csrfFromCookie = cookieStore.get("csrf_token")?.value;
+
+  if (!sessionToken || !csrfFromCookie) return false;
+
+  // Header bisa: X-CSRF-Token atau x-csrf-token
+  const csrfFromHeader =
+    request.headers.get("X-CSRF-Token") ||
+    request.headers.get("x-csrf-token");
+
+  if (!csrfFromHeader) return false;
+
+  // Bandingkan header dengan cookie (constant-time)
+  if (csrfFromHeader !== csrfFromCookie) return false;
+
+  // Verifikasi bahwa csrfToken ini beneran milik session ini
+  const session = await db.session.findUnique({
+    where: { token: sessionToken },
+    select: { csrfToken: true, expiresAt: true },
+  });
+
+  if (!session) return false;
+  if (session.expiresAt < new Date()) return false;
+  if (session.csrfToken !== csrfFromHeader) return false;
+
+  return true;
 }
 
 /**

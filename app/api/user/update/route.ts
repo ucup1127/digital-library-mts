@@ -32,10 +32,13 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const updateData: any = {};
-    if (name !== undefined) updateData.name = name;
-    if (className !== undefined) updateData.className = className;
-    if (email !== undefined) updateData.email = email;
+  const updateData: any = {};
+  if (name !== undefined) updateData.name = name;
+  if (className !== undefined) updateData.className = className;
+  // 🔥 email: kalau "" atau null → simpan NULL
+  if (email !== undefined) {
+    updateData.email = email && email.trim() !== "" ? email : null;
+  }
 
     if (password && password.length > 0) {
       updateData.password = await bcrypt.hash(password, 10);

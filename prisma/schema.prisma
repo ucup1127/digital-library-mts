@@ -41,8 +41,6 @@ model User {
   username     String?  @unique    // Admin & Siswa: wajib (login)
   nisn         String?  @unique    // Siswa: 10 digit, Admin: NULL
   password     String   @db.Text
-  
-  // 👤 Data profil
   name         String?
   className    String?
   image        String?
@@ -50,15 +48,11 @@ model User {
   schoolId     String?
   school       School?  @relation(fields: [schoolId], references: [id], onDelete: SetNull)
   
-  // 🎫 No anggota
   memberId     String?  @unique    // Siswa = NISN, Admin = generate (MTS001)
   barcode      String?  @unique    // Siswa = NISN, Admin = memberId
-  
-  // 📊 Status
   isActive     Boolean  @default(true)
   graduatedAt  DateTime?
-  
-  // 🔗 Relasi
+
   peminjamanFisik PeminjamanFisik[]
   sessions  Session[]
   notifications Notification[] 
@@ -387,6 +381,7 @@ model Gallery {
 model Session {
   id        String   @id @default(cuid())
   token     String   @unique
+  csrfToken String   @unique @default(cuid()) 
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime

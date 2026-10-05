@@ -31,6 +31,24 @@ export default function AdminLayoutClient({ user, isMaintenance, children }: Pro
   const [searchSchool, setSearchSchool] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // 🔥 EFFECT: Cek session masih valid tiap kali halaman dibuka
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const res = await fetch("/api/auth/me");
+        if (!res.ok) {
+          // Session expired atau user logout
+          window.location.href = "/login/admin";
+        }
+      } catch {
+        window.location.href = "/login/admin";
+      }
+    };
+
+    checkSession();
+  }, []);
+  
+  // 🔥 EFFECT 2: Load selected school (untuk SUPER_ADMIN)
   useEffect(() => {
     if (user.role === "SUPER_ADMIN") {
       const savedId = localStorage.getItem("selected_school_id") || "";
@@ -73,7 +91,7 @@ export default function AdminLayoutClient({ user, isMaintenance, children }: Pro
   return (
     <IdleLogout>
       <div className="flex min-h-screen bg-gray-50">
-        {/* 🔥 Sidebar — terima isOpen & onClose */}
+        {/* Sidebar */}
         <Sidebar
           user={user}
           selectedSchoolId={selectedSchoolId}
@@ -86,9 +104,9 @@ export default function AdminLayoutClient({ user, isMaintenance, children }: Pro
           onClose={() => setSidebarOpen(false)}
         />
 
-        {/* 🔥 Main content — margin 0 di mobile, ml-64 di desktop */}
+        {/* Main content */}
         <div className="flex-1 lg:ml-64 min-h-screen bg-gray-50">
-          {/* 🔥 Header mobile — hamburger button */}
+          {/* Header mobile */}
           <div className="lg:hidden sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 shadow-sm">
             <button
               onClick={() => setSidebarOpen(true)}
@@ -98,11 +116,13 @@ export default function AdminLayoutClient({ user, isMaintenance, children }: Pro
               <Menu className="w-5 h-5" />
             </button>
             <h1 className="font-bold text-sm text-gray-800 truncate">
-              {user.role === "SUPER_ADMIN" ? "Super Admin" : (user.schoolName || "Admin Panel")}
+              {user.role === "SUPER_ADMIN"
+                ? "Super Admin"
+                : user.schoolName || "Admin Panel"}
             </h1>
           </div>
 
-          {/* 🔥 Content — padding responsive */}
+          {/* Content */}
           <main className="p-4 lg:p-8">
             {/* Banner mode sekolah (SUPER_ADMIN) */}
             {user.role === "SUPER_ADMIN" && selectedSchoolName && (
@@ -160,7 +180,9 @@ export default function AdminLayoutClient({ user, isMaintenance, children }: Pro
                 {schools.length === 0 ? (
                   <div className="p-8 text-center">
                     <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin inline-block"></div>
-                    <p className="text-xs text-gray-400 mt-2">Memuat data sekolah...</p>
+                    <p className="text-xs text-gray-400 mt-2">
+                      Memuat data sekolah...
+                    </p>
                   </div>
                 ) : filteredSchools.length === 0 ? (
                   <div className="p-8 text-center text-gray-400">

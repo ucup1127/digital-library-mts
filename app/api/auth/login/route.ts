@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { createSession, setSessionCookie } from "@/lib/auth";
 import { logger } from "@/lib/logger";
-import { checkRateLimit, resetRateLimit, getClientIp } from "@/lib/rate-limit";
+import { checkRateLimit, resetRateLimit, getClientIp,  checkAccountLockout, resetAccountLockout, } from "@/lib/rate-limit";
 import { loginSchema, formatZodError } from "@/lib/validations";
 
 const RATE_LIMIT_MAX = 5;
@@ -41,6 +41,26 @@ export async function POST(request: Request) {
           headers: { "Retry-After": String(rateCheck.retryAfter || 60) },
         }
       );
+    }
+
+    // 🔥 ACCOUNT LOCKOUT CHECK — cari user dulu buat dapet ID
+    const userForLockout = await db.user.findFirst({
+      where: {
+        OR: [{ email: login }, { username: login }],
+      },
+      select: { id: true },
+    });
+
+    if (userForLockout) {
+      const lockoutCheck = await checkAccountLockout(userForLockout.id);
+      if (lockoutCheck.locked) {
+        return NextResponse.json(
+          {
+            error: `Akun terkunci sementara karena terlalu banyak percobaan gagal. Coba lagi dalam ${Math.ceil((lockoutCheck.retryAfter || 0) / 60)} menit.`,
+          },
+          { status: 429 }
+        );
+      }
     }
 
     // 🔥 Cari user berdasarkan tipe login
@@ -118,6 +138,7 @@ export async function POST(request: Request) {
 
     // 🔥 Login berhasil — reset rate limit
     resetRateLimit(rateKey);
+    await resetAccountLockout(user.id);
 
     // 🔥 SESSION FIXATION FIX: Hapus session lama (kalau ada) sebelum bikin baru
     const oldSessionToken = request.headers.get("cookie")

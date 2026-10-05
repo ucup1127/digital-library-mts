@@ -88,3 +88,80 @@ export function getClientIp(request: Request): string {
     "unknown"
   );
 }
+
+// ============================================
+// 🔥 ACCOUNT LOCKOUT
+// ============================================
+import { db } from "@/lib/db";
+
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_WINDOW_MINUTES = 15;
+
+/**
+ * Cek apakah akun terkunci karena gagal login berulang
+ */
+export async function checkAccountLockout(userId: string): Promise<{
+  locked: boolean;
+  retryAfter?: number;
+  failedCount?: number;
+}> {
+  try {
+    const windowStart = new Date(Date.now() - LOCKOUT_WINDOW_MINUTES * 60 * 1000);
+
+    const failedCount = await db.userActivityLog.count({
+      where: {
+        userId,
+        action: "LOGIN_FAILED",
+        createdAt: { gte: windowStart },
+      },
+    });
+
+    if (failedCount < MAX_FAILED_ATTEMPTS) {
+      return { locked: false, failedCount };
+    }
+
+    // Cari log gagal paling lama untuk hitung kapan unlock
+    const oldestFail = await db.userActivityLog.findFirst({
+      where: {
+        userId,
+        action: "LOGIN_FAILED",
+        createdAt: { gte: windowStart },
+      },
+      orderBy: { createdAt: "asc" },
+      select: { createdAt: true },
+    });
+
+    if (!oldestFail) {
+      return { locked: false, failedCount };
+    }
+
+    const unlockAt = new Date(
+      oldestFail.createdAt.getTime() + LOCKOUT_WINDOW_MINUTES * 60 * 1000
+    );
+    const retryAfter = Math.ceil((unlockAt.getTime() - Date.now()) / 1000);
+
+    if (retryAfter > 0) {
+      return { locked: true, retryAfter, failedCount };
+    }
+
+    return { locked: false, failedCount };
+  } catch {
+    return { locked: false };
+  }
+}
+
+/**
+ * Reset lockout — hapus log LOGIN_FAILED user setelah login sukses
+ */
+export async function resetAccountLockout(userId: string) {
+  try {
+    await db.userActivityLog.deleteMany({
+      where: {
+        userId,
+        action: "LOGIN_FAILED",
+      },
+    });
+  } catch {
+    // silent
+  }
+}

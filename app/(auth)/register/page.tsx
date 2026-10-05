@@ -19,12 +19,33 @@ import {
 import { logger } from "@/lib/logger";
 
 // 🔥 Ketentuan password
+const COMMON_PASSWORDS = new Set([
+  "password", "password1", "password123", "password1234",
+  "12345678", "123456789", "1234567890", "123456",
+  "qwerty", "qwerty123", "qwertyuiop",
+  "admin", "admin123", "administrator",
+  "letmein", "welcome", "welcome123",
+  "monkey", "dragon", "master", "iloveyou",
+  "abc123", "abc12345", "abcd1234",
+  "muhapati", "perpustakaan", "library123",
+  "sekolah123", "siswa123", "murid123", "guru123",
+  "indonesia", "bismillah",
+  "11111111", "00000000", "88888888",
+  "1q2w3e4r", "1qaz2wsx",
+  "superadmin", "root123",
+]);
+
 const PASSWORD_RULES = [
   { key: "length", label: "Minimal 8 karakter", test: (p: string) => p.length >= 8 },
   { key: "upper", label: "Huruf besar (A-Z)", test: (p: string) => /[A-Z]/.test(p) },
   { key: "lower", label: "Huruf kecil (a-z)", test: (p: string) => /[a-z]/.test(p) },
   { key: "number", label: "Angka (0-9)", test: (p: string) => /\d/.test(p) },
   { key: "symbol", label: "Simbol (!@#$%^&*)", test: (p: string) => /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(p) },
+  {
+    key: "notCommon",
+    label: "Bukan password umum",
+    test: (p: string) => p.length > 0 && !COMMON_PASSWORDS.has(p.toLowerCase()),
+  },
 ];
 
 export default function RegisterPage() {

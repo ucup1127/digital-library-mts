@@ -24,6 +24,23 @@ export const loginSchema = z.object({
 
 const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
 
+// 🔥 Daftar password umum yang dilarang
+const COMMON_PASSWORDS = new Set([
+  "password", "password1", "password123", "password1234", "password12345",
+  "12345678", "123456789", "1234567890", "123456", "1234567", "12345",
+  "qwerty", "qwerty123", "qwertyuiop", "qwerty1234",
+  "admin", "admin123", "admin1234", "administrator", "adminadmin",
+  "letmein", "letmein123", "welcome", "welcome123", "welcome1",
+  "monkey", "monkey123", "dragon", "master", "iloveyou", "iloveyou1",
+  "abc123", "abc12345", "abcd1234", "qwertyui",
+  "muhapati", "muhapati123", "perpustakaan", "library123", "library",
+  "sekolah123", "siswa123", "murid123", "guru123", "sekolah",
+  "indonesia", "indonesia123", "bismillah", "bismillah123",
+  "12345678a", "11111111", "00000000", "88888888", "22222222",
+  "qwerty12345", "1q2w3e4r", "1qaz2wsx", "zaq12wsx",
+  "superadmin", "superadmin123", "root", "root123", "toor",
+]);
+
 export const registerSchema = z
   .object({
     nisn: z
@@ -74,7 +91,19 @@ export const registerSchema = z
   .refine((data) => data.password !== data.nisn, {
     message: "Password tidak boleh sama dengan NISN",
     path: ["password"],
-  });
+  })
+  .refine((data) => !COMMON_PASSWORDS.has(data.password.toLowerCase()), {
+    message: "Password terlalu umum. Gunakan password yang lebih unik.",
+    path: ["password"],
+  })
+  .refine(
+    (data) =>
+      !data.password.toLowerCase().includes(data.name.toLowerCase().replace(/\s+/g, "")),
+    {
+      message: "Password tidak boleh mengandung nama Anda",
+      path: ["password"],
+    }
+  );
 
 // ============================================
 // 👥 ADMIN — USER MANAGEMENT

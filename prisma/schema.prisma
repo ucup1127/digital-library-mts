@@ -58,6 +58,7 @@ model User {
   notifications Notification[] 
   chatMessages  ChatMessage[]
   chatReadState ChatReadState? 
+  activityLogs UserActivityLog[] 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @default(now()) @updatedAt
 
@@ -393,5 +394,21 @@ model Session {
   @@index([userId])
   @@index([expiresAt])
   @@index([userId, expiresAt])
+}
+
+model UserActivityLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schoolId   String?
+  action     String   // "LOGIN" | "LOGOUT" | "UPDATE_PROFILE" | "CHANGE_PASSWORD" | "EXTEND_LOAN"
+  description String?  @db.Text
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@index([schoolId, createdAt])
 }
 

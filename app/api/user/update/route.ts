@@ -69,6 +69,25 @@ export async function PATCH(req: Request) {
       },
     });
 
+        // 🔥 Log user activity — update profile
+    try {
+      await db.userActivityLog.create({
+        data: {
+          userId: updatedUser.id,
+          schoolId: session.schoolId,
+          action: "UPDATE_PROFILE",
+          description: `Update profil: ${Object.keys(updateData).filter((k) => k !== "password").join(", ")}`,
+          ipAddress:
+            req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+            req.headers.get("x-real-ip") ||
+            null,
+          userAgent: req.headers.get("user-agent") || null,
+        },
+      });
+    } catch (logError) {
+      logger.error("Failed to log update profile:", logError);
+    }
+    
     return NextResponse.json({
       message: "Profil berhasil diperbarui!",
       user: updatedUser,

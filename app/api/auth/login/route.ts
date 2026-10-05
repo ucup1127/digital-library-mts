@@ -91,8 +91,25 @@ export async function POST(request: Request) {
     }
 
     // 🔥 Cek password
+    // 🔥 Cek password
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) {
+      // 🔥 Log failed login untuk account lockout
+      try {
+        await db.userActivityLog.create({
+          data: {
+            userId: user.id,
+            schoolId: user.schoolId,
+            action: "LOGIN_FAILED",
+            description: "Password salah",
+            ipAddress: ip,
+            userAgent: request.headers.get("user-agent") || null,
+          },
+        });
+      } catch (logError) {
+        logger.error("Failed to log login failed:", logError);
+      }
+
       return NextResponse.json(
         { error: type === "user" ? "Username atau password salah" : "Email/Username atau password salah" },
         { status: 401 }
@@ -102,6 +119,16 @@ export async function POST(request: Request) {
     // 🔥 Login berhasil — reset rate limit
     resetRateLimit(rateKey);
 
+    // 🔥 SESSION FIXATION FIX: Hapus session lama (kalau ada) sebelum bikin baru
+    const oldSessionToken = request.headers.get("cookie")
+      ?.split("; ")
+      .find((c) => c.startsWith("session_token="))
+      ?.split("=")[1];
+
+    if (oldSessionToken) {
+      await db.session.deleteMany({ where: { token: oldSessionToken } });
+    }
+
     const { token, csrfToken } = await createSession(user.id, {
       userAgent: request.headers.get("user-agent") || undefined,
       ipAddress: ip,
@@ -109,6 +136,22 @@ export async function POST(request: Request) {
     });
 
     await setSessionCookie(token, csrfToken, !!rememberMe);
+
+        // 🔥 Log user activity — login sukses
+    try {
+      await db.userActivityLog.create({
+        data: {
+          userId: user.id,
+          schoolId: user.schoolId,
+          action: "LOGIN",
+          description: `Login sebagai ${user.role}`,
+          ipAddress: ip,
+          userAgent: request.headers.get("user-agent") || null,
+        },
+      });
+    } catch (logError) {
+      logger.error("Failed to log login activity:", logError);
+    }
 
     // Return csrfToken ke client (buat disimpan)
     // Client harus kirim di header X-CSRF-Token untuk setiap POST/PUT/DELETE

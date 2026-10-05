@@ -52,6 +52,18 @@ export async function PUT(request: Request) {
       data: { password: hashedPassword },
     });
 
+        // 🔥 Log user activity — change password
+    await db.userActivityLog.create({
+      data: {
+        userId: user.id,
+        schoolId: session.schoolId,
+        action: "CHANGE_PASSWORD",
+        description: "Password berhasil diubah",
+        ipAddress: request.headers.get("x-forwarded-for")?.split(",")[0].trim() || request.headers.get("x-real-ip") || null,
+        userAgent: request.headers.get("user-agent") || null,
+      },
+    }).catch(() => {});
+
     // 🔥 Log aktivitas
     await logAdminActivityServer({
       action: "CHANGE_PASSWORD",

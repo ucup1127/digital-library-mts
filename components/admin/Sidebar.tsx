@@ -1,7 +1,7 @@
 // components/admin/Sidebar.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import toast from "react-hot-toast";
@@ -25,6 +25,7 @@ import {
   Shield,
   Wrench,
   X,
+  MessageSquare,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -47,6 +48,25 @@ export default function Sidebar({
   const pathname = usePathname();
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [unreadChat, setUnreadChat] = useState(0);
+
+    // 🔥 Fetch unread chat count — poll tiap 30 detik
+  useEffect(() => {
+    const fetchUnread = async () => {
+      try {
+        const res = await fetch("/api/chat/unread");
+        if (!res.ok) return;
+        const data = await res.json();
+        setUnreadChat(data.count || 0);
+      } catch (error) {
+        // silent error
+      }
+    };
+
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const userName = user.name || "Admin";
   const userRole = user.role;
@@ -56,13 +76,14 @@ export default function Sidebar({
 
   const menu = [
     { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
+    { name: "Chat Admin", href: "/admin/chat", icon: MessageSquare, badge: unreadChat },
     { name: "Buku Digital", href: "/admin/buku", icon: BookOpen },
     { name: "Buku Fisik", href: "/admin/buku-fisik", icon: Library },
     { name: "Kategori", href: "/admin/kategori", icon: FolderTree },
     { name: "User", href: "/admin/users", icon: Users },
     { name: "Peminjaman Fisik", href: "/admin/peminjaman-fisik", icon: RefreshCw },
     { name: "Laporan Siswa", href: "/admin/laporan-user", icon: FileText },
-      { name: "Aktivitas Admin", href: "/admin/laporan-aktivitas", icon: ClipboardList }, 
+    { name: "Aktivitas Admin", href: "/admin/laporan-aktivitas", icon: ClipboardList },
     { name: "Galeri", href: "/admin/galeri", icon: Images },
     { name: "Tentang", href: "/admin/tentang", icon: Info },
   ];
@@ -237,7 +258,7 @@ export default function Sidebar({
 
         {/* Navigation Menu */}
         <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-          {allMenu.map((item) => {
+          {allMenu.map((item: any) => {
             const Icon = item.icon;
             const active = isActive(item.href);
             return (
@@ -253,7 +274,22 @@ export default function Sidebar({
               >
                 <Icon className={`w-4 h-4 ${active ? "text-white" : "text-gray-400"}`} />
                 <span>{item.name}</span>
-                {active && <ChevronRight className="w-3.5 h-3.5 ml-auto text-white/60" />}
+                {/* 🔥 Badge unread chat */}
+                {item.badge > 0 && (
+                  <span
+                    className={`ml-auto px-2 py-0.5 text-[9px] font-bold rounded-full ${
+                      active
+                        ? "bg-white/20 text-white"
+                        : "bg-red-100 text-red-600"
+                    }`}
+                  >
+                    {item.badge > 99 ? "99+" : item.badge}
+                  </span>
+                )}
+                {/* Chevron cuma kalau aktif DAN nggak ada badge */}
+                {active && !item.badge && (
+                  <ChevronRight className="w-3.5 h-3.5 ml-auto text-white/60" />
+                )}
               </Link>
             );
           })}

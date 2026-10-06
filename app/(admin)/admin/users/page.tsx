@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
+import Link from "next/link";
+import { Upload } from "lucide-react";
 import PrintButton from "@/components/ui/PrintButton";
 import {
   Users,
@@ -533,6 +535,16 @@ export default function UsersPage() {
             <Download className="w-4 h-4" />
             Export Excel
           </button>
+
+ {/* 🔥 TAMBAH: Tombol Import */}
+          <Link
+            href="/admin/users/import"
+            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-sm font-semibold hover:from-blue-700 hover:to-indigo-700 transition flex items-center gap-2 shadow-lg shadow-blue-200"
+          >
+            <Upload className="w-4 h-4" />
+            Import User
+          </Link>
+
           <button
             onClick={() => setShowAddModal(true)}
             className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg text-sm font-semibold hover:from-purple-700 hover:to-indigo-700 transition flex items-center gap-2 shadow-lg shadow-purple-200"

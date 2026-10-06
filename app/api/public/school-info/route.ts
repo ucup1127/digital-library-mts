@@ -20,14 +20,12 @@ export async function GET() {
           id: school.id,
           name: school.name,
           logo: school.logo || "",
-          website:
-            school.website ||
-            "https://mtsmuhammadiyahpatikraja.sch.id",
+          website: school.website || "",   // ← FIX: nggak ada fallback
         });
       }
     }
 
-    // Fallback: sekolah pertama
+    // Fallback: sekolah pertama (kalau user belum login)
     const defaultSchool = await db.school.findFirst({
       select: { id: true, name: true, logo: true, website: true },
     });
@@ -37,9 +35,7 @@ export async function GET() {
         id: defaultSchool.id,
         name: defaultSchool.name,
         logo: defaultSchool.logo || "",
-        website:
-          defaultSchool.website ||
-          "https://mtsmuhammadiyahpatikraja.sch.id",
+        website: defaultSchool.website || "",   // ← FIX
       });
     }
 
@@ -47,7 +43,7 @@ export async function GET() {
     return NextResponse.json({
       name: "Perpustakaan Digital",
       logo: "",
-      website: "https://mtsmuhammadiyahpatikraja.sch.id",
+      website: "",   // ← FIX
     });
   } catch (error) {
     logger.error("Error fetching school info:", error);

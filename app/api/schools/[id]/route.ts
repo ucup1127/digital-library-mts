@@ -41,7 +41,7 @@ export async function PUT(
     await requireSuperAdmin();
     const { id } = await params;
     const body = await request.json();
-    const { name, slug, logo } = body;
+    const { name, slug, logo, website } = body;   // ← TAMBAH website
 
     if (!name || !slug) {
       return NextResponse.json({ error: "Nama dan slug harus diisi" }, { status: 400 });
@@ -53,6 +53,7 @@ export async function PUT(
         name,
         slug,
         logo: logo || null,
+        website: website || null,   // ← TAMBAH
       },
     });
 

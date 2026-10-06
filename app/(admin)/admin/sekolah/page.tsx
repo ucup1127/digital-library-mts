@@ -25,6 +25,7 @@ interface School {
   name: string;
   slug: string;
   logo?: string | null;
+  website?: string | null;  // ← TAMBAH
   totalUsers: number;
   totalBooks: number;
   createdAt: string;
@@ -39,7 +40,7 @@ export default function KelolaSekolahPage() {
 
   // Modal Tambah
   const [showAddModal, setShowAddModal] = useState(false);
-  const [addForm, setAddForm] = useState({ name: "", slug: "" });
+  const [addForm, setAddForm] = useState({ name: "", slug: "", website: "" });
   const [addLogoFile, setAddLogoFile] = useState<File | null>(null);
   const [addLogoPreview, setAddLogoPreview] = useState<string | null>(null);
   const [submittingAdd, setSubmittingAdd] = useState(false);
@@ -48,7 +49,7 @@ export default function KelolaSekolahPage() {
   // Modal Edit
   const [showEditModal, setShowEditModal] = useState(false);
   const [editTarget, setEditTarget] = useState<School | null>(null);
-  const [editForm, setEditForm] = useState({ name: "", slug: "" });
+  const [editForm, setEditForm] = useState({ name: "", slug: "", website: "" });
   const [editLogoFile, setEditLogoFile] = useState<File | null>(null);
   const [editLogoPreview, setEditLogoPreview] = useState<string | null>(null);
   const [submittingEdit, setSubmittingEdit] = useState(false);
@@ -111,7 +112,7 @@ export default function KelolaSekolahPage() {
   // TAMBAH SEKOLAH
   // ============================================
   const openAddModal = () => {
-    setAddForm({ name: "", slug: "" });
+    setAddForm({ name: "", slug: "", website: "" });
     setAddLogoFile(null);
     setAddLogoPreview(null);
     setShowAddModal(true);
@@ -131,7 +132,11 @@ export default function KelolaSekolahPage() {
       const res = await fetch("/api/schools", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: addForm.name, slug: addForm.slug }),
+         body: JSON.stringify({
+          name: addForm.name,
+          slug: addForm.slug,
+          website: addForm.website || null,
+        }),
       });
 
       const data = await res.json();
@@ -187,7 +192,11 @@ export default function KelolaSekolahPage() {
   // ============================================
   const openEditModal = (school: School) => {
     setEditTarget(school);
-    setEditForm({ name: school.name, slug: school.slug });
+    setEditForm({
+      name: school.name,
+      slug: school.slug,
+      website: school.website || "",
+    });
     setEditLogoFile(null);
     setEditLogoPreview(school.logo || null);
     setShowEditModal(true);
@@ -227,10 +236,11 @@ export default function KelolaSekolahPage() {
       const res = await fetch(`/api/schools/${editTarget.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+         body: JSON.stringify({
           name: editForm.name,
           slug: editForm.slug,
           logo: logoPath,
+          website: editForm.website || null,
         }),
       });
 
@@ -531,7 +541,11 @@ export default function KelolaSekolahPage() {
                   type="text"
                   value={addForm.name}
                   onChange={(e) =>
-                    setAddForm({ name: e.target.value, slug: generateSlug(e.target.value) })
+                    setAddForm({
+                      ...addForm,
+                      name: e.target.value,
+                      slug: generateSlug(e.target.value),
+                    })
                   }
                   className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none transition"
                   placeholder="Contoh: MTs Muhammadiyah Patikraja"
@@ -539,20 +553,19 @@ export default function KelolaSekolahPage() {
                 />
               </div>
 
-              <div>
+                            <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                  Slug <span className="text-red-500">*</span>
+                  Website Sekolah
                 </label>
                 <input
-                  type="text"
-                  value={addForm.slug}
-                  onChange={(e) => setAddForm({ ...addForm, slug: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none transition font-mono"
-                  placeholder="mts-muhammadiyah-patikraja"
-                  required
+                  type="url"
+                  value={addForm.website}
+                  onChange={(e) => setAddForm({ ...addForm, website: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none transition"
+                  placeholder="https://mtsmuhpatikraja.sch.id"
                 />
                 <p className="text-[9px] text-gray-400 mt-1">
-                  Huruf kecil, angka, strip (-)
+                  Link website resmi sekolah (untuk redirect "Profil Sekolah")
                 </p>
               </div>
 
@@ -652,7 +665,11 @@ export default function KelolaSekolahPage() {
                   type="text"
                   value={editForm.name}
                   onChange={(e) =>
-                    setEditForm({ name: e.target.value, slug: generateSlug(e.target.value) })
+                    setEditForm({
+                      ...editForm,
+                      name: e.target.value,
+                      slug: generateSlug(e.target.value),
+                    })
                   }
                   className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
                   required
@@ -672,6 +689,22 @@ export default function KelolaSekolahPage() {
                 />
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  Website Sekolah
+                </label>
+                <input
+                  type="url"
+                  value={editForm.website}
+                  onChange={(e) => setEditForm({ ...editForm, website: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
+                  placeholder="https://mtsmuhpatikraja.sch.id"
+                />
+                <p className="text-[9px] text-gray-400 mt-1">
+                  Link website resmi sekolah
+                </p>
+              </div>
+              
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                   Logo Sekolah

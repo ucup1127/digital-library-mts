@@ -3,22 +3,21 @@ import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 
 /**
- * Generate memberId unik untuk ADMIN/SUPER_ADMIN di sekolah tertentu.
+ * Generate memberId unik untuk ADMIN/SUPER_ADMIN.
  * Format: MTS001, MTS002, dst.
- * 
- * ⚠️ Untuk SISWA (role USER), memberId = NISN (di-handle di register route).
+ *
+ * ⚠️ memberId unique GLOBAL — cari max dari SEMUA user, bukan per sekolah.
  */
 export async function generateMemberId(schoolId: string | null): Promise<string> {
-  // Ambil semua memberId yang format MTSxxx (admin only)
+  // 🔥 FIX: Cari max dari SEMUA user dengan memberId format MTSxxx
   const allUsers = await db.user.findMany({
     where: {
-      schoolId: schoolId || undefined,
       memberId: { startsWith: "MTS" },
     },
     select: { memberId: true },
   });
 
-  // Cari angka terbesar
+  // Cari angka terbesar dari SEMUA sekolah
   let maxNumber = 0;
   for (const u of allUsers) {
     if (u.memberId) {
@@ -32,9 +31,9 @@ export async function generateMemberId(schoolId: string | null): Promise<string>
   const newNumber = maxNumber + 1;
   let memberId = `MTS${String(newNumber).padStart(3, "0")}`;
 
-  // Retry kalau duplikat
+  // Retry kalau duplikat — max 100x
   let attempts = 0;
-  const maxAttempts = 5;
+  const maxAttempts = 100;
   while (attempts < maxAttempts) {
     const existing = await db.user.findFirst({
       where: { memberId },
@@ -47,6 +46,11 @@ export async function generateMemberId(schoolId: string | null): Promise<string>
     memberId = `MTS${String(newNumber + attempts).padStart(3, "0")}`;
   }
 
-  logger.log(`📌 Generated memberId (admin): ${memberId}`);
+  if (attempts >= maxAttempts) {
+    // Fallback: pakai timestamp kalau 100x retry gagal
+    memberId = `MTS${Date.now().toString().slice(-6)}`;
+  }
+
+  logger.log(`📌 Generated memberId (global): ${memberId}`);
   return memberId;
 }

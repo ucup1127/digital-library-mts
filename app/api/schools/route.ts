@@ -18,6 +18,7 @@ const getCachedSchools = unstable_cache(
         name: true,
         slug: true,
         logo: true,
+        website: true,   // ← TAMBAH
         _count: {
           select: {
             users: true,
@@ -33,6 +34,7 @@ const getCachedSchools = unstable_cache(
       name: school.name,
       slug: school.slug,
       logo: school.logo,
+      website: school.website,   // ← TAMBAH
       totalUsers: school._count.users,
       totalBooks: school._count.books,
     }));
@@ -60,7 +62,6 @@ export async function POST(request: Request) {
     await requireSuperAdmin();
     const body = await request.json();
 
-    // 🔥 Validasi pakai Zod
     const parseResult = createSchoolSchema.safeParse(body);
     if (!parseResult.success) {
       return NextResponse.json(
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { name, slug, logo } = parseResult.data;
+    const { name, slug, logo, website } = parseResult.data;   // ← TAMBAH website
 
     const existingSchool = await db.school.findUnique({
       where: { slug },
@@ -84,10 +85,10 @@ export async function POST(request: Request) {
         name,
         slug,
         logo: logo || null,
+        website: website || null,   // ← TAMBAH
       },
     });
 
-    // 🔥 Log aktivitas
     await logAdminActivityServer({
       action: "CREATE",
       targetType: "SCHOOL",
@@ -95,7 +96,6 @@ export async function POST(request: Request) {
       targetName: school.name,
     });
 
-    // 🔥 Invalidate cache (Next.js 16: wajib 2 argumen)
     revalidateTag("schools", "max");
     revalidateTag("schools-public", "max");
     revalidateTag("admin-stats", "max");

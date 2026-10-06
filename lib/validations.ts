@@ -425,6 +425,11 @@ export const createSchoolSchema = z.object({
     .max(500, "URL logo maksimal 500 karakter")
     .optional()
     .nullable(),
+  website: z
+    .string()
+    .max(500, "URL website maksimal 500 karakter")
+    .optional()
+    .nullable(),
 });
 
 // ============================================

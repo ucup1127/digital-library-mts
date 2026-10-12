@@ -14,6 +14,7 @@ const CSRF_EXEMPT_PATHS = [
   "/api/public",
   "/api/track",
   "/api/visitor-log",
+  "/api/upload/client",
 ];
 
 export async function proxy(request: NextRequest) {

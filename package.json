@@ -2,6 +2,14 @@
   "name": "digital-library-mts",
   "version": "0.1.0",
   "private": true,
+  "trustedDependencies": [
+    "@prisma/engines",
+    "prisma",
+    "esbuild",
+    "sharp",
+    "unrs-resolver",
+    "msgpackr-extract"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",

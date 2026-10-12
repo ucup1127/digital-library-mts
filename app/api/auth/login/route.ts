@@ -1,7 +1,7 @@
 // app/api/auth/login/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { createSession, setSessionCookie } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { checkRateLimit, resetRateLimit, getClientIp,  checkAccountLockout, resetAccountLockout, } from "@/lib/rate-limit";

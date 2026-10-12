@@ -1,8 +1,7 @@
 // app/api/buku/[id]/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
-import { unlink } from "fs/promises";
-import path from "path";
+import { del } from "@vercel/blob";
 import { requireAdmin, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { updateBookSchema, formatZodError } from "@/lib/validations";
@@ -198,20 +197,23 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       );
     }
 
-    const safeUnlink = async (url: string | null, subFolder: string) => {
-      if (!url) return;
-      const fileName = path.basename(url);
-      const filePath = path.join(process.cwd(), "public", "uploads", subFolder, fileName);
-      const uploadsDir = path.join(process.cwd(), "public", "uploads");
-      if (!filePath.startsWith(uploadsDir)) {
-        logger.warn("⚠️ Path traversal terdeteksi, skip:", url);
-        return;
-      }
-      await unlink(filePath).catch(() => logger.log("File tidak ditemukan:", filePath));
-    };
+   const deleteBlobFile = async (url: string | null) => {
+  if (!url) return;
+  // Hanya hapus file yang benar-benar dari Vercel Blob
+  if (!url.includes("blob.vercel-storage.com")) {
+    logger.warn("Skip hapus file non-Blob:", url);
+    return;
+  }
+  try {
+    await del(url);
+    logger.log("🗑️ File dihapus dari Blob:", url);
+  } catch (e) {
+    logger.warn("Gagal hapus file Blob:", url, e);
+  }
+};
 
-    await safeUnlink(book.fileUrl, "books");
-    await safeUnlink(book.coverUrl, "covers");
+await deleteBlobFile(book.fileUrl);
+await deleteBlobFile(book.coverUrl);
 
     await db.book.delete({ where: { id } });
 

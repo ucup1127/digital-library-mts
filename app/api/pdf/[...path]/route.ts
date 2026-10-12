@@ -1,12 +1,12 @@
 // app/api/pdf/[...path]/route.ts
-import { createReadStream, statSync } from "fs";
-import { Readable } from "stream";
-import path from "path";
 import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 
 // ============================================
-// GET — Stream PDF dengan range request support
+// GET — Redirect ke Vercel Blob URL
+// Frontend panggil /api/pdf/uploads/books/xxx.pdf
+// Route ini cari di DB, redirect ke URL Blob asli
 // ============================================
 export async function GET(
   request: Request,
@@ -14,83 +14,48 @@ export async function GET(
 ) {
   try {
     const { path: pathParts } = await params;
+    const requestedPath = pathParts.join("/"); // contoh: "uploads/books/xxx.pdf"
 
-    // Gabung path, sanitasi biar nggak ada path traversal
-    const requestedPath = pathParts.join("/");
-    const safePath = path.normalize(requestedPath).replace(/^(\.\.[\/\\])+/, "");
-
-    // Bangun full path
-    const uploadsDir = path.join(process.cwd(), "public", "uploads");
-    const filePath = path.join(uploadsDir, safePath);
-
-    // Pastikan di dalam folder uploads
-    if (!filePath.startsWith(uploadsDir)) {
-      logger.warn("⚠️ Path traversal attempt:", requestedPath);
+    // Sanitasi: cegah path traversal
+    if (requestedPath.includes("..")) {
       return NextResponse.json({ error: "Path tidak valid" }, { status: 400 });
     }
 
-    // Cek file ada
-    let stat;
-    try {
-      stat = statSync(filePath);
-    } catch {
+    // Cari book yang fileUrl / coverUrl-nya berakhir dengan requestedPath
+    const book = await db.book.findFirst({
+      where: {
+        OR: [
+          { fileUrl: { endsWith: requestedPath } },
+          { coverUrl: { endsWith: requestedPath } },
+        ],
+      },
+      select: {
+        fileUrl: true,
+        coverUrl: true,
+      },
+    });
+
+    if (!book) {
+      logger.warn("PDF route: file tidak ditemukan di DB:", requestedPath);
       return NextResponse.json({ error: "File tidak ditemukan" }, { status: 404 });
     }
 
-    if (!stat.isFile()) {
-      return NextResponse.json({ error: "Bukan file" }, { status: 400 });
+    // Tentukan URL Blob yang cocok
+    let blobUrl: string | null = null;
+    if (book.fileUrl && book.fileUrl.endsWith(requestedPath)) {
+      blobUrl = book.fileUrl;
+    } else if (book.coverUrl && book.coverUrl.endsWith(requestedPath)) {
+      blobUrl = book.coverUrl;
     }
 
-    const fileSize = stat.size;
-    const contentType = safePath.endsWith(".pdf")
-      ? "application/pdf"
-      : "application/octet-stream";
-
-    // ========== RANGE REQUEST ==========
-    const range = request.headers.get("range");
-
-    if (range) {
-      const parts = range.replace(/bytes=/, "").split("-");
-      const start = parseInt(parts[0], 10);
-      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-
-      // Validasi range
-      if (isNaN(start) || isNaN(end) || start > end || end >= fileSize) {
-        return new NextResponse(null, {
-          status: 416,
-          headers: { "Content-Range": `bytes */${fileSize}` },
-        });
-      }
-
-      const chunkSize = end - start + 1;
-      const stream = createReadStream(filePath, { start, end });
-
-      return new NextResponse(Readable.toWeb(stream) as any, {
-        status: 206,
-        headers: {
-          "Content-Range": `bytes ${start}-${end}/${fileSize}`,
-          "Accept-Ranges": "bytes",
-          "Content-Length": String(chunkSize),
-          "Content-Type": contentType,
-          "Cache-Control": "public, max-age=31536000, immutable",
-        },
-      });
+    if (!blobUrl) {
+      return NextResponse.json({ error: "File tidak ditemukan" }, { status: 404 });
     }
 
-    // ========== FULL REQUEST ==========
-    const stream = createReadStream(filePath);
-
-    return new NextResponse(Readable.toWeb(stream) as any, {
-      status: 200,
-      headers: {
-        "Content-Length": String(fileSize),
-        "Content-Type": contentType,
-        "Accept-Ranges": "bytes",
-        "Cache-Control": "public, max-age=31536000, immutable",
-      },
-    });
+    // Redirect ke URL Blob (302 sementara, biar browser handle range request sendiri)
+    return NextResponse.redirect(blobUrl, 302);
   } catch (error) {
-    logger.error("Error streaming PDF:", error);
+    logger.error("Error PDF redirect:", error);
     return NextResponse.json({ error: "Gagal memuat file" }, { status: 500 });
   }
 }

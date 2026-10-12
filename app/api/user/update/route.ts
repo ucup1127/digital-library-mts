@@ -1,7 +1,7 @@
 // app/api/user/update/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { requireAuth, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { updateProfileSchema, formatZodError } from "@/lib/validations";

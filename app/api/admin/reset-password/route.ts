@@ -1,7 +1,7 @@
 // app/api/admin/reset-password/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { requireAdmin, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { resetPasswordSchema, formatZodError } from "@/lib/validations";

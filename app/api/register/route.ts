@@ -1,7 +1,7 @@
 // app/api/register/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { logger } from "@/lib/logger";
 import { registerSchema, formatZodError } from "@/lib/validations";
 

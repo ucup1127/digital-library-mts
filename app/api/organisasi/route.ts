@@ -1,8 +1,7 @@
 // app/api/organisasi/route.ts
 import { db } from "@/lib/db";
-import { writeFile } from "fs/promises";
+import { put } from "@vercel/blob";
 import { NextRequest, NextResponse } from "next/server";
-import path from "path";
 import { requireAdmin, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { createOrganisasiSchema, formatZodError } from "@/lib/validations";
@@ -44,33 +43,27 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      if (file.size > 5 * 1024 * 1024) {
+      // Max 4MB (limit Vercel serverless)
+      if (file.size > 4 * 1024 * 1024) {
         return NextResponse.json(
-          { error: "Ukuran file maksimal 5MB" },
+          { error: "Ukuran file maksimal 4MB" },
           { status: 400 }
         );
       }
 
-      const bytes = await file.arrayBuffer();
-      const buffer = Buffer.from(bytes);
+      // Generate nama file unik
+      const ext = file.name.split(".").pop() || "jpg";
+      const filename = `${Date.now()}-${Math.floor(Math.random() * 10000)}.${ext}`;
+      const pathname = `organisasi/${filename}`;
 
-      const safeName = path.basename(file.name).replace(/\s+/g, "-");
-      const ext = path.extname(safeName);
-      const filename = `${Date.now()}-${Math.floor(Math.random() * 10000)}${ext}`;
+      // Upload ke Blob
+      const blob = await put(pathname, file, {
+        access: "public",
+        addRandomSuffix: false,
+      });
 
-      const uploadDir = path.join(process.cwd(), "public", "uploads", "organisasi");
-      const filePath = path.join(uploadDir, filename);
-
-      const uploadsDir = path.join(process.cwd(), "public", "uploads");
-      if (!filePath.startsWith(uploadsDir)) {
-        return NextResponse.json({ error: "Path tidak valid" }, { status: 400 });
-      }
-
-      const { mkdir } = await import("fs/promises");
-      await mkdir(uploadDir, { recursive: true });
-
-      await writeFile(filePath, buffer);
-      imageUrl = `/uploads/organisasi/${filename}`;
+      imageUrl = blob.url;
+      logger.log("✅ Organisasi image uploaded:", blob.url);
     }
 
     const newMember = await db.organization.create({

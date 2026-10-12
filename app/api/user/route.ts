@@ -2,7 +2,7 @@
 // FUNGSI: Untuk user biasa (siswa) mengelola profilnya sendiri
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { requireAuth, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 

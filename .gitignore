@@ -67,3 +67,15 @@ pdf-before-compress-backup/
 # File test compress (jangan commit)
 pdf-compress-test/
 pdf-info.js
+
+# Jangan commit file besar
+*.zip
+deploy-cpanel/
+deploy-final.zip
+vendor-clean.zip
+.next.zip
+supabase_dump.bak
+package-lock-windows.json
+
+# Backup schema
+*.prisma.backup

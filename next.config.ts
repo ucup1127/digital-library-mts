@@ -6,6 +6,7 @@ const withBundleAnalyzer = bundleAnalyzer({
 });
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ["@prisma/client", "pg", "@prisma/adapter-pg"],
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**" },
@@ -19,7 +20,6 @@ const nextConfig: NextConfig = {
     "*.ngrok.io",
     "*.trycloudflare.com",
   ],
-
   async headers() {
     return [
       {

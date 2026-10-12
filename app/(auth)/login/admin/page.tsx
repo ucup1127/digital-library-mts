@@ -231,7 +231,7 @@ function AdminLoginForm() {
               </div>
               <h1 className="text-2xl font-black tracking-tight">
                 <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                  MUHAPATI
+                  MTSMUHBMS
                 </span>
               </h1>
               <p className="text-gray-500 text-sm mt-0.5">Perpustakaan Digital</p>

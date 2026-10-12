@@ -1,6 +1,6 @@
 // prisma/migrate-passwords.ts
 import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 

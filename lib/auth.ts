@@ -2,6 +2,7 @@
 import { db } from "@/lib/db";
 import { cookies } from "next/headers";
 import { randomBytes } from "crypto";
+import bcrypt from "bcryptjs";
 
 const SESSION_COOKIE_NAME = "session_token";
 const SESSION_DURATION_DAYS = 7;

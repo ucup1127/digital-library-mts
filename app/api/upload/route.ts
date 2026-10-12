@@ -1,7 +1,6 @@
 // app/api/upload/route.ts
-import { writeFile, mkdir } from "fs/promises";
+import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
-import path from "path";
 import { requireAuth, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 
@@ -28,18 +27,14 @@ export async function POST(request: Request) {
     const isPdf = file.type === "application/pdf";
 
     if (type === "book") {
-      if (!isPdf) {
-        return NextResponse.json(
-          { error: "File buku harus berformat PDF" },
-          { status: 400 }
-        );
-      }
-      if (file.size > 50 * 1024 * 1024) {
-        return NextResponse.json(
-          { error: "Ukuran file PDF maksimal 50MB" },
-          { status: 400 }
-        );
-      }
+      // ⚠️ PDF > 4.5MB tidak bisa lewat server. Harus pakai client upload.
+      return NextResponse.json(
+        {
+          error:
+            "Upload PDF harus pakai client upload. Gunakan endpoint /api/upload/client",
+        },
+        { status: 400 }
+      );
     } else {
       if (!isImage) {
         return NextResponse.json(
@@ -47,46 +42,35 @@ export async function POST(request: Request) {
           { status: 400 }
         );
       }
-      if (file.size > 5 * 1024 * 1024) {
+      if (file.size > 4 * 1024 * 1024) {
         return NextResponse.json(
-          { error: "Ukuran file maksimal 5MB" },
+          { error: "Ukuran file maksimal 4MB" },
           { status: 400 }
         );
       }
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
-    // Tentukan folder
+    // Tentukan folder di Blob
     let folder = "gallery";
     if (type === "cover") folder = "covers";
-    else if (type === "book") folder = "books";
     else if (type === "gallery") folder = "gallery";
     else if (type === "logo") folder = "logos";
 
-    const uploadDir = path.join(process.cwd(), "public", "uploads", folder);
-    await mkdir(uploadDir, { recursive: true });
-
-    // Sanitasi nama file
+    // Generate nama file unik
     const timestamp = Date.now();
     const random = Math.floor(Math.random() * 10000);
-    const ext = path.extname(file.name);
-    const safeName = `${timestamp}_${random}${ext}`;
-    const filePath = path.join(uploadDir, safeName);
+    const ext = file.name.split(".").pop() || "bin";
+    const pathname = `${folder}/${timestamp}_${random}.${ext}`;
 
-    // Pastikan di dalam folder uploads
-    const uploadsDir = path.join(process.cwd(), "public", "uploads");
-    if (!filePath.startsWith(uploadsDir)) {
-      return NextResponse.json({ error: "Path tidak valid" }, { status: 400 });
-    }
+    // Upload ke Vercel Blob (private)
+    const blob = await put(pathname, file, {
+      access: "public",
+      addRandomSuffix: false,
+    });
 
-    const publicPath = `/uploads/${folder}/${safeName}`;
-    await writeFile(filePath, buffer);
+    logger.log("✅ File uploaded to Blob:", blob.url);
 
-    logger.log("✅ File saved:", publicPath);
-
-    return NextResponse.json({ success: true, url: publicPath });
+    return NextResponse.json({ success: true, url: blob.url });
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json(
@@ -95,10 +79,7 @@ export async function POST(request: Request) {
       );
     }
     logger.error("Upload error:", error);
-    return NextResponse.json(
-      { error: "Upload gagal" },   // ← FIX: pesan umum, bukan String(error)
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Upload gagal" }, { status: 500 });
   }
 }
 
@@ -107,7 +88,6 @@ export async function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
-      // ← FIX: ganti "*" jadi origin spesifik
       "Access-Control-Allow-Origin":
         process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
       "Access-Control-Allow-Methods": "POST, OPTIONS",

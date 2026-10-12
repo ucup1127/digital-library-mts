@@ -7,6 +7,7 @@ import Link from "next/link";
 import toast from "react-hot-toast";
 import { logAdminActivity } from "@/lib/admin-log";
 import Image from "next/image";
+import { upload } from "@vercel/blob/client";
 import { 
   ArrowLeft, 
   Plus, 
@@ -90,28 +91,47 @@ export default function TambahBukuPage() {
     }
   };
 
-  const uploadFile = async (file: File, type: string): Promise<string | null> => {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("type", type);
-    
-    try {
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-      const data = await res.json();
-      if (res.ok) {
-        return data.url;
-      }
-      throw new Error(data.error || `Gagal upload ${type}`);
-    } catch (error) {
-      console.error(`Upload ${type} error:`, error);
-      return null;
+  // Upload file kecil (cover) lewat server
+const uploadFileServer = async (file: File, type: string): Promise<string | null> => {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("type", type);
+  
+  try {
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+    const data = await res.json();
+    if (res.ok) {
+      return data.url;
     }
-  };
+    throw new Error(data.error || `Gagal upload ${type}`);
+  } catch (error) {
+    console.error(`Upload ${type} error:`, error);
+    return null;
+  }
+};
 
-  const handleSubmit = async (e: React.FormEvent) => {
+// Upload PDF buku lewat Blob client (langsung dari browser)
+const uploadFileClient = async (file: File, folder: string): Promise<string | null> => {
+  try {
+    const ext = file.name.split(".").pop() || "bin";
+    const pathname = `${folder}/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`;
+
+    const blob = await upload(pathname, file, {
+      access: "public",
+      handleUploadUrl: "/api/upload/client",
+    });
+
+    return blob.url;
+  } catch (error) {
+    console.error(`Client upload error:`, error);
+    return null;
+  }
+};
+
+   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.title.trim()) {
@@ -138,19 +158,19 @@ export default function TambahBukuPage() {
     try {
       let coverUrl = "";
       if (coverFile) {
-        const url = await uploadFile(coverFile, "cover");
+        const url = await uploadFileServer(coverFile, "cover");
         if (url) coverUrl = url;
       }
-      
+
       toast.loading("Mengupload file PDF...", { id: "upload" });
-      const pdfUrl = await uploadFile(pdfFile, "book");
+      const pdfUrl = await uploadFileClient(pdfFile, "books");
       if (!pdfUrl) {
         throw new Error("Gagal upload file PDF");
       }
-      
+
       toast.loading("Menyimpan data buku...", { id: "upload" });
       const schoolId = localStorage.getItem("school_id");
-      
+
       const res = await fetch("/api/buku", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -163,12 +183,12 @@ export default function TambahBukuPage() {
           fileUrl: pdfUrl,
           schoolId,
           categories: selectedCategories,
-          isShared, 
+          isShared,
         }),
       });
-      
+
       const data = await res.json();
-      
+
       if (res.ok) {
         await logAdminActivity({
           action: "CREATE",

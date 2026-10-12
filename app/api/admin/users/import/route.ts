@@ -1,7 +1,7 @@
 // app/api/admin/users/import/route.ts
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { requireAdmin, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { logAdminActivityServer } from "@/lib/admin-log-server";

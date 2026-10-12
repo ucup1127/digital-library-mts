@@ -7,7 +7,7 @@ import CsrfProvider from "@/components/CsrfProvider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-  title: "MUHAPATI - Perpustakaan Digital",
+  title: "MTSMUHBMS - Perpustakaan Digital",
   description: "Perpustakaan Digital MTs Muhammadiyah Patikraja",
 };
 

@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "postinstall": "prisma generate",
     "backfill": "dotenv -e .env -e .env.local -- tsx scripts/backfill-member-id.ts"
   },
   "dependencies": {

@@ -39,9 +39,10 @@ export async function POST(request: Request): Promise<NextResponse> {
         logger.log("🎫 Generating upload token untuk:", pathname);
 
         return {
-          allowedContentTypes,
-          maximumSizeInBytes,
-          addRandomSuffix: false,
+            allowedContentTypes,
+            maximumSizeInBytes,
+            addRandomSuffix: false,
+            token: process.env.BLOB_SG_READ_WRITE_TOKEN,
         };
       },
       onUploadCompleted: async ({ blob, tokenPayload }) => {

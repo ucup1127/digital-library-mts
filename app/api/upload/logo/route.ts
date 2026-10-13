@@ -48,7 +48,7 @@ export async function POST(request: Request) {
         // Hapus logo lama dari Blob kalau ada dan itu URL Blob
         if (existing?.logo && existing.logo.includes("blob.vercel-storage.com")) {
           try {
-            await del(existing.logo);
+            await del(existing.logo, { token: process.env.BLOB_SG_READ_WRITE_TOKEN });
             logger.log("Old logo deleted from Blob:", existing.logo);
           } catch (e) {
             logger.warn("Gagal hapus logo lama:", existing.logo);
@@ -63,6 +63,7 @@ export async function POST(request: Request) {
     const blob = await put(pathname, file, {
       access: "public",
       addRandomSuffix: false,
+      token: process.env.BLOB_SG_READ_WRITE_TOKEN,
     });
 
     logger.log("Logo uploaded to Blob:", blob.url);

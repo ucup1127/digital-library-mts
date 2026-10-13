@@ -205,7 +205,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     return;
   }
   try {
-    await del(url);
+    await del(url, { token: process.env.BLOB_SG_READ_WRITE_TOKEN });
     logger.log("🗑️ File dihapus dari Blob:", url);
   } catch (e) {
     logger.warn("Gagal hapus file Blob:", url, e);

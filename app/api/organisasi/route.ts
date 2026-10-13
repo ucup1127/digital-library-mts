@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
       const blob = await put(pathname, file, {
         access: "public",
         addRandomSuffix: false,
+        token: process.env.BLOB_SG_READ_WRITE_TOKEN,
       });
 
       imageUrl = blob.url;

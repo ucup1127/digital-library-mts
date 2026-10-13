@@ -8,6 +8,7 @@ const withBundleAnalyzer = bundleAnalyzer({
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@prisma/client", "pg", "@prisma/adapter-pg"],
   images: {
+  formats: ["image/webp", "image/avif"],
   remotePatterns: [
     { 
       protocol: "https", 

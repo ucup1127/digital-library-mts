@@ -3,6 +3,51 @@ import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import { requireAuth, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
+import sharp from "sharp";
+
+/**
+ * Optimasi gambar dengan sharp
+ * - Resize ke max width/height
+ * - Convert ke WebP (lebih kecil dari JPEG/PNG)
+ * - Compress dengan quality 80
+ */
+async function optimizeImage(
+  buffer: Buffer,
+  type: string
+): Promise<{ buffer: Buffer; ext: string; contentType: string }> {
+  let maxWidth = 800;
+  let maxHeight = 1200;
+
+  // Cover buku: rasio 2:3, max 400x600
+  if (type === "cover") {
+    maxWidth = 400;
+    maxHeight = 600;
+  }
+  // Logo: max 200x200
+  else if (type === "logo") {
+    maxWidth = 200;
+    maxHeight = 200;
+  }
+  // Gallery: max 1200x1200
+  else if (type === "gallery") {
+    maxWidth = 1200;
+    maxHeight = 1200;
+  }
+
+  const optimized = await sharp(buffer)
+    .resize(maxWidth, maxHeight, {
+      fit: "inside",
+      withoutEnlargement: true, // jangan perbesar gambar kecil
+    })
+    .webp({ quality: 80 })
+    .toBuffer();
+
+  return {
+    buffer: optimized,
+    ext: "webp",
+    contentType: "image/webp",
+  };
+}
 
 export async function POST(request: Request) {
   try {
@@ -56,17 +101,46 @@ export async function POST(request: Request) {
     else if (type === "gallery") folder = "gallery";
     else if (type === "logo") folder = "logos";
 
+    // ✅ OPTIMASI GAMBAR dengan sharp
+    let optimizedBuffer: Buffer;
+    let ext = "webp";
+    let contentType = "image/webp";
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const originalBuffer = Buffer.from(arrayBuffer);
+      const result = await optimizeImage(originalBuffer, type);
+      optimizedBuffer = result.buffer;
+      ext = result.ext;
+      contentType = result.contentType;
+
+      const originalSize = file.size;
+      const optimizedSize = optimizedBuffer.length;
+      const saved = ((1 - optimizedSize / originalSize) * 100).toFixed(1);
+
+      logger.log(
+        `✅ Image optimized: ${originalSize} → ${optimizedSize} bytes (saved ${saved}%)`
+      );
+    } catch (sharpError) {
+      logger.error("Sharp optimization failed, fallback to original:", sharpError);
+      // Fallback: upload file asli kalau sharp gagal
+      const arrayBuffer = await file.arrayBuffer();
+      optimizedBuffer = Buffer.from(arrayBuffer);
+      ext = file.name.split(".").pop() || "bin";
+      contentType = file.type;
+    }
+
     // Generate nama file unik
     const timestamp = Date.now();
     const random = Math.floor(Math.random() * 10000);
-    const ext = file.name.split(".").pop() || "bin";
     const pathname = `${folder}/${timestamp}_${random}.${ext}`;
 
-    // Upload ke Vercel Blob (private)
-    const blob = await put(pathname, file, {
+    // Upload ke Vercel Blob
+    const blob = await put(pathname, optimizedBuffer, {
       access: "public",
       addRandomSuffix: false,
       token: process.env.BLOB_SG_READ_WRITE_TOKEN,
+      contentType,
     });
 
     logger.log("✅ File uploaded to Blob:", blob.url);

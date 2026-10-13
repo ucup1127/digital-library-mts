@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { logger } from "@/lib/logger";
 import NotificationDropdown from "./NotificationDropdown";
+import Image from "next/image";
 
 export default function Navbar() {
   const router = useRouter();
@@ -152,10 +153,13 @@ export default function Navbar() {
             {/* LOGO DAN NAMA SEKOLAH */}
             <Link href="/" className="flex items-center gap-2 shrink-0 min-w-0">
               {isLoggedIn && schoolLogo ? (
-                <img
+                <Image
                   src={schoolLogo}
                   alt={schoolName}
+                  width={32}
+                  height={32}
                   className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg object-cover bg-gray-100"
+                  priority
                 />
               ) : (
                 <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-sm sm:text-base shadow-md">

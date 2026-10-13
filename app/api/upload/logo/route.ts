@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin, AuthError } from "@/lib/auth";
 import { logger } from "@/lib/logger";
+import sharp from "sharp";
 
 export async function POST(request: Request) {
   try {
@@ -33,9 +34,47 @@ export async function POST(request: Request) {
     }
 
     // Generate nama file unik
-    const extension = file.name.split(".").pop() || "png";
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(7);
+
+    // ⚠️ SVG jangan di-optimasi dengan sharp (bisa rusak)
+    let optimizedBuffer: Buffer;
+    let extension: string;
+
+    if (file.type === "image/svg+xml") {
+      // SVG: upload as-is
+      const arrayBuffer = await file.arrayBuffer();
+      optimizedBuffer = Buffer.from(arrayBuffer);
+      extension = "svg";
+      logger.log("SVG logo uploaded as-is (no optimization)");
+    } else {
+      // Raster image: optimize dengan sharp
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const originalBuffer = Buffer.from(arrayBuffer);
+
+        optimizedBuffer = await sharp(originalBuffer)
+          .resize(200, 200, {
+            fit: "inside",
+            withoutEnlargement: true,
+          })
+          .webp({ quality: 85 })
+          .toBuffer();
+
+        extension = "webp";
+
+        const saved = ((1 - optimizedBuffer.length / file.size) * 100).toFixed(1);
+        logger.log(
+          `✅ Logo optimized: ${file.size} → ${optimizedBuffer.length} bytes (saved ${saved}%)`
+        );
+      } catch (sharpError) {
+        logger.error("Sharp logo optimization failed, fallback to original:", sharpError);
+        const arrayBuffer = await file.arrayBuffer();
+        optimizedBuffer = Buffer.from(arrayBuffer);
+        extension = file.name.split(".").pop() || "png";
+      }
+    }
+
     const pathname = `logos/${timestamp}-${random}.${extension}`;
 
     // Kalau schoolId valid & bukan "temp", hapus logo lama dulu
@@ -45,7 +84,6 @@ export async function POST(request: Request) {
           where: { id: schoolId },
           select: { logo: true },
         });
-        // Hapus logo lama dari Blob kalau ada dan itu URL Blob
         if (existing?.logo && existing.logo.includes("blob.vercel-storage.com")) {
           try {
             await del(existing.logo, { token: process.env.BLOB_SG_READ_WRITE_TOKEN });
@@ -60,15 +98,15 @@ export async function POST(request: Request) {
     }
 
     // Upload ke Blob
-    const blob = await put(pathname, file, {
+    const blob = await put(pathname, optimizedBuffer, {
       access: "public",
       addRandomSuffix: false,
       token: process.env.BLOB_SG_READ_WRITE_TOKEN,
+      contentType: extension === "svg" ? "image/svg+xml" : "image/webp",
     });
 
     logger.log("Logo uploaded to Blob:", blob.url);
 
-    // Update logo ke database kalau ada schoolId valid
     if (schoolId && schoolId !== "temp") {
       await db.school.update({
         where: { id: schoolId },

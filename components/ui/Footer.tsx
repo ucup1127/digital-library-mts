@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image"; 
 
 export default function Footer() {
   const [schoolName, setSchoolName] = useState("Perpustakaan Digital");
@@ -89,10 +90,13 @@ export default function Footer() {
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               {isLoggedIn && schoolLogo ? (
-                <img
+                <Image
                   src={schoolLogo}
                   alt={schoolName}
+                  width={36}
+                  height={36}
                   className="w-9 h-9 rounded-xl object-cover bg-gray-100"
+                  loading="lazy"
                 />
               ) : (
                 <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function KatalogClient({ allBooks, categories }: any) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -20,7 +21,7 @@ export default function KatalogClient({ allBooks, categories }: any) {
 
   return (
     <div className="space-y-12">
-      {/* Search & Filter - Tetap Konsisten[cite: 1, 9] */}
+      {/* Search & Filter */}
       <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-4 px-6">
         <div className="flex-grow relative">
           <input 
@@ -45,21 +46,21 @@ export default function KatalogClient({ allBooks, categories }: any) {
         </select>
       </div>
 
-      {/* Grid Katalog - Sekarang 3 Kolom di Mobile agar ukuran mengecil */}
+      {/* Grid Katalog */}
       <section className="max-w-7xl mx-auto px-6">
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-x-4 gap-y-10">
           {filteredBooks.map((book: any) => (
             <Link href={`/katalog/${book.id}`} key={book.id} className="group">
-              {/* Ukuran diperkecil dengan rounded yang disesuaikan */}
               <div className="relative aspect-[3/4] rounded-[18px] overflow-hidden bg-gray-50 mb-3 shadow-sm group-hover:shadow-xl transition-all duration-500 border border-gray-100">
                 {book.coverUrl ? (
-                 <img 
-                  src={book.coverUrl} 
-                  className="w-full h-full object-cover transition duration-700 group-hover:scale-110" 
-                  alt={book.title} 
-                  loading="lazy"
-                  decoding="async"
-                />
+                  <Image
+                    src={book.coverUrl}
+                    alt={book.title}
+                    fill
+                    sizes="(max-width: 640px) 33vw, (max-width: 768px) 25vw, (max-width: 1024px) 20vw, 16vw"
+                    className="object-cover transition duration-700 group-hover:scale-110"
+                    loading="lazy"
+                  />
                 ) : (
                   <div className="absolute inset-0 flex items-center justify-center text-[7px] text-gray-300 font-black uppercase p-2 text-center italic">
                     {book.title}

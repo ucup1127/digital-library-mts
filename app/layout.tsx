@@ -4,7 +4,11 @@ import { Inter } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import CsrfProvider from "@/components/CsrfProvider";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',  // ← ini yang penting
+  variable: '--font-inter',
+})
 
 export const metadata = {
   title: "MTSMUHBMS - Perpustakaan Digital",

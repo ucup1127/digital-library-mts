@@ -129,21 +129,36 @@ export default function DetailBukuClient({ book }: { book: Book }) {
     }
   };
 
-  const handleDownload = () => {
-    if (book.fileUrl) {
-      setIsDownloading(true);
-      setTimeout(() => {
-        const pdfUrl = book.fileUrl!;
-        const link = document.createElement('a');
-        link.href = pdfUrl;
-        link.download = `${book.title}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        setIsDownloading(false);
-      }, 500);
-    }
-  };
+const handleDownload = async () => {
+  if (!book.fileUrl) return;
+  
+  setIsDownloading(true);
+  try {
+    // Fetch file dari Blob
+    const res = await fetch(book.fileUrl);
+    if (!res.ok) throw new Error("Gagal download");
+    
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    
+    // Trigger download
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${book.title}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Cleanup
+    URL.revokeObjectURL(url);
+    toast.success("Download berhasil!");
+  } catch (error) {
+    console.error("Download error:", error);
+    toast.error("Gagal download file");
+  } finally {
+    setIsDownloading(false);
+  }
+};
 
   if (isChecking) {
     return (

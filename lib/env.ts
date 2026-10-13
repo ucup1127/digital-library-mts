@@ -7,8 +7,11 @@ const envSchema = z.object({
   // ============================================
   DATABASE_URL: z
     .string({ message: "DATABASE_URL wajib diisi" })
-    .url("DATABASE_URL harus format URL valid")
-    .startsWith("postgresql://", "DATABASE_URL harus PostgreSQL"),
+    .min(1, "DATABASE_URL wajib diisi")
+    .refine(
+      (val) => val.startsWith("postgresql://") || val.startsWith("postgres://"),
+      { message: "DATABASE_URL harus PostgreSQL (postgresql:// atau postgres://)" }
+    ),
 
   // ============================================
   // BACKUP & CRON
@@ -26,14 +29,22 @@ const envSchema = z.object({
   // ============================================
   NEXTAUTH_URL: z
     .string({ message: "NEXTAUTH_URL wajib diisi" })
-    .url("NEXTAUTH_URL harus format URL valid"),
+    .min(1, "NEXTAUTH_URL wajib diisi")
+    .refine(
+      (val) => val.startsWith("http://") || val.startsWith("https://"),
+      { message: "NEXTAUTH_URL harus format URL valid (http:// atau https://)" }
+    ),
 
   // ============================================
   // REDIS (opsional)
   // ============================================
   REDIS_URL: z
     .string()
-    .url("REDIS_URL harus format URL valid")
+    .min(1, "REDIS_URL tidak boleh kosong")
+    .refine(
+      (val) => val.startsWith("redis://") || val.startsWith("rediss://"),
+      { message: "REDIS_URL harus format Redis URL (redis:// atau rediss://)" }
+    )
     .optional(),
 
   // ============================================

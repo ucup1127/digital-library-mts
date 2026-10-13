@@ -91,7 +91,7 @@ export default async function Home({
           <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
             Kategori
           </h2>
-          <span className="text-[9px] text-gray-400">{totalBooks} buku</span>
+          <span className="text-[9px] text-gray-500">{totalBooks} buku</span>
         </div>
         <div className="flex overflow-x-auto gap-2 pb-2 no-scrollbar">
           <Link

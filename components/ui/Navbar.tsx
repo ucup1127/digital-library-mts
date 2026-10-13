@@ -260,6 +260,7 @@ export default function Navbar() {
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="md:hidden p-1.5 rounded-lg hover:bg-gray-100 transition -mr-1"
+                aria-label="Toggle menu"
               >
                 <div className="w-5 h-4 flex flex-col justify-between">
                   <span

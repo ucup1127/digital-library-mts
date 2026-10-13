@@ -150,7 +150,7 @@ export default function Footer() {
                 <li key={idx}>
                   <Link
                     href={link.href}
-                    className="text-[10px] text-gray-400 hover:text-blue-400 transition-colors duration-200 flex items-center gap-1"
+                    className="text-xs text-gray-400 py-1 hover:text-blue-400 transition-colors duration-200 flex items-center gap-1"
                   >
                     <span className="text-[8px]">›</span>
                     {link.name}
@@ -170,7 +170,7 @@ export default function Footer() {
                 <li key={idx}>
                   <Link
                     href={item.href}
-                    className="text-[10px] text-gray-400 hover:text-blue-400 transition-colors duration-200 flex items-center gap-1"
+                    className="text-xs text-gray-400 py-1 hover:text-blue-400 transition-colors duration-200 flex items-center gap-1"
                   >
                     <span className="text-[8px]">›</span>
                     {item.name}

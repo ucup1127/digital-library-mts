@@ -169,7 +169,17 @@ const uploadFileClient = async (file: File, folder: string): Promise<string | nu
       }
 
       toast.loading("Menyimpan data buku...", { id: "upload" });
-      const schoolId = localStorage.getItem("school_id");
+      const role = localStorage.getItem("user_role") || "";
+        const schoolId = role === "SUPER_ADMIN"
+          ? localStorage.getItem("selected_school_id")
+          : localStorage.getItem("school_id");
+
+        if (!schoolId) {
+          toast.error("Pilih sekolah dulu sebelum upload buku");
+          setLoading(false);
+          setUploading(false);
+          return;
+        }
 
       const res = await fetch("/api/buku", {
         method: "POST",

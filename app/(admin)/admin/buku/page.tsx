@@ -323,28 +323,41 @@ export default function BukuPage() {
               
               {!loading && books.map((book) => (
                 <tr key={book.id} className="hover:bg-gray-50 transition group">
-                                    <td className="px-5 py-3">
-                    <p className="font-medium text-gray-800 text-sm line-clamp-2">
-                      {book.title}
+                  <td className="px-5 py-3">
+                  {/* COVER IMAGE */}
+                  {book.coverUrl ? (
+                    <img
+                      src={book.coverUrl}
+                      alt={book.title}
+                      className="w-12 h-16 object-cover rounded-lg border border-gray-200 shadow-sm mb-1"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="w-12 h-16 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center mb-1">
+                      <BookOpen className="w-5 h-5 text-gray-300" />
+                    </div>
+                  )}
+                  
+                  {/* TAHUN */}
+                  {book.year && (
+                    <p className="text-[9px] text-gray-400 flex items-center gap-1 mt-0.5">
+                      <Calendar className="w-3 h-3" />
+                      {book.year}
                     </p>
-                    {book.year && (
-                      <p className="text-[9px] text-gray-400 flex items-center gap-1 mt-0.5">
-                        <Calendar className="w-3 h-3" />
-                        {book.year}
-                      </p>
-                    )}
-                    {/* 🔥 Label shared / sekolah lain */}
-                    {book.isShared && !isOwner(book) && (
-                      <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 text-[8px] font-medium bg-blue-50 text-blue-600 rounded-full">
-                        🌐 Shared dari {book.school?.name || "sekolah lain"}
-                      </span>
-                    )}
-                    {!book.isShared && isOwner(book) && (
-                      <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 text-[8px] font-medium bg-gray-100 text-gray-600 rounded-full">
-                        🔒 Eksklusif sekolah ini
-                      </span>
-                    )}
-                  </td>
+                  )}
+                  
+                  {/* 🔥 Label shared / sekolah lain */}
+                  {book.isShared && !isOwner(book) && (
+                    <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 text-[8px] font-medium bg-blue-50 text-blue-600 rounded-full">
+                      🌐 Shared dari {book.school?.name || "sekolah lain"}
+                    </span>
+                  )}
+                  {!book.isShared && isOwner(book) && (
+                    <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 text-[8px] font-medium bg-gray-100 text-gray-600 rounded-full">
+                      🔒 Eksklusif sekolah ini
+                    </span>
+                  )}
+                </td>
                   <td className="px-5 py-3">
                     <p className="font-medium text-gray-800 text-sm line-clamp-2">{book.title}</p>
                     {book.year && (

@@ -3,25 +3,26 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 
-// ============================================
-// GET — Redirect ke Vercel Blob URL
-// Frontend panggil /api/pdf/uploads/books/xxx.pdf
-// Route ini cari di DB, redirect ke URL Blob asli
-// ============================================
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
   try {
     const { path: pathParts } = await params;
-    const requestedPath = pathParts.join("/"); // contoh: "uploads/books/xxx.pdf"
+    const requestedPath = pathParts.join("/");
 
-    // Sanitasi: cegah path traversal
+    // Sanitasi
     if (requestedPath.includes("..")) {
       return NextResponse.json({ error: "Path tidak valid" }, { status: 400 });
     }
 
-    // Cari book yang fileUrl / coverUrl-nya berakhir dengan requestedPath
+    // 🔥 Kalau requestedPath adalah URL Blob lengkap, redirect langsung
+    if (requestedPath.startsWith("http://") || requestedPath.startsWith("https://")) {
+      logger.log("Redirect PDF ke URL Blob langsung:", requestedPath);
+      return NextResponse.redirect(requestedPath, 302);
+    }
+
+    // 🔥 Fallback: cari di DB berdasarkan path lokal (data lama)
     const book = await db.book.findFirst({
       where: {
         OR: [
@@ -29,18 +30,14 @@ export async function GET(
           { coverUrl: { endsWith: requestedPath } },
         ],
       },
-      select: {
-        fileUrl: true,
-        coverUrl: true,
-      },
+      select: { fileUrl: true, coverUrl: true },
     });
 
     if (!book) {
-      logger.warn("PDF route: file tidak ditemukan di DB:", requestedPath);
+      logger.warn("PDF tidak ditemukan di DB:", requestedPath);
       return NextResponse.json({ error: "File tidak ditemukan" }, { status: 404 });
     }
 
-    // Tentukan URL Blob yang cocok
     let blobUrl: string | null = null;
     if (book.fileUrl && book.fileUrl.endsWith(requestedPath)) {
       blobUrl = book.fileUrl;
@@ -52,7 +49,6 @@ export async function GET(
       return NextResponse.json({ error: "File tidak ditemukan" }, { status: 404 });
     }
 
-    // Redirect ke URL Blob (302 sementara, biar browser handle range request sendiri)
     return NextResponse.redirect(blobUrl, 302);
   } catch (error) {
     logger.error("Error PDF redirect:", error);

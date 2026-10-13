@@ -118,7 +118,7 @@ export default function DetailBukuClient({ book }: { book: Book }) {
       ].slice(0, 10);
       localStorage.setItem('recently_read', JSON.stringify(newRecent));
       
-      const pdfUrl = `/api/pdf${book.fileUrl!.replace("/uploads/", "/")}`;
+      const pdfUrl = book.fileUrl!;
       setTimeout(() => {
         setIsReading(false);
         window.open(pdfUrl, "_blank");
@@ -133,7 +133,7 @@ export default function DetailBukuClient({ book }: { book: Book }) {
     if (book.fileUrl) {
       setIsDownloading(true);
       setTimeout(() => {
-        const pdfUrl = `/api/pdf${book.fileUrl!.replace("/uploads/", "/")}`;
+        const pdfUrl = book.fileUrl!;
         const link = document.createElement('a');
         link.href = pdfUrl;
         link.download = `${book.title}.pdf`;

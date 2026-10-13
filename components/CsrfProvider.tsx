@@ -18,8 +18,14 @@ export default function CsrfProvider() {
 
       const method = (init?.method || "GET").toUpperCase();
 
-      // Attach CSRF untuk semua request mutating ke /api/
+      // 🔥 Cek same-origin — skip URL external (vercel.com, dll)
+      const isSameOrigin =
+        url.startsWith("/") ||
+        url.startsWith(window.location.origin);
+
+      // Attach CSRF hanya untuk request mutating ke /api/ SAME ORIGIN
       if (
+        isSameOrigin &&
         ["POST", "PUT", "PATCH", "DELETE"].includes(method) &&
         url.includes("/api/") &&
         !url.includes("/api/auth/login") &&
@@ -52,6 +58,5 @@ export default function CsrfProvider() {
     };
   }, []);
 
-  // Komponen ini nggak render apa-apa — cuma side effect
   return null;
 }

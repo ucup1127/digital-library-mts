@@ -8,11 +8,15 @@ const withBundleAnalyzer = bundleAnalyzer({
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@prisma/client", "pg", "@prisma/adapter-pg"],
   images: {
-    remotePatterns: [
-      { protocol: "https", hostname: "**" },
-      { protocol: "http", hostname: "localhost" },
-    ],
-  },
+  remotePatterns: [
+    { 
+      protocol: "https", 
+      hostname: "**.public.blob.vercel-storage.com",  // ← lebih spesifik
+      pathname: "/**",
+    },
+    { protocol: "https", hostname: "**" },
+  ],
+},
   compress: true,
   allowedDevOrigins: [
     "*.ngrok-free.app",

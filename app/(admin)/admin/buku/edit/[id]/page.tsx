@@ -6,17 +6,20 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { logAdminActivity } from "@/lib/admin-log";
+import Image from "next/image";
+import { upload } from "@vercel/blob/client";
 import { 
   ArrowLeft, 
   Save, 
   X, 
   BookOpen,
-  User,
-  Calendar,
+  FileText,
+  Image as ImageIcon,
+  Upload,
   AlertCircle,
-  Sparkles,
   Globe,
-  Lock
+  Lock,
+  Trash2
 } from "lucide-react";
 
 interface Category {
@@ -28,10 +31,10 @@ interface Book {
   id: string;
   title: string;
   author: string;
-  year: string;
-  description: string;
-  coverUrl: string;
-  fileUrl: string;
+  year: string | null;
+  description: string | null;
+  coverUrl: string | null;
+  fileUrl: string | null;
   isShared: boolean;
   categories: { categoryId: string }[];
 }
@@ -43,6 +46,20 @@ export default function EditBukuPage({ params }: { params: Promise<{ id: string 
   const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   
+  // 🔥 Book object untuk akses coverUrl/fileUrl existing
+  const [book, setBook] = useState<Book | null>(null);
+  
+  // 🔥 State untuk file baru
+  const [newCover, setNewCover] = useState<File | null>(null);
+  const [newCoverPreview, setNewCoverPreview] = useState<string | null>(null);
+  const [newPdf, setNewPdf] = useState<File | null>(null);
+  const [removeCover, setRemoveCover] = useState(false);
+  const [removePdf, setRemovePdf] = useState(false);
+  
+  // 🔥 Progress bar state
+  const [pdfProgress, setPdfProgress] = useState(0);
+  const [uploadStage, setUploadStage] = useState<"idle" | "cover" | "pdf" | "saving">("idle");
+  
   const [formData, setFormData] = useState({
     title: "",
     author: "",
@@ -51,7 +68,8 @@ export default function EditBukuPage({ params }: { params: Promise<{ id: string 
   });
   
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [isShared, setIsShared] = useState(true); 
+  const [isShared, setIsShared] = useState(true);
+  
   useEffect(() => {
     const getParams = async () => {
       const resolvedParams = await params;
@@ -70,18 +88,19 @@ export default function EditBukuPage({ params }: { params: Promise<{ id: string 
           fetch("/api/kategori"),
         ]);
         
-        const book = await bookRes.json();
+        const bookData = await bookRes.json();
         const categoriesData = await catRes.json();
         
+        setBook(bookData);
         setCategories(categoriesData);
         setFormData({
-          title: book.title || "",
-          author: book.author || "",
-          year: book.year || "",
-          description: book.description || "",
+          title: bookData.title || "",
+          author: bookData.author || "",
+          year: bookData.year || "",
+          description: bookData.description || "",
         });
-        setSelectedCategories(book.categories?.map((c: any) => c.categoryId) || []);
-        setIsShared(book.isShared ?? true);
+        setSelectedCategories(bookData.categories?.map((c: any) => c.categoryId) || []);
+        setIsShared(bookData.isShared ?? true);
       } catch (error) {
         console.error("Error fetching data:", error);
         toast.error("Gagal memuat data");
@@ -99,6 +118,65 @@ export default function EditBukuPage({ params }: { params: Promise<{ id: string 
         ? prev.filter(id => id !== categoryId)
         : [...prev, categoryId]
     );
+  };
+
+  // 🔥 Handler upload cover
+  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setNewCover(file);
+      setRemoveCover(false); // batal hapus
+      const reader = new FileReader();
+      reader.onloadend = () => setNewCoverPreview(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // 🔥 Handler upload PDF
+  const handlePdfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setNewPdf(file);
+      setRemovePdf(false); // batal hapus
+    }
+  };
+
+  // 🔥 Upload cover via server (dengan sharp optimization)
+  const uploadFileServer = async (file: File, type: string): Promise<string> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("type", type);
+    
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+    const data = await res.json();
+    if (res.ok) return data.url;
+    throw new Error(data.error || `Gagal upload ${type}`);
+  };
+
+  // 🔥 Upload PDF via Blob client (dengan progress)
+  const uploadFileClient = async (
+    file: File,
+    folder: string,
+    onProgress?: (percent: number) => void
+  ): Promise<string> => {
+    const ext = file.name.split(".").pop() || "bin";
+    const pathname = `${folder}/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`;
+
+    const blob = await upload(pathname, file, {
+      access: "public",
+      handleUploadUrl: "/api/upload/client",
+      onUploadProgress: (progressEvent) => {
+        const percent = Math.round(
+          (progressEvent.loaded / progressEvent.total) * 100
+        );
+        onProgress?.(percent);
+      },
+    });
+
+    return blob.url;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -123,9 +201,37 @@ export default function EditBukuPage({ params }: { params: Promise<{ id: string 
     }
     
     setSaving(true);
+    setPdfProgress(0);
     toast.loading("Menyimpan perubahan...", { id: "save" });
     
     try {
+      let finalCoverUrl: string | null | undefined = undefined; // undefined = tidak berubah
+      let finalFileUrl: string | null | undefined = undefined;
+
+      // 🔥 Handle cover
+      if (newCover) {
+        setUploadStage("cover");
+        toast.loading("Mengupload cover baru...", { id: "save" });
+        finalCoverUrl = await uploadFileServer(newCover, "cover");
+      } else if (removeCover) {
+        finalCoverUrl = null; // hapus cover
+      }
+
+      // 🔥 Handle PDF
+      if (newPdf) {
+        setUploadStage("pdf");
+        toast.loading("Mengupload PDF baru...", { id: "save" });
+        finalFileUrl = await uploadFileClient(newPdf, "books", (percent) => {
+          setPdfProgress(percent);
+        });
+      } else if (removePdf) {
+        finalFileUrl = null; // hapus PDF
+      }
+
+      // 🔥 Save ke API
+      setUploadStage("saving");
+      toast.loading("Menyimpan data...", { id: "save" });
+      
       const res = await fetch(`/api/buku/${bookId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -136,6 +242,8 @@ export default function EditBukuPage({ params }: { params: Promise<{ id: string 
           description: formData.description || null,
           categories: selectedCategories,
           isShared: isShared,
+          ...(finalCoverUrl !== undefined ? { coverUrl: finalCoverUrl } : {}),
+          ...(finalFileUrl !== undefined ? { fileUrl: finalFileUrl } : {}),
         }),
       });
       
@@ -147,7 +255,11 @@ export default function EditBukuPage({ params }: { params: Promise<{ id: string 
           targetType: "BOOK",
           targetId: bookId,
           targetName: formData.title,
-          changes: { new: formData },
+          changes: { 
+            new: formData,
+            coverChanged: finalCoverUrl !== undefined,
+            fileChanged: finalFileUrl !== undefined,
+          },
         });
         toast.success("Buku berhasil diperbarui!", { id: "save" });
         router.push("/admin/buku");
@@ -159,6 +271,7 @@ export default function EditBukuPage({ params }: { params: Promise<{ id: string 
       toast.error(error.message || "Terjadi kesalahan", { id: "save" });
     } finally {
       setSaving(false);
+      setUploadStage("idle");
     }
   };
 
@@ -193,7 +306,6 @@ export default function EditBukuPage({ params }: { params: Promise<{ id: string 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Grid 2 kolom */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Judul Buku */}
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                 Judul Buku <span className="text-red-500">*</span>
@@ -207,7 +319,6 @@ export default function EditBukuPage({ params }: { params: Promise<{ id: string 
               />
             </div>
 
-            {/* Penulis */}
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                 Penulis <span className="text-red-500">*</span>
@@ -221,7 +332,6 @@ export default function EditBukuPage({ params }: { params: Promise<{ id: string 
               />
             </div>
 
-            {/* Tahun */}
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                 Tahun
@@ -235,7 +345,6 @@ export default function EditBukuPage({ params }: { params: Promise<{ id: string 
               />
             </div>
 
-            {/* Deskripsi - full width */}
             <div className="md:col-span-2">
               <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                 Deskripsi / Sinopsis
@@ -247,6 +356,202 @@ export default function EditBukuPage({ params }: { params: Promise<{ id: string 
                 className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition resize-none placeholder:text-gray-400"
                 placeholder="Tulis sinopsis atau deskripsi buku di sini..."
               />
+            </div>
+          </div>
+
+          {/* 🔥 FILE SECTION (BARU) */}
+          <div className="border-t border-gray-100 pt-6">
+            <h3 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <Upload className="w-4 h-4 text-blue-600" />
+              File Buku
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* COVER */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  Cover Buku
+                </label>
+                <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center hover:border-blue-300 transition">
+                  {newCoverPreview ? (
+                    // Preview cover BARU
+                    <div className="space-y-3">
+                      <Image
+                        src={newCoverPreview}
+                        alt="Cover baru"
+                        width={128}
+                        height={160}
+                        className="w-32 h-40 object-cover rounded-lg mx-auto shadow-sm"
+                        unoptimized
+                      />
+                      <p className="text-[9px] text-green-600 font-medium">✅ Cover baru siap diupload</p>
+                      <button
+                        type="button"
+                        onClick={() => { setNewCover(null); setNewCoverPreview(null); }}
+                        className="text-xs text-red-500 hover:text-red-600 flex items-center gap-1 mx-auto"
+                      >
+                        <X className="w-3 h-3" /> Batalkan
+                      </button>
+                    </div>
+                  ) : book?.coverUrl && !removeCover ? (
+                    // Preview cover EXISTING
+                    <div className="space-y-3">
+                      <Image
+                        src={book.coverUrl}
+                        alt="Cover existing"
+                        width={128}
+                        height={160}
+                        className="w-32 h-40 object-cover rounded-lg mx-auto shadow-sm"
+                        unoptimized
+                      />
+                      <div className="flex gap-2 justify-center">
+                        <label className="cursor-pointer text-xs text-blue-500 hover:text-blue-600 flex items-center gap-1">
+                          <ImageIcon className="w-3 h-3" /> Ganti
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/jpg,image/webp"
+                            onChange={handleCoverChange}
+                            className="hidden"
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setRemoveCover(true)}
+                          className="text-xs text-red-500 hover:text-red-600 flex items-center gap-1"
+                        >
+                          <Trash2 className="w-3 h-3" /> Hapus
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    // Tidak ada cover / sudah dihapus
+                    <div className="space-y-3">
+                      <div className="text-4xl">🖼️</div>
+                      <p className="text-xs text-gray-400">
+                        {removeCover ? "Cover akan dihapus" : "Belum ada cover"}
+                      </p>
+                      <label className="inline-block px-4 py-2 bg-gray-100 text-gray-600 rounded-lg text-xs font-medium cursor-pointer hover:bg-gray-200 transition">
+                        <ImageIcon className="w-3 h-3 inline mr-1" />
+                        Pilih Cover
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/jpg,image/webp"
+                          onChange={handleCoverChange}
+                          className="hidden"
+                        />
+                      </label>
+                      {removeCover && (
+                        <button
+                          type="button"
+                          onClick={() => setRemoveCover(false)}
+                          className="text-xs text-blue-500 hover:text-blue-600 block mx-auto"
+                        >
+                          Batal hapus
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <p className="text-[9px] text-gray-400 mt-1">Format: JPG, PNG, WebP | Maks 4MB</p>
+              </div>
+
+              {/* PDF */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                  File PDF
+                </label>
+                <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center hover:border-blue-300 transition">
+                  {newPdf ? (
+                    // PDF baru
+                    <div className="space-y-2">
+                      <div className="text-4xl">📄</div>
+                      <p className="text-xs font-medium text-gray-700 break-all">{newPdf.name}</p>
+                      <p className="text-[9px] text-gray-400">{(newPdf.size / 1024 / 1024).toFixed(2)} MB</p>
+                      
+                      {uploadStage === "pdf" && (
+                        <div className="mt-3 space-y-1">
+                          <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                            <div
+                              className="bg-gradient-to-r from-blue-500 to-indigo-500 h-full transition-all duration-300 ease-out"
+                              style={{ width: `${pdfProgress}%` }}
+                            />
+                          </div>
+                          <div className="flex justify-between items-center text-[9px]">
+                            <span className="text-gray-400">
+                              {pdfProgress < 100 ? "Mengupload..." : "Memproses..."}
+                            </span>
+                            <span className="font-semibold text-blue-600">{pdfProgress}%</span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {uploadStage !== "pdf" && (
+                        <button
+                          type="button"
+                          onClick={() => setNewPdf(null)}
+                          className="text-xs text-red-500 hover:text-red-600 flex items-center gap-1 mx-auto"
+                        >
+                          <X className="w-3 h-3" /> Batalkan
+                        </button>
+                      )}
+                    </div>
+                  ) : book?.fileUrl && !removePdf ? (
+                    // PDF existing
+                    <div className="space-y-3">
+                      <div className="text-4xl">📄</div>
+                      <p className="text-xs font-medium text-gray-700 break-all">
+                        {book.fileUrl.split("/").pop()}
+                      </p>
+                      <p className="text-[9px] text-green-600">✅ PDF aktif</p>
+                      <div className="flex gap-2 justify-center">
+                        <label className="cursor-pointer text-xs text-blue-500 hover:text-blue-600 flex items-center gap-1">
+                          <FileText className="w-3 h-3" /> Ganti PDF
+                          <input
+                            type="file"
+                            accept="application/pdf"
+                            onChange={handlePdfChange}
+                            className="hidden"
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setRemovePdf(true)}
+                          className="text-xs text-red-500 hover:text-red-600 flex items-center gap-1"
+                        >
+                          <Trash2 className="w-3 h-3" /> Hapus
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    // Tidak ada PDF
+                    <div className="space-y-3">
+                      <div className="text-4xl">📑</div>
+                      <p className="text-xs text-gray-400">
+                        {removePdf ? "PDF akan dihapus" : "Belum ada PDF"}
+                      </p>
+                      <label className="inline-block px-4 py-2 bg-gray-100 text-gray-600 rounded-lg text-xs font-medium cursor-pointer hover:bg-gray-200 transition">
+                        <FileText className="w-3 h-3 inline mr-1" />
+                        Pilih PDF
+                        <input
+                          type="file"
+                          accept="application/pdf"
+                          onChange={handlePdfChange}
+                          className="hidden"
+                        />
+                      </label>
+                      {removePdf && (
+                        <button
+                          type="button"
+                          onClick={() => setRemovePdf(false)}
+                          className="text-xs text-blue-500 hover:text-blue-600 block mx-auto"
+                        >
+                          Batal hapus
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <p className="text-[9px] text-gray-400 mt-1">Format: PDF | Maks 50MB</p>
+              </div>
             </div>
           </div>
 
@@ -353,7 +658,10 @@ export default function EditBukuPage({ params }: { params: Promise<{ id: string 
               {saving ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Menyimpan...
+                  {uploadStage === "cover" && "Upload cover..."}
+                  {uploadStage === "pdf" && `Upload PDF ${pdfProgress}%`}
+                  {uploadStage === "saving" && "Menyimpan..."}
+                  {uploadStage === "idle" && "Menyimpan..."}
                 </>
               ) : (
                 <>

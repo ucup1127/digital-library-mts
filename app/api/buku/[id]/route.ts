@@ -41,6 +41,21 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   }
 }
 
+// 🔥 Helper: Hapus file dari Blob (kalau file diganti/dihapus)
+const deleteBlobFile = async (url: string | null) => {
+  if (!url) return;
+  if (!url.includes("blob.vercel-storage.com")) {
+    logger.warn("Skip hapus file non-Blob:", url);
+    return;
+  }
+  try {
+    await del(url, { token: process.env.BLOB_SG_READ_WRITE_TOKEN });
+    logger.log("🗑️ File dihapus dari Blob:", url);
+  } catch (e) {
+    logger.warn("Gagal hapus file Blob:", url, e);
+  }
+};
+
 // PUT - Update buku lengkap
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -56,12 +71,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       );
     }
 
-    const { title, author, year, description, categories, isShared } = parseResult.data;
+    const { title, author, year, description, categories, isShared, coverUrl, fileUrl } = parseResult.data;
 
     // 🔥 Cek owner — cuma owner yang bisa edit
     const existing = await db.book.findUnique({
       where: { id },
-      select: { schoolId: true },
+      select: { schoolId: true, coverUrl: true, fileUrl: true },
     });
 
     if (!existing) {
@@ -78,6 +93,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       );
     }
 
+    // 🔥 Deteksi perubahan file
+    const coverChanged = coverUrl !== undefined && coverUrl !== existing.coverUrl;
+    const fileChanged = fileUrl !== undefined && fileUrl !== existing.fileUrl;
+
+    // 🔥 Update DB dulu
     const updatedBook = await db.book.update({
       where: { id },
       data: {
@@ -86,8 +106,18 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         year: year || null,
         description: description || null,
         ...(isShared !== undefined ? { isShared } : {}),
+        ...(coverUrl !== undefined ? { coverUrl } : {}),
+        ...(fileUrl !== undefined ? { fileUrl } : {}),
       },
     });
+
+    // 🔥 Hapus file lama dari Blob (kalau diganti/dihapus) — setelah DB update sukses
+    if (coverChanged && existing.coverUrl) {
+      await deleteBlobFile(existing.coverUrl);
+    }
+    if (fileChanged && existing.fileUrl) {
+      await deleteBlobFile(existing.fileUrl);
+    }
 
     if (categories && categories.length > 0) {
       await db.bookCategory.deleteMany({ where: { bookId: id } });
@@ -101,7 +131,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       targetType: "BOOK",
       targetId: updatedBook.id,
       targetName: updatedBook.title,
-      changes: { isShared: updatedBook.isShared },
+      changes: {
+        isShared: updatedBook.isShared,
+        coverChanged,
+        fileChanged,
+      },
     });
 
     revalidateTag("admin-stats", "max");
@@ -128,7 +162,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const body = await req.json();
     const { categoryIds, ...bookData } = body;
 
-    // Cek owner
     const existing = await db.book.findUnique({
       where: { id },
       select: { schoolId: true },
@@ -186,7 +219,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       return NextResponse.json({ error: "Buku tidak ditemukan" }, { status: 404 });
     }
 
-    // 🔥 Cek owner
     if (
       session.role !== "SUPER_ADMIN" &&
       session.schoolId !== book.schoolId
@@ -197,23 +229,8 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       );
     }
 
-   const deleteBlobFile = async (url: string | null) => {
-  if (!url) return;
-  // Hanya hapus file yang benar-benar dari Vercel Blob
-  if (!url.includes("blob.vercel-storage.com")) {
-    logger.warn("Skip hapus file non-Blob:", url);
-    return;
-  }
-  try {
-    await del(url, { token: process.env.BLOB_SG_READ_WRITE_TOKEN });
-    logger.log("🗑️ File dihapus dari Blob:", url);
-  } catch (e) {
-    logger.warn("Gagal hapus file Blob:", url, e);
-  }
-};
-
-await deleteBlobFile(book.fileUrl);
-await deleteBlobFile(book.coverUrl);
+    await deleteBlobFile(book.fileUrl);
+    await deleteBlobFile(book.coverUrl);
 
     await db.book.delete({ where: { id } });
 

@@ -484,6 +484,8 @@ export const updateBookSchema = z.object({
     .nullable(),
   categories: z.array(z.string()).optional().default([]),
   isShared: z.boolean().optional(),
+  coverUrl: z.string().url().optional().nullable(),   
+  fileUrl: z.string().url().optional().nullable(), 
 });
 
 // ============================================

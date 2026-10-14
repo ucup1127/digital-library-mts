@@ -36,6 +36,11 @@ export default function TambahBukuPage() {
   const [uploading, setUploading] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   
+  // 🔥 STATE PROGRESS BAR
+  const [pdfProgress, setPdfProgress] = useState(0);
+  const [coverProgress, setCoverProgress] = useState(0);
+  const [uploadStage, setUploadStage] = useState<"idle" | "cover" | "pdf" | "saving">("idle");
+  
   const [formData, setFormData] = useState({
     title: "",
     author: "",
@@ -92,46 +97,57 @@ export default function TambahBukuPage() {
   };
 
   // Upload file kecil (cover) lewat server
-const uploadFileServer = async (file: File, type: string): Promise<string | null> => {
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("type", type);
-  
-  try {
-    const res = await fetch("/api/upload", {
-      method: "POST",
-      body: formData,
-    });
-    const data = await res.json();
-    if (res.ok) {
-      return data.url;
+  const uploadFileServer = async (file: File, type: string): Promise<string | null> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("type", type);
+    
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok) {
+        return data.url;
+      }
+      throw new Error(data.error || `Gagal upload ${type}`);
+    } catch (error) {
+      console.error(`Upload ${type} error:`, error);
+      return null;
     }
-    throw new Error(data.error || `Gagal upload ${type}`);
-  } catch (error) {
-    console.error(`Upload ${type} error:`, error);
-    return null;
-  }
-};
+  };
 
-// Upload PDF buku lewat Blob client (langsung dari browser)
-const uploadFileClient = async (file: File, folder: string): Promise<string | null> => {
-  try {
-    const ext = file.name.split(".").pop() || "bin";
-    const pathname = `${folder}/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`;
+  // 🔥 Upload PDF buku lewat Blob client dengan progress callback
+  const uploadFileClient = async (
+    file: File, 
+    folder: string,
+    onProgress?: (percent: number) => void
+  ): Promise<string | null> => {
+    try {
+      const ext = file.name.split(".").pop() || "bin";
+      const pathname = `${folder}/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`;
 
-    const blob = await upload(pathname, file, {
-      access: "public",
-      handleUploadUrl: "/api/upload/client",
-    });
+      const blob = await upload(pathname, file, {
+        access: "public",
+        handleUploadUrl: "/api/upload/client",
+        // 🔥 Progress callback dari Vercel Blob
+        onUploadProgress: (progressEvent) => {
+          const percent = Math.round(
+            (progressEvent.loaded / progressEvent.total) * 100
+          );
+          onProgress?.(percent);
+        },
+      });
 
-    return blob.url;
-  } catch (error) {
-    console.error(`Client upload error:`, error);
-    return null;
-  }
-};
+      return blob.url;
+    } catch (error) {
+      console.error(`Client upload error:`, error);
+      return null;
+    }
+  };
 
-   const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.title.trim()) {
@@ -153,33 +169,44 @@ const uploadFileClient = async (file: File, folder: string): Promise<string | nu
     
     setLoading(true);
     setUploading(true);
+    setPdfProgress(0);
+    setCoverProgress(0);
+    setUploadStage("idle");
     toast.loading("Mengupload file...", { id: "upload" });
     
     try {
       let coverUrl = "";
       if (coverFile) {
+        setUploadStage("cover");
+        toast.loading("Mengupload cover...", { id: "upload" });
         const url = await uploadFileServer(coverFile, "cover");
         if (url) coverUrl = url;
       }
 
+      setUploadStage("pdf");
       toast.loading("Mengupload file PDF...", { id: "upload" });
-      const pdfUrl = await uploadFileClient(pdfFile, "books");
+      const pdfUrl = await uploadFileClient(pdfFile, "books", (percent) => {
+        setPdfProgress(percent);
+      });
       if (!pdfUrl) {
         throw new Error("Gagal upload file PDF");
       }
 
+      setUploadStage("saving");
       toast.loading("Menyimpan data buku...", { id: "upload" });
+      
       const role = localStorage.getItem("user_role") || "";
-        const schoolId = role === "SUPER_ADMIN"
-          ? localStorage.getItem("selected_school_id")
-          : localStorage.getItem("school_id");
+      const schoolId = role === "SUPER_ADMIN"
+        ? localStorage.getItem("selected_school_id")
+        : localStorage.getItem("school_id");
 
-        if (!schoolId) {
-          toast.error("Pilih sekolah dulu sebelum upload buku");
-          setLoading(false);
-          setUploading(false);
-          return;
-        }
+      if (!schoolId) {
+        toast.error("Pilih sekolah dulu sebelum upload buku");
+        setLoading(false);
+        setUploading(false);
+        setUploadStage("idle");
+        return;
+      }
 
       const res = await fetch("/api/buku", {
         method: "POST",
@@ -218,6 +245,7 @@ const uploadFileClient = async (file: File, folder: string): Promise<string | nu
     } finally {
       setLoading(false);
       setUploading(false);
+      setUploadStage("idle");
     }
   };
 
@@ -318,13 +346,13 @@ const uploadFileClient = async (file: File, folder: string): Promise<string | nu
                   {coverPreview ? (
                     <div className="space-y-3">
                       <Image
-                          src={coverPreview}
-                          alt="Cover preview"
-                          width={128}
-                          height={160}
-                          className="w-32 h-40 object-cover rounded-lg mx-auto shadow-sm"
-                          unoptimized  // ← karena ini data URL (blob), nggak perlu dioptimasi
-                        />
+                        src={coverPreview}
+                        alt="Cover preview"
+                        width={128}
+                        height={160}
+                        className="w-32 h-40 object-cover rounded-lg mx-auto shadow-sm"
+                        unoptimized
+                      />
                       <button
                         type="button"
                         onClick={() => {
@@ -368,14 +396,35 @@ const uploadFileClient = async (file: File, folder: string): Promise<string | nu
                       <div className="text-4xl">📄</div>
                       <p className="text-xs font-medium text-gray-700 break-all">{pdfFile.name}</p>
                       <p className="text-[9px] text-gray-400">{(pdfFile.size / 1024 / 1024).toFixed(2)} MB</p>
-                      <button
-                        type="button"
-                        onClick={() => setPdfFile(null)}
-                        className="text-xs text-red-500 hover:text-red-600 flex items-center gap-1 mx-auto"
-                      >
-                        <X className="w-3 h-3" />
-                        Hapus File
-                      </button>
+                      
+                      {/* 🔥 PROGRESS BAR */}
+                      {uploadStage === "pdf" && (
+                        <div className="mt-3 space-y-1">
+                          <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                            <div
+                              className="bg-gradient-to-r from-blue-500 to-indigo-500 h-full transition-all duration-300 ease-out"
+                              style={{ width: `${pdfProgress}%` }}
+                            />
+                          </div>
+                          <div className="flex justify-between items-center text-[9px]">
+                            <span className="text-gray-400">
+                              {pdfProgress < 100 ? "Mengupload..." : "Memproses..."}
+                            </span>
+                            <span className="font-semibold text-blue-600">{pdfProgress}%</span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {uploadStage !== "pdf" && (
+                        <button
+                          type="button"
+                          onClick={() => setPdfFile(null)}
+                          className="text-xs text-red-500 hover:text-red-600 flex items-center gap-1 mx-auto"
+                        >
+                          <X className="w-3 h-3" />
+                          Hapus File
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -511,7 +560,9 @@ const uploadFileClient = async (file: File, folder: string): Promise<string | nu
               {uploading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Menyimpan...
+                  {uploadStage === "cover" && "Upload cover..."}
+                  {uploadStage === "pdf" && `Upload PDF ${pdfProgress}%`}
+                  {uploadStage === "saving" && "Menyimpan..."}
                 </>
               ) : (
                 <>

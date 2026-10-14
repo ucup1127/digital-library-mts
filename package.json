@@ -2,6 +2,12 @@
   "name": "digital-library-mts",
   "version": "0.1.0",
   "private": true,
+  "browserslist": [
+    "chrome >= 111",
+    "edge >= 111",
+    "firefox >= 111",
+    "safari >= 16.4"
+  ],
   "trustedDependencies": [
     "@prisma/engines",
     "prisma",
@@ -57,7 +63,7 @@
     "autoprefixer": "^10.5.0",
     "dotenv-cli": "^11.0.0",
     "eslint": "^9",
-    "eslint-config-next": "16.2.4",
+    "eslint-config-next": "16.4.0",
     "postcss": "^8.5.12",
     "prisma": "^7.8.0",
     "tailwindcss": "^4.2.4",

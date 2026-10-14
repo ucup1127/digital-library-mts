@@ -2,7 +2,9 @@
 import { db } from "@/lib/db";
 import Link from "next/link";
 import Image from "next/image";
+import { Suspense } from "react";
 import BookFilter from "@/components/public/BookFilter";
+import BookFilterClient from "@/components/public/BookFilterClient";
 import RecentlyRead from "@/components/public/RecentlyRead";
 import Pagination from "@/components/public/Pagination";
 import { getSession } from "@/lib/auth";
@@ -28,24 +30,17 @@ export default async function Home({
   const where: any = {};
 
   if (userSchoolId) {
-    // User login — lihat buku sekolahnya + buku shared
-    where.OR = [
-      { schoolId: userSchoolId },
-      { isShared: true },
-    ];
+    where.OR = [{ schoolId: userSchoolId }, { isShared: true }];
   } else {
-    // Belum login — cuma lihat buku shared
     where.isShared = true;
   }
 
-  // Filter kategori
   if (categoryId) {
     where.categories = {
       some: { categoryId: categoryId },
     };
   }
 
-  // Filter search — gabung dengan where via AND
   const andConditions: any[] = [];
   if (searchQuery) {
     andConditions.push({
@@ -56,9 +51,8 @@ export default async function Home({
     });
   }
 
-  const finalWhere = andConditions.length > 0
-    ? { AND: [where, ...andConditions] }
-    : where;
+  const finalWhere =
+    andConditions.length > 0 ? { AND: [where, ...andConditions] } : where;
 
   const totalBooks = await db.book.count({ where: finalWhere });
   const totalPages = Math.ceil(totalBooks / itemsPerPage);
@@ -80,8 +74,11 @@ export default async function Home({
     <div className="bg-gray-50 min-h-screen pb-12 pt-10">
       {/* SEARCH & FILTER */}
       <div className="max-w-7xl mx-auto px-4 -mt-6">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
-          <BookFilter categories={categories} />
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 relative">
+          <BookFilter categories={categories} defaultQuery={searchQuery || ""} />
+          <Suspense fallback={null}>
+            <BookFilterClient />
+          </Suspense>
         </div>
       </div>
 
@@ -186,15 +183,6 @@ export default async function Home({
           </>
         )}
       </div>
-
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-      `,
-        }}
-      />
     </div>
   );
 }

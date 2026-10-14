@@ -30,6 +30,10 @@ interface Category {
   name: string;
 }
 
+// 🔥 Konstanta limit file
+const MAX_COVER_SIZE = 4 * 1024 * 1024;   // 4 MB
+const MAX_PDF_SIZE = 50 * 1024 * 1024;    // 50 MB (limit Vercel Blob Free tier)
+
 export default function TambahBukuPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -77,23 +81,60 @@ export default function TambahBukuPage() {
     );
   };
 
+  // 🔥 HANDLE COVER dengan validasi
   const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setCoverFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setCoverPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+    
+    // Validasi tipe
+    if (!file.type.startsWith("image/")) {
+      toast.error("File harus berupa gambar (JPG, PNG, WebP)");
+      e.target.value = "";
+      return;
     }
+    
+    // Validasi ukuran
+    if (file.size > MAX_COVER_SIZE) {
+      toast.error(
+        `Cover terlalu besar (${(file.size / 1024 / 1024).toFixed(1)} MB). Maksimal 4 MB.`,
+        { duration: 5000 }
+      );
+      e.target.value = "";
+      return;
+    }
+    
+    setCoverFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setCoverPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
   };
 
+  // 🔥 HANDLE PDF dengan validasi
   const handlePdfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setPdfFile(file);
+    if (!file) return;
+    
+    // Validasi tipe
+    if (file.type !== "application/pdf") {
+      toast.error("File harus berformat PDF");
+      e.target.value = "";
+      return;
     }
+    
+    // Validasi ukuran
+    if (file.size > MAX_PDF_SIZE) {
+      toast.error(
+        `File PDF terlalu besar (${(file.size / 1024 / 1024).toFixed(1)} MB). Maksimal 50 MB. ` +
+        `Silakan kompres PDF terlebih dahulu.`,
+        { duration: 6000 }
+      );
+      e.target.value = "";
+      return;
+    }
+    
+    setPdfFile(file);
   };
 
   // Upload file kecil (cover) lewat server
@@ -131,7 +172,6 @@ export default function TambahBukuPage() {
       const blob = await upload(pathname, file, {
         access: "public",
         handleUploadUrl: "/api/upload/client",
-        // 🔥 Progress callback dari Vercel Blob
         onUploadProgress: (progressEvent) => {
           const percent = Math.round(
             (progressEvent.loaded / progressEvent.total) * 100
@@ -353,6 +393,12 @@ export default function TambahBukuPage() {
                         className="w-32 h-40 object-cover rounded-lg mx-auto shadow-sm"
                         unoptimized
                       />
+                      {/* 🔥 Info ukuran */}
+                      <p className={`text-[9px] font-medium ${
+                        coverFile && coverFile.size > MAX_COVER_SIZE ? "text-red-500" : "text-green-600"
+                      }`}>
+                        {coverFile && `${(coverFile.size / 1024 / 1024).toFixed(2)} MB / 4 MB`}
+                      </p>
                       <button
                         type="button"
                         onClick={() => {
@@ -374,7 +420,7 @@ export default function TambahBukuPage() {
                         Pilih File
                         <input
                           type="file"
-                          accept="image/jpeg,image/png,image/jpg"
+                          accept="image/jpeg,image/png,image/jpg,image/webp"
                           onChange={handleCoverChange}
                           className="hidden"
                         />
@@ -382,7 +428,7 @@ export default function TambahBukuPage() {
                     </div>
                   )}
                 </div>
-                <p className="text-[9px] text-gray-400 mt-1">Format: JPEG, PNG | Maksimal 2MB</p>
+                <p className="text-[9px] text-gray-400 mt-1">Format: JPG, PNG, WebP | Maksimal 4 MB</p>
               </div>
 
               {/* File PDF */}
@@ -395,7 +441,11 @@ export default function TambahBukuPage() {
                     <div className="space-y-2">
                       <div className="text-4xl">📄</div>
                       <p className="text-xs font-medium text-gray-700 break-all">{pdfFile.name}</p>
-                      <p className="text-[9px] text-gray-400">{(pdfFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                      <p className={`text-[9px] font-medium ${
+                        pdfFile.size > MAX_PDF_SIZE ? "text-red-500" : "text-green-600"
+                      }`}>
+                        {(pdfFile.size / 1024 / 1024).toFixed(2)} MB / 50 MB
+                      </p>
                       
                       {/* 🔥 PROGRESS BAR */}
                       {uploadStage === "pdf" && (
@@ -444,7 +494,12 @@ export default function TambahBukuPage() {
                     </div>
                   )}
                 </div>
-                <p className="text-[9px] text-gray-400 mt-1">Format: PDF | Maksimal 10MB</p>
+                <p className="text-[9px] text-gray-400 mt-1">
+                  Format: PDF | Maksimal 50 MB
+                  {pdfFile && pdfFile.size > MAX_PDF_SIZE && (
+                    <span className="text-red-500 font-medium"> — File terlalu besar!</span>
+                  )}
+                </p>
               </div>
             </div>
           </div>
@@ -492,7 +547,6 @@ export default function TambahBukuPage() {
               Akses Buku
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Shared */}
               <label
                 className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition ${
                   isShared
@@ -520,7 +574,6 @@ export default function TambahBukuPage() {
                 </div>
               </label>
 
-              {/* Eksklusif */}
               <label
                 className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition ${
                   !isShared

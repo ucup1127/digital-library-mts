@@ -15,11 +15,7 @@ import {
   Upload, 
   Image as ImageIcon,
   FileText,
-  BookOpen,
-  User,
-  Calendar,
   Save,
-  Sparkles,
   AlertCircle,
   Globe,
   Lock
@@ -32,7 +28,12 @@ interface Category {
 
 // 🔥 Konstanta limit file
 const MAX_COVER_SIZE = 4 * 1024 * 1024;   // 4 MB
-const MAX_PDF_SIZE = 50 * 1024 * 1024;    // 50 MB (limit Vercel Blob Free tier)
+const MAX_PDF_SIZE = 50 * 1024 * 1024;    // 50 MB
+
+// 🔥 Konstanta limit karakter
+const MAX_TITLE = 255;
+const MAX_AUTHOR = 100;
+const MAX_DESCRIPTION = 5000;
 
 export default function TambahBukuPage() {
   const router = useRouter();
@@ -86,14 +87,12 @@ export default function TambahBukuPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     
-    // Validasi tipe
     if (!file.type.startsWith("image/")) {
       toast.error("File harus berupa gambar (JPG, PNG, WebP)");
       e.target.value = "";
       return;
     }
     
-    // Validasi ukuran
     if (file.size > MAX_COVER_SIZE) {
       toast.error(
         `Cover terlalu besar (${(file.size / 1024 / 1024).toFixed(1)} MB). Maksimal 4 MB.`,
@@ -116,14 +115,12 @@ export default function TambahBukuPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     
-    // Validasi tipe
     if (file.type !== "application/pdf") {
       toast.error("File harus berformat PDF");
       e.target.value = "";
       return;
     }
     
-    // Validasi ukuran
     if (file.size > MAX_PDF_SIZE) {
       toast.error(
         `File PDF terlalu besar (${(file.size / 1024 / 1024).toFixed(1)} MB). Maksimal 50 MB. ` +
@@ -137,7 +134,7 @@ export default function TambahBukuPage() {
     setPdfFile(file);
   };
 
-  // Upload file kecil (cover) lewat server
+  // Upload cover via server (sharp optimization)
   const uploadFileServer = async (file: File, type: string): Promise<string | null> => {
     const formData = new FormData();
     formData.append("file", file);
@@ -149,9 +146,7 @@ export default function TambahBukuPage() {
         body: formData,
       });
       const data = await res.json();
-      if (res.ok) {
-        return data.url;
-      }
+      if (res.ok) return data.url;
       throw new Error(data.error || `Gagal upload ${type}`);
     } catch (error) {
       console.error(`Upload ${type} error:`, error);
@@ -159,7 +154,7 @@ export default function TambahBukuPage() {
     }
   };
 
-  // 🔥 Upload PDF buku lewat Blob client dengan progress callback
+  // Upload PDF via Blob client dengan progress
   const uploadFileClient = async (
     file: File, 
     folder: string,
@@ -228,9 +223,7 @@ export default function TambahBukuPage() {
       const pdfUrl = await uploadFileClient(pdfFile, "books", (percent) => {
         setPdfProgress(percent);
       });
-      if (!pdfUrl) {
-        throw new Error("Gagal upload file PDF");
-      }
+      if (!pdfUrl) throw new Error("Gagal upload file PDF");
 
       setUploadStage("saving");
       toast.loading("Menyimpan data buku...", { id: "upload" });
@@ -309,6 +302,7 @@ export default function TambahBukuPage() {
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Grid 2 kolom */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
             {/* Judul Buku */}
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1.5">
@@ -318,10 +312,19 @@ export default function TambahBukuPage() {
                 type="text"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                maxLength={MAX_TITLE}
                 className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition placeholder:text-gray-400"
                 placeholder="Contoh: Matematika Kelas 7"
                 required
               />
+              <div className="flex justify-between items-center mt-1">
+                <p className="text-[9px] text-gray-400">Maksimal {MAX_TITLE} karakter</p>
+                <p className={`text-[9px] ${
+                  formData.title.length > MAX_TITLE * 0.9 ? "text-orange-500" : "text-gray-400"
+                }`}>
+                  {formData.title.length}/{MAX_TITLE}
+                </p>
+              </div>
             </div>
 
             {/* Penulis */}
@@ -333,10 +336,19 @@ export default function TambahBukuPage() {
                 type="text"
                 value={formData.author}
                 onChange={(e) => setFormData({ ...formData, author: e.target.value })}
+                maxLength={MAX_AUTHOR}
                 className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition placeholder:text-gray-400"
                 placeholder="Contoh: Tim Kemendikbud"
                 required
               />
+              <div className="flex justify-between items-center mt-1">
+                <p className="text-[9px] text-gray-400">Maksimal {MAX_AUTHOR} karakter</p>
+                <p className={`text-[9px] ${
+                  formData.author.length > MAX_AUTHOR * 0.9 ? "text-orange-500" : "text-gray-400"
+                }`}>
+                  {formData.author.length}/{MAX_AUTHOR}
+                </p>
+              </div>
             </div>
 
             {/* Tahun */}
@@ -363,10 +375,19 @@ export default function TambahBukuPage() {
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                maxLength={MAX_DESCRIPTION}
                 rows={4}
                 className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition resize-none placeholder:text-gray-400"
                 placeholder="Tulis sinopsis atau deskripsi buku di sini..."
               />
+              <div className="flex justify-between items-center mt-1">
+                <p className="text-[9px] text-gray-400">Maksimal {MAX_DESCRIPTION} karakter</p>
+                <p className={`text-[9px] ${
+                  formData.description.length > MAX_DESCRIPTION * 0.9 ? "text-orange-500" : "text-gray-400"
+                }`}>
+                  {formData.description.length}/{MAX_DESCRIPTION}
+                </p>
+              </div>
             </div>
           </div>
 
@@ -393,7 +414,6 @@ export default function TambahBukuPage() {
                         className="w-32 h-40 object-cover rounded-lg mx-auto shadow-sm"
                         unoptimized
                       />
-                      {/* 🔥 Info ukuran */}
                       <p className={`text-[9px] font-medium ${
                         coverFile && coverFile.size > MAX_COVER_SIZE ? "text-red-500" : "text-green-600"
                       }`}>
@@ -447,7 +467,6 @@ export default function TambahBukuPage() {
                         {(pdfFile.size / 1024 / 1024).toFixed(2)} MB / 50 MB
                       </p>
                       
-                      {/* 🔥 PROGRESS BAR */}
                       {uploadStage === "pdf" && (
                         <div className="mt-3 space-y-1">
                           <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">

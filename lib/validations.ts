@@ -601,6 +601,33 @@ export const updateTentangSchema = z.object({
  * Format error Zod jadi pesan yang rapi.
  */
 export function formatZodError(error: z.ZodError): string {
-  const firstIssue = error.issues[0];
-  return firstIssue?.message || "Data tidak valid";
+  // 🔥 Ambil SEMUA error dengan field-nya
+  const issues = error.issues.map((issue) => {
+    const field = issue.path.join(".");
+    const fieldLabel = getFieldLabel(field);  // ← Human-readable
+    return `${fieldLabel}: ${issue.message}`;
+  });
+  
+  return issues.join(" • ");  // Gabung pakai bullet
+}
+
+// 🔥 Helper: mapping nama field ke label yang user-friendly
+function getFieldLabel(field: string): string {
+  const labels: Record<string, string> = {
+    title: "Judul",
+    author: "Penulis",
+    year: "Tahun",
+    description: "Deskripsi",
+    coverUrl: "Cover",
+    fileUrl: "File PDF",
+    categories: "Kategori",
+    email: "Email",
+    password: "Password",
+    username: "Username",
+    nisn: "NISN",
+    name: "Nama",
+    className: "Kelas",
+    // ... tambahkan sesuai kebutuhan
+  };
+  return labels[field] || field;
 }

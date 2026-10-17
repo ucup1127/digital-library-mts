@@ -70,7 +70,13 @@ export async function proxy(request: NextRequest) {
   // ============================================
   // MAINTENANCE MODE
   // ============================================
-  if (isMaintenance) {
+   if (isMaintenance) {
+    // 🔥 JANGAN blokir rute API, agar login & fetch data tetap jalan
+    if (isApiRoute) {
+      return NextResponse.next();
+    }
+
+    // Blokir halaman publik, tapi izinkan halaman maintenance, login admin, dan area admin
     if (!isMaintenancePage && !isLoginAdmin && !isAdminRoute) {
       return NextResponse.redirect(new URL("/maintenance", request.url));
     }

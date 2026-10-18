@@ -13,6 +13,11 @@ import { unstable_cache, revalidateTag } from "next/cache";
 const getCachedCategories = unstable_cache(
   async () => {
     return db.category.findMany({
+      include: {
+        _count: {
+          select: { books: true } 
+        }
+      },
       orderBy: { name: "asc" },
     });
   },

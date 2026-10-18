@@ -50,3 +50,48 @@ export async function DELETE(
     return NextResponse.json({ error: "Gagal menghapus kategori" }, { status: 500 });
   }
 }
+// 🔥 TAMBAHKAN FUNGSI PUT INI UNTUK EDIT KATEGORI
+export async function PUT(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    await requireAdmin();
+    const { id } = await params;
+    const body = await req.json();
+
+    // Validasi nama
+    if (!body.name || !body.name.trim()) {
+      return NextResponse.json({ error: "Nama kategori tidak boleh kosong" }, { status: 400 });
+    }
+
+    // Cek duplikat (kecuali dirinya sendiri)
+    const existingCategory = await db.category.findFirst({
+      where: { 
+        name: { equals: body.name.trim(), mode: "insensitive" },
+        NOT: { id } 
+      },
+    });
+
+    if (existingCategory) {
+      return NextResponse.json({ error: "Kategori dengan nama ini sudah ada!" }, { status: 400 });
+    }
+
+    const updatedCategory = await db.category.update({
+      where: { id },
+      data: { name: body.name.trim() },
+    });
+
+    // Invalidate cache
+    revalidateTag("kategori", "max");
+    revalidateTag("admin-stats", "max");
+
+    return NextResponse.json(updatedCategory);
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    logger.error("Error updating category:", error);
+    return NextResponse.json({ error: "Gagal mengubah kategori" }, { status: 500 });
+  }
+}

@@ -23,75 +23,61 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get("limit") || "20");
 
     const where: any = {};
+    const andConditions: any[] = [];
 
+    // 🔥 1. Filter Sekolah (Hanya jalan kalau schoolId dikirim)
     if (schoolId) {
-      // 🔥 Sekolah sendiri + shared dari sekolah lain
-      where.OR = [
-        { schoolId },
-        { isShared: true },
-      ];
-    } else {
-      return NextResponse.json({
-        books: [],
-        pagination: { currentPage: page, totalPages: 0, totalItems: 0 },
+      andConditions.push({
+        OR: [{ schoolId }, { isShared: true }],
       });
     }
 
-    if (search) {
-      where.AND = [
-        {
-          OR: [
-            { title: { contains: search, mode: "insensitive" } },
-            { author: { contains: search, mode: "insensitive" } },
-          ],
-        },
-      ];
-    }
-
+    // 🔥 2. Filter Kategori (Jalan kalau categoryId dikirim, seperti dari modal View)
     if (categoryId && categoryId !== "all") {
-      where.categories = {
-        some: { categoryId: categoryId },
-      };
+      andConditions.push({
+        categories: {
+          some: { categoryId: categoryId },
+        },
+      });
     }
 
+    // 🔥 3. Filter Pencarian
+    if (search) {
+      andConditions.push({
+        OR: [
+          { title: { contains: search, mode: "insensitive" } },
+          { author: { contains: search, mode: "insensitive" } },
+        ],
+      });
+    }
+
+    // 🔥 4. Filter Tahun
     if (year) {
-      where.year = year;
+      andConditions.push({ year: year });
+    }
+
+    // Gabungkan semua filter (AND)
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
     }
 
     let orderBy: any = {};
     switch (sortBy) {
-      case "newest":
-        orderBy = { createdAt: "desc" };
-        break;
-      case "oldest":
-        orderBy = { createdAt: "asc" };
-        break;
-      case "most_viewed":
-        orderBy = { views: "desc" };
-        break;
-      case "least_viewed":
-        orderBy = { views: "asc" };
-        break;
-      case "title_asc":
-        orderBy = { title: "asc" };
-        break;
-      case "title_desc":
-        orderBy = { title: "desc" };
-        break;
-      default:
-        orderBy = { createdAt: "desc" };
+      case "newest": orderBy = { createdAt: "desc" }; break;
+      case "oldest": orderBy = { createdAt: "asc" }; break;
+      case "most_viewed": orderBy = { views: "desc" }; break;
+      case "least_viewed": orderBy = { views: "asc" }; break;
+      case "title_asc": orderBy = { title: "asc" }; break;
+      case "title_desc": orderBy = { title: "desc" }; break;
+      default: orderBy = { createdAt: "desc" };
     }
 
     const [books, total] = await Promise.all([
       db.book.findMany({
         where,
         include: {
-          categories: {
-            include: { category: true },
-          },
-          school: {
-            select: { id: true, name: true, slug: true },
-          },
+          categories: { include: { category: true } },
+          school: { select: { id: true, name: true, slug: true } },
         },
         orderBy,
         skip: (page - 1) * limit,

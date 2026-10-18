@@ -29,7 +29,7 @@ export async function PUT(
     });
     
     return NextResponse.json(updated);
-    } catch (error) {
+  } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
@@ -45,11 +45,9 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    
     await db.gallery.delete({ where: { id } });
-    
     return NextResponse.json({ success: true });
-      } catch (error) {
+  } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }

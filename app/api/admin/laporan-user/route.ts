@@ -6,9 +6,7 @@ import { logger } from "@/lib/logger";
 
 export async function GET(request: Request) {
   try {
-    // 🔥 WAJIB: cek admin
     const session = await requireAdmin();
-
     const { searchParams } = new URL(request.url);
     const schoolId = searchParams.get("schoolId");
     const startDate = searchParams.get("start");
@@ -18,15 +16,10 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get("limit") || "20");
     const excludeSuperAdmin = searchParams.get("excludeSuperAdmin") === "true";
 
-    logger.log("📊 Laporan User - schoolId:", schoolId, "excludeSuperAdmin:", excludeSuperAdmin);
-
     const where: any = {};
 
-    // 🔥 Cek akses: ADMIN cuma bisa lihat sekolahnya
     if (session.role !== "SUPER_ADMIN") {
-      if (session.schoolId) {
-        where.schoolId = session.schoolId;
-      }
+      if (session.schoolId) where.schoolId = session.schoolId;
     } else if (schoolId) {
       where.schoolId = schoolId;
     }
@@ -46,13 +39,13 @@ export async function GET(request: Request) {
       ];
     }
 
-    // 🔥 EXCLUDE SUPER_ADMIN
     if (excludeSuperAdmin) {
       where.userId = { not: null };
     }
 
     const skip = (page - 1) * limit;
 
+    // 1. Ambil Log
     const [totalItems, activities] = await Promise.all([
       db.visitorLog.count({ where }),
       db.visitorLog.findMany({
@@ -60,29 +53,42 @@ export async function GET(request: Request) {
         orderBy: { createdAt: "desc" },
         skip,
         take: limit,
-        select: {
-          id: true,
-          createdAt: true,
-          userEmail: true,
-          action: true,
-          bookTitle: true,
-          ipAddress: true,
-        },
       }),
     ]);
 
+    // 2. 🔥 Ambil Nama User secara terpisah (tanpa relasi Prisma)
+    const userIds = activities.map(a => a.userId).filter(id => id !== null) as string[];
+    let userMap: Record<string, string> = {};
+    
+    if (userIds.length > 0) {
+      const users = await db.user.findMany({
+        where: { id: { in: userIds } },
+        select: { id: true, name: true, email: true }
+      });
+      users.forEach(u => { 
+        userMap[u.id] = u.name || u.email || "User Tanpa Nama"; 
+      });
+    }
+
+    // 3. Gabungkan
+    const activitiesWithNames = activities.map(activity => ({
+      ...activity,
+      userName: activity.userId ? userMap[activity.userId] : null
+    }));
+
+    // 4. Hitung Statistik
+    const uniqueUsersRaw = await db.visitorLog.groupBy({ by: ['userId'], where });
+    const uniqueBooksRaw = await db.visitorLog.groupBy({ by: ['bookId'], where });
+    const todayCount = await db.visitorLog.count({ 
+      where: { ...where, createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } } 
+    });
+
     const totalPages = Math.ceil(totalItems / limit);
 
-    logger.log(`✅ Menemukan ${activities.length} dari ${totalItems} aktivitas`);
-
     return NextResponse.json({
-      activities,
-      pagination: {
-        currentPage: page,
-        pageSize: limit,
-        totalPages,
-        totalItems,
-      },
+      activities: activitiesWithNames,
+      pagination: { currentPage: page, pageSize: limit, totalPages, totalItems },
+      stats: { uniqueUsers: uniqueUsersRaw.length, uniqueBooks: uniqueBooksRaw.length, todayCount }
     });
   } catch (error) {
     if (error instanceof AuthError) {
@@ -90,7 +96,7 @@ export async function GET(request: Request) {
     }
     logger.error("Error fetching user activities:", error);
     return NextResponse.json(
-      { activities: [], pagination: { currentPage: 1, pageSize: 20, totalPages: 1, totalItems: 0 } },
+      { activities: [], pagination: { currentPage: 1, pageSize: 20, totalPages: 1, totalItems: 0 }, stats: { uniqueUsers: 0, uniqueBooks: 0, todayCount: 0 } },
       { status: 500 }
     );
   }

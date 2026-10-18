@@ -17,6 +17,7 @@ import {
   ArrowLeft,
   ArrowRight,
   ChevronRight,
+  ChevronLeft,
   Library,
   Users,
   X,
@@ -96,6 +97,12 @@ export default function PeminjamanFisikPage() {
   const [extendNote, setExtendNote] = useState("");
   const [processingExtend, setProcessingExtend] = useState(false);
 
+  // 🔥 State untuk Search & Pagination
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPageAktif, setCurrentPageAktif] = useState(1);
+  const [currentPageRiwayat, setCurrentPageRiwayat] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   useEffect(() => {
     const role = localStorage.getItem("user_role") || "";
     setUserRole(role);
@@ -144,7 +151,6 @@ export default function PeminjamanFisikPage() {
 
   const fetchActiveLoans = async () => {
     if (!selectedSchoolId) return;
-
     try {
       const res = await fetch(`/api/peminjaman-fisik?status=DIPINJAM&schoolId=${selectedSchoolId}`);
       const data = await res.json();
@@ -158,7 +164,6 @@ export default function PeminjamanFisikPage() {
 
   const fetchHistoryLoans = async () => {
     if (!selectedSchoolId) return;
-
     try {
       const res = await fetch(`/api/peminjaman-fisik?status=all&schoolId=${selectedSchoolId}`);
       const data = await res.json();
@@ -199,9 +204,7 @@ export default function PeminjamanFisikPage() {
 
       if (res.ok) {
         toast.success(
-          extendActionType === "APPROVED"
-            ? "Perpanjangan disetujui!"
-            : "Perpanjangan ditolak",
+          extendActionType === "APPROVED" ? "Perpanjangan disetujui!" : "Perpanjangan ditolak",
           { id: "extend-action" }
         );
         setShowExtendActionModal(false);
@@ -226,7 +229,6 @@ export default function PeminjamanFisikPage() {
       setUsers([]);
       return;
     }
-
     setSearchingUser(true);
     try {
       const res = await fetch(`/api/users?search=${encodeURIComponent(query)}&limit=10`);
@@ -244,12 +246,9 @@ export default function PeminjamanFisikPage() {
       setBooks([]);
       return;
     }
-
     setSearchingBook(true);
     try {
-      const res = await fetch(
-        `/api/buku-fisik?search=${encodeURIComponent(query)}&schoolId=${selectedSchoolId}`
-      );
+      const res = await fetch(`/api/buku-fisik?search=${encodeURIComponent(query)}&schoolId=${selectedSchoolId}`);
       const data = await res.json();
       const bookList = data.books || [];
       const availableBooks = bookList.filter((book: BukuFisik) => book.stokTersedia > 0);
@@ -281,7 +280,6 @@ export default function PeminjamanFisikPage() {
       toast.error("Pilih user dan buku terlebih dahulu");
       return;
     }
-
     setSubmitting(true);
     toast.loading("Memproses peminjaman...", { id: "pinjam" });
 
@@ -294,7 +292,6 @@ export default function PeminjamanFisikPage() {
           bukuFisikId: selectedBook.id,
         }),
       });
-
       const data = await res.json();
 
       if (res.ok) {
@@ -322,7 +319,6 @@ export default function PeminjamanFisikPage() {
 
   const handleKembalikan = async () => {
     if (!selectedLoan) return;
-
     setSubmitting(true);
     toast.loading("Memproses pengembalian...", { id: "kembali" });
 
@@ -332,15 +328,11 @@ export default function PeminjamanFisikPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: selectedLoan.id }),
       });
-
       const data = await res.json();
 
       if (res.ok) {
         const dendaMsg = data.denda > 0 ? ` Denda: Rp${data.denda.toLocaleString()}` : "";
-        toast.success(
-          `Buku "${selectedLoan.bukuFisik.judul}" berhasil dikembalikan!${dendaMsg}`,
-          { id: "kembali" }
-        );
+        toast.success(`Buku "${selectedLoan.bukuFisik.judul}" berhasil dikembalikan!${dendaMsg}`, { id: "kembali" });
         setShowKembaliModal(false);
         setSelectedLoan(null);
         fetchActiveLoans();
@@ -390,12 +382,28 @@ export default function PeminjamanFisikPage() {
     const kembali = new Date(tglKembali);
     today.setHours(0, 0, 0, 0);
     kembali.setHours(0, 0, 0, 0);
-
     if (today > kembali) {
       return Math.ceil((today.getTime() - kembali.getTime()) / (1000 * 3600 * 24));
     }
     return 0;
   };
+
+  // 🔥 LOGIKA FILTER & PAGINASI
+  const filteredActiveLoans = activeLoans.filter(loan => 
+    loan.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    loan.bukuFisik?.judul?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredHistoryLoans = historyLoans.filter(loan => 
+    loan.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    loan.bukuFisik?.judul?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const totalActivePages = Math.ceil(filteredActiveLoans.length / pageSize);
+  const paginatedActiveLoans = filteredActiveLoans.slice((currentPageAktif - 1) * pageSize, currentPageAktif * pageSize);
+
+  const totalHistoryPages = Math.ceil(filteredHistoryLoans.length / pageSize);
+  const paginatedHistoryLoans = filteredHistoryLoans.slice((currentPageRiwayat - 1) * pageSize, currentPageRiwayat * pageSize);
 
   if (userRole === "SUPER_ADMIN" && !selectedSchoolId) {
     return (
@@ -451,37 +459,64 @@ export default function PeminjamanFisikPage() {
         </button>
       </div>
 
+      {/* Search & Page Size */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col sm:flex-row gap-4 justify-between items-center">
+        <div className="relative w-full sm:w-80">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Cari nama peminjam atau judul buku..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPageAktif(1);
+              setCurrentPageRiwayat(1);
+            }}
+            className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none transition"
+          />
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-gray-500">Tampilkan</span>
+          <select
+            value={pageSize}
+            onChange={(e) => {
+              setPageSize(Number(e.target.value));
+              setCurrentPageAktif(1);
+              setCurrentPageRiwayat(1);
+            }}
+            className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none bg-white"
+          >
+            <option value={10}>10</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+          </select>
+          <span className="text-xs text-gray-500">data</span>
+        </div>
+      </div>
+
       {/* 🔥 Tab Navigation */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-1.5 flex gap-1">
         <button
           onClick={() => setActiveTab("aktif")}
           className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-2 ${
-            activeTab === "aktif"
-              ? "bg-amber-600 text-white shadow-md shadow-amber-200"
-              : "text-gray-600 hover:bg-gray-50"
+            activeTab === "aktif" ? "bg-amber-600 text-white shadow-md shadow-amber-200" : "text-gray-600 hover:bg-gray-50"
           }`}
         >
           <RefreshCw className="w-4 h-4" />
-          Aktif ({activeLoans.length})
+          Aktif ({filteredActiveLoans.length})
         </button>
         <button
           onClick={() => setActiveTab("perpanjangan")}
           className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-2 ${
-            activeTab === "perpanjangan"
-              ? "bg-blue-600 text-white shadow-md shadow-blue-200"
-              : "text-gray-600 hover:bg-gray-50"
+            activeTab === "perpanjangan" ? "bg-blue-600 text-white shadow-md shadow-blue-200" : "text-gray-600 hover:bg-gray-50"
           }`}
         >
           <Clock className="w-4 h-4" />
           Perpanjangan
           {extendRequests.length > 0 && (
-            <span
-              className={`px-2 py-0.5 text-[9px] font-bold rounded-full ${
-                activeTab === "perpanjangan"
-                  ? "bg-white/20 text-white"
-                  : "bg-red-100 text-red-600"
-              }`}
-            >
+            <span className={`px-2 py-0.5 text-[9px] font-bold rounded-full ${
+              activeTab === "perpanjangan" ? "bg-white/20 text-white" : "bg-red-100 text-red-600"
+            }`}>
               {extendRequests.length}
             </span>
           )}
@@ -489,13 +524,11 @@ export default function PeminjamanFisikPage() {
         <button
           onClick={() => setActiveTab("riwayat")}
           className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-2 ${
-            activeTab === "riwayat"
-              ? "bg-blue-600 text-white shadow-md shadow-blue-200"
-              : "text-gray-600 hover:bg-gray-50"
+            activeTab === "riwayat" ? "bg-blue-600 text-white shadow-md shadow-blue-200" : "text-gray-600 hover:bg-gray-50"
           }`}
         >
           <Library className="w-4 h-4" />
-          Riwayat ({historyLoans.length})
+          Riwayat ({filteredHistoryLoans.length})
         </button>
       </div>
 
@@ -514,9 +547,7 @@ export default function PeminjamanFisikPage() {
             <div className="px-5 py-12 text-center">
               <Clock className="w-12 h-12 text-gray-300 mx-auto mb-3" />
               <p className="text-gray-400 text-sm">Tidak ada pengajuan perpanjangan</p>
-              <p className="text-xs text-gray-300 mt-1">
-                Pengajuan dari siswa akan muncul di sini
-              </p>
+              <p className="text-xs text-gray-300 mt-1">Pengajuan dari siswa akan muncul di sini</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-50">
@@ -525,62 +556,35 @@ export default function PeminjamanFisikPage() {
                   <div className="flex flex-col sm:flex-row justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="px-2 py-0.5 text-[9px] font-bold bg-amber-100 text-amber-700 rounded-full">
-                          MENUNGGU
-                        </span>
-                        <span className="text-[10px] text-gray-400">
-                          {new Date(loan.tglPinjam).toLocaleDateString("id-ID")}
-                        </span>
+                        <span className="px-2 py-0.5 text-[9px] font-bold bg-amber-100 text-amber-700 rounded-full">MENUNGGU</span>
+                        <span className="text-[10px] text-gray-400">{new Date(loan.tglPinjam).toLocaleDateString("id-ID")}</span>
                       </div>
-                      <p className="text-sm font-semibold text-gray-800">
-                        📖 {loan.bukuFisik?.judul}
-                      </p>
+                      <p className="text-sm font-semibold text-gray-800">📖 {loan.bukuFisik?.judul}</p>
                       <p className="text-xs text-gray-500 mt-1">
                         Peminjam: <strong>{loan.user?.name}</strong>
                         {loan.user?.className && ` (${loan.user.className})`}
-                        {loan.user?.memberId && (
-                          <span className="ml-2 font-mono text-blue-600">
-                            No: {loan.user.memberId}
-                          </span>
-                        )}
+                        {loan.user?.memberId && <span className="ml-2 font-mono text-blue-600">No: {loan.user.memberId}</span>}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Jatuh tempo: {new Date(loan.tglKembali).toLocaleDateString("id-ID")}
-                      </p>
+                      <p className="text-xs text-gray-500 mt-1">Jatuh tempo: {new Date(loan.tglKembali).toLocaleDateString("id-ID")}</p>
                       {loan.extensionReason && (
                         <div className="mt-2 bg-blue-50 border border-blue-100 rounded-lg p-2">
                           <p className="text-[10px] font-semibold text-blue-700">Alasan siswa:</p>
-                          <p className="text-xs text-gray-700 mt-0.5">
-                            {loan.extensionReason}
-                          </p>
+                          <p className="text-xs text-gray-700 mt-0.5">{loan.extensionReason}</p>
                         </div>
                       )}
                     </div>
-
                     <div className="flex flex-col gap-2 sm:w-40">
                       <button
-                        onClick={() => {
-                          setExtendActionLoan(loan);
-                          setExtendActionType("APPROVED");
-                          setExtendNote("");
-                          setShowExtendActionModal(true);
-                        }}
+                        onClick={() => { setExtendActionLoan(loan); setExtendActionType("APPROVED"); setExtendNote(""); setShowExtendActionModal(true); }}
                         className="px-4 py-2 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 transition flex items-center justify-center gap-2"
                       >
-                        <Check className="w-3.5 h-3.5" />
-                        Setujui
+                        <Check className="w-3.5 h-3.5" /> Setujui
                       </button>
                       <button
-                        onClick={() => {
-                          setExtendActionLoan(loan);
-                          setExtendActionType("REJECTED");
-                          setExtendNote("");
-                          setShowExtendActionModal(true);
-                        }}
+                        onClick={() => { setExtendActionLoan(loan); setExtendActionType("REJECTED"); setExtendNote(""); setShowExtendActionModal(true); }}
                         className="px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-700 transition flex items-center justify-center gap-2"
                       >
-                        <X className="w-3.5 h-3.5" />
-                        Tolak
+                        <X className="w-3.5 h-3.5" /> Tolak
                       </button>
                     </div>
                   </div>
@@ -592,47 +596,29 @@ export default function PeminjamanFisikPage() {
       )}
 
       {/* TAB: PEMINJAMAN AKTIF */}
-      <div
-        className={`bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden ${
-          activeTab !== "aktif" ? "hidden" : ""
-        }`}
-      >
+      <div className={`bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden ${activeTab !== "aktif" ? "hidden" : ""}`}>
         <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/80 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <RefreshCw className="w-4 h-4 text-amber-500" />
             <h2 className="font-bold text-gray-800 text-sm">📖 Peminjaman Aktif</h2>
           </div>
-          <span className="text-[9px] text-gray-400">{activeLoans.length} buku dipinjam</span>
+          <span className="text-[9px] text-gray-400">{filteredActiveLoans.length} buku dipinjam</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
-                  Peminjam
-                </th>
-                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
-                  Buku
-                </th>
-                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
-                  Tgl Pinjam
-                </th>
-                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
-                  Tgl Kembali
-                </th>
-                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
-                  Terlambat
-                </th>
-                <th className="px-4 py-3 text-center text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-center text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
-                  Aksi
-                </th>
+                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Peminjam</th>
+                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Buku</th>
+                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Tgl Pinjam</th>
+                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Tgl Kembali</th>
+                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Terlambat</th>
+                <th className="px-4 py-3 text-center text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-center text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {activeLoans.length === 0 ? (
+              {paginatedActiveLoans.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center">
                     <div className="flex flex-col items-center gap-3">
@@ -642,10 +628,9 @@ export default function PeminjamanFisikPage() {
                   </td>
                 </tr>
               ) : (
-                activeLoans.map((loan) => {
+                paginatedActiveLoans.map((loan) => {
                   const lateDays = getLateDays(loan.tglKembali);
                   const isLate = lateDays > 0;
-
                   return (
                     <tr key={loan.id} className="hover:bg-gray-50 transition group">
                       <td className="px-4 py-3">
@@ -656,17 +641,11 @@ export default function PeminjamanFisikPage() {
                         <p className="text-[9px] text-gray-400 flex items-center gap-1.5">
                           <BookMarked className="w-3 h-3" />
                           {loan.user?.className || ""}
-                          {loan.user?.memberId && (
-                            <span className="text-blue-600 font-mono">
-                              • No: {loan.user.memberId}
-                            </span>
-                          )}
+                          {loan.user?.memberId && <span className="text-blue-600 font-mono">• No: {loan.user.memberId}</span>}
                         </p>
                       </td>
                       <td className="px-4 py-3">
-                        <p className="text-sm text-gray-800 font-medium">
-                          {loan.bukuFisik?.judul || "-"}
-                        </p>
+                        <p className="text-sm text-gray-800 font-medium">{loan.bukuFisik?.judul || "-"}</p>
                         <p className="text-[9px] text-gray-400">{loan.bukuFisik?.penulis}</p>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
@@ -676,11 +655,7 @@ export default function PeminjamanFisikPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <p
-                          className={`text-sm flex items-center gap-1.5 ${
-                            isLate ? "text-red-600 font-semibold" : "text-gray-600"
-                          }`}
-                        >
+                        <p className={`text-sm flex items-center gap-1.5 ${isLate ? "text-red-600 font-semibold" : "text-gray-600"}`}>
                           <Calendar className="w-3.5 h-3.5" />
                           {new Date(loan.tglKembali).toLocaleDateString("id-ID")}
                         </p>
@@ -688,31 +663,20 @@ export default function PeminjamanFisikPage() {
                       <td className="px-4 py-3">
                         {isLate ? (
                           <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-red-600">
-                            <AlertTriangle className="w-4 h-4" />
-                            +{lateDays} hari
+                            <AlertTriangle className="w-4 h-4" />+{lateDays} hari
                           </span>
-                        ) : (
-                          <span className="text-sm text-gray-400">-</span>
-                        )}
+                        ) : (<span className="text-sm text-gray-400">-</span>)}
                       </td>
                       <td className="px-4 py-3 text-center">
                         {getStatusBadge(isLate ? "TERLAMBAT" : loan.status)}
-                        {loan.extendedCount > 0 && (
-                          <p className="text-[8px] text-blue-600 font-medium mt-1">
-                            ✓ Ext {loan.extendedCount}x
-                          </p>
-                        )}
+                        {loan.extendedCount > 0 && <p className="text-[8px] text-blue-600 font-medium mt-1">✓ Ext {loan.extendedCount}x</p>}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <button
-                          onClick={() => {
-                            setSelectedLoan(loan);
-                            setShowKembaliModal(true);
-                          }}
+                          onClick={() => { setSelectedLoan(loan); setShowKembaliModal(true); }}
                           className="px-3 py-1.5 text-[9px] font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition flex items-center gap-1.5"
                         >
-                          <BookCheck className="w-3.5 h-3.5" />
-                          Kembalikan
+                          <BookCheck className="w-3.5 h-3.5" /> Kembalikan
                         </button>
                       </td>
                     </tr>
@@ -722,47 +686,41 @@ export default function PeminjamanFisikPage() {
             </tbody>
           </table>
         </div>
+        {/* Pagination Active Loans */}
+        {totalActivePages > 1 && (
+          <div className="px-5 py-3 border-t border-gray-100 flex justify-between items-center">
+            <span className="text-xs text-gray-500">Halaman {currentPageAktif} dari {totalActivePages}</span>
+            <div className="flex gap-2">
+              <button disabled={currentPageAktif === 1} onClick={() => setCurrentPageAktif(p => p - 1)} className="px-3 py-1.5 text-xs bg-gray-100 rounded-lg disabled:opacity-50 flex items-center gap-1"><ChevronLeft className="w-3 h-3"/> Sebelumnya</button>
+              <button disabled={currentPageAktif === totalActivePages} onClick={() => setCurrentPageAktif(p => p + 1)} className="px-3 py-1.5 text-xs bg-gray-100 rounded-lg disabled:opacity-50 flex items-center gap-1">Selanjutnya <ChevronRight className="w-3 h-3"/></button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* TAB: RIWAYAT */}
-      <div
-        className={`bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden ${
-          activeTab !== "riwayat" ? "hidden" : ""
-        }`}
-      >
+      <div className={`bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden ${activeTab !== "riwayat" ? "hidden" : ""}`}>
         <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/80 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Library className="w-4 h-4 text-blue-500" />
             <h2 className="font-bold text-gray-800 text-sm">📜 Riwayat Peminjaman</h2>
           </div>
-          <span className="text-[9px] text-gray-400">{historyLoans.length} riwayat</span>
+          <span className="text-[9px] text-gray-400">{filteredHistoryLoans.length} riwayat</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
-                  Peminjam
-                </th>
-                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
-                  Buku
-                </th>
-                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
-                  Tgl Pinjam
-                </th>
-                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
-                  Tgl Kembali
-                </th>
-                <th className="px-4 py-3 text-center text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
-                  Denda
-                </th>
-                <th className="px-4 py-3 text-center text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
+                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Peminjam</th>
+                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Buku</th>
+                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Tgl Pinjam</th>
+                <th className="px-4 py-3 text-left text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Tgl Kembali</th>
+                <th className="px-4 py-3 text-center text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Denda</th>
+                <th className="px-4 py-3 text-center text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {historyLoans.length === 0 ? (
+              {paginatedHistoryLoans.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-12 text-center">
                     <div className="flex flex-col items-center gap-3">
@@ -772,23 +730,17 @@ export default function PeminjamanFisikPage() {
                   </td>
                 </tr>
               ) : (
-                historyLoans.map((loan) => (
+                paginatedHistoryLoans.map((loan) => (
                   <tr key={loan.id} className="hover:bg-gray-50 transition">
                     <td className="px-4 py-3">
                       <p className="text-sm font-medium text-gray-800 flex items-center gap-2">
                         <User className="w-3.5 h-3.5 text-gray-400" />
                         {loan.user?.name || "-"}
                       </p>
-                      {loan.user?.memberId && (
-                        <p className="text-[9px] text-blue-600 font-mono">
-                          No: {loan.user.memberId}
-                        </p>
-                      )}
+                      {loan.user?.memberId && <p className="text-[9px] text-blue-600 font-mono">No: {loan.user.memberId}</p>}
                     </td>
                     <td className="px-4 py-3">
-                      <p className="text-sm text-gray-800 font-medium">
-                        {loan.bukuFisik?.judul || "-"}
-                      </p>
+                      <p className="text-sm text-gray-800 font-medium">{loan.bukuFisik?.judul || "-"}</p>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
                       <span className="flex items-center gap-1.5">
@@ -799,25 +751,19 @@ export default function PeminjamanFisikPage() {
                     <td className="px-4 py-3 text-sm text-gray-600">
                       <span className="flex items-center gap-1.5">
                         <CheckCircle className="w-3.5 h-3.5 text-green-500" />
-                        {loan.tglDikembalikan
-                          ? new Date(loan.tglDikembalikan).toLocaleDateString("id-ID")
-                          : "-"}
+                        {loan.tglDikembalikan ? new Date(loan.tglDikembalikan).toLocaleDateString("id-ID") : "-"}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center">
                       {loan.denda > 0 ? (
                         <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-orange-600">
-                          <AlertCircle className="w-4 h-4" />
-                          Rp{loan.denda.toLocaleString()}
+                          <AlertCircle className="w-4 h-4" />Rp{loan.denda.toLocaleString()}
                         </span>
-                      ) : (
-                        <span className="text-sm text-gray-400">-</span>
-                      )}
+                      ) : (<span className="text-sm text-gray-400">-</span>)}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-medium bg-green-100 text-green-700 rounded-full">
-                        <CheckCircle className="w-3 h-3" />
-                        Dikembalikan
+                        <CheckCircle className="w-3 h-3" /> Dikembalikan
                       </span>
                     </td>
                   </tr>
@@ -826,6 +772,16 @@ export default function PeminjamanFisikPage() {
             </tbody>
           </table>
         </div>
+        {/* Pagination Riwayat */}
+        {totalHistoryPages > 1 && (
+          <div className="px-5 py-3 border-t border-gray-100 flex justify-between items-center">
+            <span className="text-xs text-gray-500">Halaman {currentPageRiwayat} dari {totalHistoryPages}</span>
+            <div className="flex gap-2">
+              <button disabled={currentPageRiwayat === 1} onClick={() => setCurrentPageRiwayat(p => p - 1)} className="px-3 py-1.5 text-xs bg-gray-100 rounded-lg disabled:opacity-50 flex items-center gap-1"><ChevronLeft className="w-3 h-3"/> Sebelumnya</button>
+              <button disabled={currentPageRiwayat === totalHistoryPages} onClick={() => setCurrentPageRiwayat(p => p + 1)} className="px-3 py-1.5 text-xs bg-gray-100 rounded-lg disabled:opacity-50 flex items-center gap-1">Selanjutnya <ChevronRight className="w-3 h-3"/></button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* MODAL PINJAM BUKU */}
@@ -856,18 +812,10 @@ export default function PeminjamanFisikPage() {
 
             <div className="p-6">
               <div className="flex mb-6 bg-gray-50 rounded-xl p-1">
-                <div
-                  className={`flex-1 text-center py-2 rounded-lg text-sm font-medium transition ${
-                    step === "user" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500"
-                  }`}
-                >
+                <div className={`flex-1 text-center py-2 rounded-lg text-sm font-medium transition ${step === "user" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500"}`}>
                   <span>1. Pilih Peminjam</span>
                 </div>
-                <div
-                  className={`flex-1 text-center py-2 rounded-lg text-sm font-medium transition ${
-                    step === "book" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500"
-                  }`}
-                >
+                <div className={`flex-1 text-center py-2 rounded-lg text-sm font-medium transition ${step === "book" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500"}`}>
                   <span>2. Pilih Buku</span>
                 </div>
               </div>
@@ -894,24 +842,17 @@ export default function PeminjamanFisikPage() {
                       />
                     </div>
                   </div>
-
                   {searchingUser && (
                     <div className="flex justify-center py-4">
                       <div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
                     </div>
                   )}
-
                   {users.length > 0 && (
                     <div className="border border-gray-200 rounded-xl divide-y max-h-64 overflow-y-auto">
                       {users.map((user) => (
                         <button
                           key={user.id}
-                          onClick={() => {
-                            setSelectedUser(user);
-                            setStep("book");
-                            setSearchBook("");
-                            setBooks([]);
-                          }}
+                          onClick={() => { setSelectedUser(user); setStep("book"); setSearchBook(""); setBooks([]); }}
                           className="w-full p-3 text-left hover:bg-gray-50 transition flex items-center gap-3"
                         >
                           <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs flex-shrink-0">
@@ -921,11 +862,7 @@ export default function PeminjamanFisikPage() {
                             <p className="font-medium text-gray-800 text-sm">{user.name}</p>
                             <p className="text-xs text-gray-400 truncate">
                               {user.email || "-"} • {user.className || "Tanpa Kelas"}
-                              {user.memberId && (
-                                <span className="ml-1 text-blue-600 font-medium">
-                                  • No Anggota: {user.memberId}
-                                </span>
-                              )}
+                              {user.memberId && <span className="ml-1 text-blue-600 font-medium">• No Anggota: {user.memberId}</span>}
                             </p>
                           </div>
                           <ChevronRight className="w-4 h-4 text-gray-300" />
@@ -933,33 +870,22 @@ export default function PeminjamanFisikPage() {
                       ))}
                     </div>
                   )}
-
                   {searchUser.length >= 2 && users.length === 0 && !searchingUser && (
                     <div className="text-center py-8">
                       <Users className="w-12 h-12 text-gray-300 mx-auto mb-2" />
                       <p className="text-gray-400 text-sm">User tidak ditemukan</p>
                     </div>
                   )}
-
                   {selectedUser && (
                     <div className="bg-green-50 border border-green-200 rounded-xl p-3 flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <UserCheck className="w-5 h-5 text-green-600" />
                         <div>
-                          <p className="text-sm font-medium text-gray-800">
-                            {selectedUser.name} ({selectedUser.className || "-"})
-                          </p>
-                          {selectedUser.memberId && (
-                            <p className="text-[9px] text-blue-600 font-mono">
-                              No Anggota: {selectedUser.memberId}
-                            </p>
-                          )}
+                          <p className="text-sm font-medium text-gray-800">{selectedUser.name} ({selectedUser.className || "-"})</p>
+                          {selectedUser.memberId && <p className="text-[9px] text-blue-600 font-mono">No Anggota: {selectedUser.memberId}</p>}
                         </div>
                       </div>
-                      <button
-                        onClick={() => setStep("book")}
-                        className="text-xs text-blue-600 hover:underline flex items-center gap-1"
-                      >
+                      <button onClick={() => setStep("book")} className="text-xs text-blue-600 hover:underline flex items-center gap-1">
                         Lanjut Pilih Buku <ArrowRight className="w-3 h-3" />
                       </button>
                     </div>
@@ -989,13 +915,11 @@ export default function PeminjamanFisikPage() {
                       />
                     </div>
                   </div>
-
                   {searchingBook && (
                     <div className="flex justify-center py-4">
                       <div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
                     </div>
                   )}
-
                   {books.length > 0 && (
                     <div className="border border-gray-200 rounded-xl divide-y max-h-64 overflow-y-auto">
                       {books.map((book) => (
@@ -1011,10 +935,7 @@ export default function PeminjamanFisikPage() {
                             <p className="font-medium text-gray-800 text-sm">{book.judul}</p>
                             <p className="text-xs text-gray-400">
                               {book.penulis} • Rak: {book.lokasiRak || "-"} • Stok:{" "}
-                              <span className="font-semibold text-green-600">
-                                {book.stokTersedia}
-                              </span>{" "}
-                              dari {book.stok}
+                              <span className="font-semibold text-green-600">{book.stokTersedia}</span> dari {book.stok}
                             </p>
                           </div>
                           <ChevronRight className="w-4 h-4 text-gray-300" />
@@ -1022,41 +943,30 @@ export default function PeminjamanFisikPage() {
                       ))}
                     </div>
                   )}
-
                   {searchBook.length >= 2 && books.length === 0 && !searchingBook && (
                     <div className="text-center py-8">
                       <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-2" />
                       <p className="text-gray-400 text-sm">📚 Buku tidak ditemukan</p>
                     </div>
                   )}
-
                   {selectedBook && (
                     <div className="bg-green-50 border border-green-200 rounded-xl p-3 flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <BookCheck className="w-5 h-5 text-green-600" />
                         <div>
-                          <p className="text-sm font-medium text-gray-800">
-                            {selectedBook.judul}
-                          </p>
-                          <p className="text-[9px] text-gray-500">
-                            Stok tersedia: {selectedBook.stokTersedia}
-                          </p>
+                          <p className="text-sm font-medium text-gray-800">{selectedBook.judul}</p>
+                          <p className="text-[9px] text-gray-500">Stok tersedia: {selectedBook.stokTersedia}</p>
                         </div>
                       </div>
                       <span className="text-[9px] text-gray-400">{selectedBook.penulis}</span>
                     </div>
                   )}
-
                   <div className="flex gap-3 pt-2">
                     <button
-                      onClick={() => {
-                        setStep("user");
-                        setSelectedBook(null);
-                      }}
+                      onClick={() => { setStep("user"); setSelectedBook(null); }}
                       className="flex-1 py-2.5 bg-gray-100 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-200 transition flex items-center justify-center gap-2"
                     >
-                      <ArrowLeft className="w-4 h-4" />
-                      Kembali
+                      <ArrowLeft className="w-4 h-4" /> Kembali
                     </button>
                     <button
                       onClick={handlePinjam}
@@ -1064,15 +974,9 @@ export default function PeminjamanFisikPage() {
                       className="flex-1 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl text-sm font-medium hover:from-amber-700 hover:to-orange-700 transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-amber-200"
                     >
                       {submitting ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                          Memproses...
-                        </>
+                        <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Memproses...</>
                       ) : (
-                        <>
-                          <BookOpen className="w-4 h-4" />
-                          Pinjam Buku
-                        </>
+                        <><BookOpen className="w-4 h-4" /> Pinjam Buku</>
                       )}
                     </button>
                   </div>
@@ -1093,48 +997,28 @@ export default function PeminjamanFisikPage() {
               </div>
               <h3 className="text-xl font-bold text-gray-900">Konfirmasi Pengembalian</h3>
               <p className="text-sm text-gray-500 mt-2">
-                Yakin ingin mengembalikan buku{" "}
-                <strong>"{selectedLoan.bukuFisik?.judul}"</strong>?
+                Yakin ingin mengembalikan buku <strong>"{selectedLoan.bukuFisik?.judul}"</strong>?
               </p>
-              <p className="text-xs text-gray-400 mt-1">
-                Peminjam: {selectedLoan.user?.name} ({selectedLoan.user?.className})
-              </p>
-
+              <p className="text-xs text-gray-400 mt-1">Peminjam: {selectedLoan.user?.name} ({selectedLoan.user?.className})</p>
               {getLateDays(selectedLoan.tglKembali) > 0 && (
                 <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl">
                   <p className="text-xs text-red-600 font-semibold flex items-center gap-1.5">
-                    <AlertTriangle className="w-4 h-4" />
-                    Terlambat {getLateDays(selectedLoan.tglKembali)} hari
+                    <AlertTriangle className="w-4 h-4" /> Terlambat {getLateDays(selectedLoan.tglKembali)} hari
                   </p>
-                  <p className="text-xs text-red-600">
-                    Denda: Rp
-                    {(getLateDays(selectedLoan.tglKembali) * 1000).toLocaleString()}
-                  </p>
+                  <p className="text-xs text-red-600">Denda: Rp{(getLateDays(selectedLoan.tglKembali) * 1000).toLocaleString()}</p>
                 </div>
               )}
-
               <div className="flex gap-3 mt-6">
-                <button
-                  onClick={() => setShowKembaliModal(false)}
-                  className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-200 transition"
-                >
-                  Batal
-                </button>
+                <button onClick={() => setShowKembaliModal(false)} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-200 transition">Batal</button>
                 <button
                   onClick={handleKembalikan}
                   disabled={submitting}
                   className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 transition flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {submitting ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      Memproses...
-                    </>
+                    <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Memproses...</>
                   ) : (
-                    <>
-                      <CheckCircle className="w-4 h-4" />
-                      Ya, Kembalikan
-                    </>
+                    <><CheckCircle className="w-4 h-4" /> Ya, Kembalikan</>
                   )}
                 </button>
               </div>
@@ -1148,97 +1032,45 @@ export default function PeminjamanFisikPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
             <div className="text-center mb-4">
-              <div
-                className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg ${
-                  extendActionType === "APPROVED"
-                    ? "bg-green-100 shadow-green-200"
-                    : "bg-red-100 shadow-red-200"
-                }`}
-              >
-                {extendActionType === "APPROVED" ? (
-                  <Check className="w-8 h-8 text-green-600" />
-                ) : (
-                  <X className="w-8 h-8 text-red-600" />
-                )}
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg ${extendActionType === "APPROVED" ? "bg-green-100 shadow-green-200" : "bg-red-100 shadow-red-200"}`}>
+                {extendActionType === "APPROVED" ? <Check className="w-8 h-8 text-green-600" /> : <X className="w-8 h-8 text-red-600" />}
               </div>
               <h3 className="text-xl font-bold text-gray-800">
-                {extendActionType === "APPROVED"
-                  ? "Setujui Perpanjangan?"
-                  : "Tolak Perpanjangan?"}
+                {extendActionType === "APPROVED" ? "Setujui Perpanjangan?" : "Tolak Perpanjangan?"}
               </h3>
               <p className="text-xs text-gray-400 mt-1">
-                {extendActionType === "APPROVED"
-                  ? "Masa pinjam akan diperpanjang 7 hari"
-                  : "Pengajuan perpanjangan akan ditolak"}
+                {extendActionType === "APPROVED" ? "Masa pinjam akan diperpanjang 7 hari" : "Pengajuan perpanjangan akan ditolak"}
               </p>
             </div>
-
             <div className="bg-gray-50 rounded-xl p-3 mb-4">
-              <p className="text-xs text-gray-700">
-                📖 <strong>{extendActionLoan.bukuFisik?.judul}</strong>
-              </p>
-              <p className="text-[10px] text-gray-500 mt-1">
-                Peminjam: {extendActionLoan.user?.name}
-              </p>
-              <p className="text-[10px] text-gray-500">
-                Jatuh tempo:{" "}
-                {new Date(extendActionLoan.tglKembali).toLocaleDateString("id-ID")}
-              </p>
+              <p className="text-xs text-gray-700">📖 <strong>{extendActionLoan.bukuFisik?.judul}</strong></p>
+              <p className="text-[10px] text-gray-500 mt-1">Peminjam: {extendActionLoan.user?.name}</p>
+              <p className="text-[10px] text-gray-500">Jatuh tempo: {new Date(extendActionLoan.tglKembali).toLocaleDateString("id-ID")}</p>
             </div>
-
             <div className="mb-4">
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Catatan (Opsional)
-              </label>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Catatan (Opsional)</label>
               <textarea
                 value={extendNote}
                 onChange={(e) => setExtendNote(e.target.value)}
-                placeholder={
-                  extendActionType === "APPROVED"
-                    ? "Contoh: Disetujui karena masih dibutuhkan"
-                    : "Contoh: Buku sedang dipesan peminjam lain"
-                }
+                placeholder={extendActionType === "APPROVED" ? "Contoh: Disetujui karena masih dibutuhkan" : "Contoh: Buku sedang dipesan peminjam lain"}
                 className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition resize-none"
                 rows={3}
                 maxLength={500}
               />
             </div>
-
             <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowExtendActionModal(false);
-                  setExtendActionLoan(null);
-                  setExtendNote("");
-                }}
-                className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-200 transition"
-              >
-                Batal
-              </button>
+              <button onClick={() => { setShowExtendActionModal(false); setExtendActionLoan(null); setExtendNote(""); }} className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-200 transition">Batal</button>
               <button
                 onClick={handleExtendAction}
                 disabled={processingExtend}
-                className={`flex-1 py-3 text-white rounded-xl text-sm font-medium transition flex items-center justify-center gap-2 disabled:opacity-50 ${
-                  extendActionType === "APPROVED"
-                    ? "bg-green-600 hover:bg-green-700"
-                    : "bg-red-600 hover:bg-red-700"
-                }`}
+                className={`flex-1 py-3 text-white rounded-xl text-sm font-medium transition flex items-center justify-center gap-2 disabled:opacity-50 ${extendActionType === "APPROVED" ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}`}
               >
                 {processingExtend ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Memproses...
-                  </>
+                  <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Memproses...</>
                 ) : extendActionType === "APPROVED" ? (
-                  <>
-                    <Check className="w-4 h-4" />
-                    Ya, Setujui
-                  </>
+                  <><Check className="w-4 h-4" /> Ya, Setujui</>
                 ) : (
-                  <>
-                    <X className="w-4 h-4" />
-                    Ya, Tolak
-                  </>
+                  <><X className="w-4 h-4" /> Ya, Tolak</>
                 )}
               </button>
             </div>

@@ -20,7 +20,6 @@ import {
   Calendar,
   Award,
   ArrowRight,
-  Sparkles,
   Clock,
   School
 } from "lucide-react";
@@ -64,68 +63,63 @@ export default function AdminDashboard() {
   
   const [selectedSchoolId, setSelectedSchoolId] = useState("");
   const [selectedSchoolName, setSelectedSchoolName] = useState("");
-  const [isBackingUp, setIsBackingUp] = useState(false);
 
   useEffect(() => {
-  const now = new Date();
-  const formattedDate = now.toLocaleDateString('id-ID', { 
-    weekday: 'long', 
-    day: 'numeric', 
-    month: 'long', 
-    year: 'numeric' 
-  });
-  setCurrentDate(formattedDate);
-  
-  const hour = now.getHours();
-  if (hour < 12) setGreeting("Selamat Pagi");
-  else if (hour < 15) setGreeting("Selamat Siang");
-  else if (hour < 18) setGreeting("Selamat Sore");
-  else setGreeting("Selamat Malam");
+    const now = new Date();
+    const formattedDate = now.toLocaleDateString('id-ID', { 
+      weekday: 'long', 
+      day: 'numeric', 
+      month: 'long', 
+      year: 'numeric' 
+    });
+    setCurrentDate(formattedDate);
+    
+    const hour = now.getHours();
+    if (hour < 12) setGreeting("Selamat Pagi");
+    else if (hour < 15) setGreeting("Selamat Siang");
+    else if (hour < 18) setGreeting("Selamat Sore");
+    else setGreeting("Selamat Malam");
 
-  // 🔥 Ambil user dari session server, bukan localStorage
-  const fetchUser = async () => {
-    try {
-      const res = await fetch("/api/auth/me");
-      const data = await res.json();
-      
-      if (!data.user) {
-        router.push("/login/admin");
-        return;
-      }
-      
-      const role = data.user.role;
-      setUserRole(role);
-      setUserName(data.user.name || "Admin");
-      
-      if (role === "SUPER_ADMIN") {
-        // SUPER_ADMIN pakai sekolah yang dipilih (dari localStorage, sementara)
-        const savedSchoolId = localStorage.getItem("selected_school_id") || "";
-        const savedSchoolName = localStorage.getItem("selected_school_name") || "";
-        setSelectedSchoolId(savedSchoolId);
-        setSelectedSchoolName(savedSchoolName);
-      } else {
-        // ADMIN pakai sekolah dari session
-        const schoolId = data.user.schoolId || "";
-        setSelectedSchoolId(schoolId);
-        // Ambil nama sekolah dari API (kalau perlu)
-        if (schoolId) {
-          try {
-            const schoolRes = await fetch(`/api/schools/${schoolId}`);
-            const schoolData = await schoolRes.json();
-            setSchoolName(schoolData.name || "");
-          } catch (e) {
-            console.error("Error fetching school:", e);
+    const fetchUser = async () => {
+      try {
+        const res = await fetch("/api/auth/me");
+        const data = await res.json();
+        
+        if (!data.user) {
+          router.push("/login/admin");
+          return;
+        }
+        
+        const role = data.user.role;
+        setUserRole(role);
+        setUserName(data.user.name || "Admin");
+        
+        if (role === "SUPER_ADMIN") {
+          const savedSchoolId = localStorage.getItem("selected_school_id") || "";
+          const savedSchoolName = localStorage.getItem("selected_school_name") || "";
+          setSelectedSchoolId(savedSchoolId);
+          setSelectedSchoolName(savedSchoolName);
+        } else {
+          const schoolId = data.user.schoolId || "";
+          setSelectedSchoolId(schoolId);
+          if (schoolId) {
+            try {
+              const schoolRes = await fetch(`/api/schools/${schoolId}`);
+              const schoolData = await schoolRes.json();
+              setSchoolName(schoolData.name || "");
+            } catch (e) {
+              console.error("Error fetching school:", e);
+            }
           }
         }
+      } catch (error) {
+        console.error("Error fetching user:", error);
+        router.push("/login/admin");
       }
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      router.push("/login/admin");
-    }
-  };
+    };
 
-  fetchUser();
-}, [router]);
+    fetchUser();
+  }, [router]);
 
   useEffect(() => {
     const handleSchoolChange = (event: any) => {
@@ -153,13 +147,8 @@ export default function AdminDashboard() {
       let url = "/api/admin/stats";
       const params = new URLSearchParams();
       
-      if (schoolId) {
-        params.append("schoolId", schoolId);
-      }
-      
-      if (params.toString()) {
-        url += `?${params.toString()}`;
-      }
+      if (schoolId) params.append("schoolId", schoolId);
+      if (params.toString()) url += `?${params.toString()}`;
       
       const res = await fetch(url);
       const dashboardData = await res.json();
@@ -172,36 +161,13 @@ export default function AdminDashboard() {
     }
   };
 
-    useEffect(() => {
+  useEffect(() => {
     if (selectedSchoolId || userRole === "ADMIN") {
       fetchDashboard(selectedSchoolId);
     } else if (userRole === "SUPER_ADMIN" && !selectedSchoolId) {
       setLoading(false);
     }
   }, [selectedSchoolId, userRole]);
-
-  const handleManualBackup = async () => {
-    if (isBackingUp) return;
-
-    setIsBackingUp(true);
-    toast.loading("Melakukan backup...", { id: "backup" });
-
-    try {
-      const res = await fetch("/api/admin/trigger-backup", { method: "POST" });
-      const data = await res.json();
-
-      if (res.ok) {
-        toast.success(`${data.message}`, { id: "backup" });
-      } else {
-        toast.error(data.error || "Gagal backup", { id: "backup" });
-      }
-    } catch (error) {
-      console.error("Backup error:", error);
-      toast.error("Terjadi kesalahan saat backup", { id: "backup" });
-    } finally {
-      setIsBackingUp(false);
-    }
-  };
 
   if (userRole === "SUPER_ADMIN" && !selectedSchoolId) {
     return (
@@ -267,7 +233,6 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
@@ -289,7 +254,6 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Stat Cards - Baris 1 */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {stats.map((stat) => (
           <Link
@@ -299,9 +263,7 @@ export default function AdminDashboard() {
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
-                  {stat.title}
-                </p>
+                <p className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider">{stat.title}</p>
                 <p className="text-xl font-bold text-gray-800 mt-0.5">
                   {typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value}
                 </p>
@@ -314,7 +276,6 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {/* Stat Cards - Baris 2 (Peminjaman) */}
       <div>
         <div className="flex items-center gap-2 mb-3">
           <TrendingUp className="w-4 h-4 text-blue-600" />
@@ -332,9 +293,7 @@ export default function AdminDashboard() {
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
-                    {stat.title}
-                  </p>
+                  <p className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider">{stat.title}</p>
                   <p className="text-xl font-bold text-gray-800 mt-0.5">
                     {typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value}
                   </p>
@@ -348,7 +307,6 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <StatsChart 
           data={monthlyData}
@@ -368,7 +326,6 @@ export default function AdminDashboard() {
         />
       </div>
 
-      {/* Grafik Aktivitas Membaca & Status Peminjaman */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <StatsChart 
           data={monthlyData}
@@ -399,7 +356,6 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Buku Populer */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center">
           <div className="flex items-center gap-2">
@@ -412,9 +368,7 @@ export default function AdminDashboard() {
         </div>
         <div>
           {data.popularBooks.length === 0 ? (
-            <div className="p-8 text-center text-gray-400 text-sm">
-              Belum ada data buku
-            </div>
+            <div className="p-8 text-center text-gray-400 text-sm">Belum ada data buku</div>
           ) : (
             data.popularBooks.map((book, idx) => (
               <div key={book.id} className="px-5 py-3 border-b border-gray-50 hover:bg-gray-50 transition flex items-center justify-between">
@@ -437,38 +391,19 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      {/* Quick Actions (Tombol Backup DB sudah dihapus) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <QuickAction href="/admin/buku/tambah" title="Tambah Buku Digital" icon={BookOpen} color="blue" />
         <QuickAction href="/admin/buku-fisik" title="Kelola Buku Fisik" icon={Library} color="indigo" />
         <QuickAction href="/admin/peminjaman-fisik" title="Peminjaman" icon={RefreshCw} color="amber" />
         <QuickAction href="/admin/kategori" title="Kelola Kategori" icon={FolderTree} color="green" />
-        <button
-          onClick={handleManualBackup}
-          disabled={isBackingUp}
-          className="p-3 rounded-xl bg-purple-50 text-purple-600 hover:bg-purple-100 transition-all text-center group hover:shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isBackingUp ? (
-            <div className="w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          ) : (
-            <Sparkles className="w-5 h-5 mx-auto group-hover:scale-110 transition-transform" />
-          )}
-          <p className="text-[8px] font-semibold uppercase tracking-wider mt-1 leading-tight">
-            {isBackingUp ? "Menyimpan..." : "Backup DB"}
-          </p>
-        </button>
       </div>
     </div>
   );
 }
 
-// Komponen Quick Action
 function QuickAction({ href, title, icon: Icon, color, isExternal = false }: { 
-  href: string; 
-  title: string; 
-  icon: any; 
-  color: string;
-  isExternal?: boolean;
+  href: string; title: string; icon: any; color: string; isExternal?: boolean;
 }) {
   const colors: Record<string, string> = {
     blue: "bg-blue-50 text-blue-600 hover:bg-blue-100",
@@ -489,9 +424,6 @@ function QuickAction({ href, title, icon: Icon, color, isExternal = false }: {
     </>
   );
   
-  if (isExternal) {
-    return <a href={href} className={className}>{content}</a>;
-  }
-  
+  if (isExternal) return <a href={href} className={className}>{content}</a>;
   return <Link href={href} className={className}>{content}</Link>;
 }

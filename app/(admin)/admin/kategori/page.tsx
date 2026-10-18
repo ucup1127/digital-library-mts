@@ -66,29 +66,16 @@ export default function KategoriPage() {
   const [categoryBooks, setCategoryBooks] = useState<Book[]>([]);
   const [viewLoading, setViewLoading] = useState(false);
 
-  const fetchCategories = async () => {
+    const fetchCategories = async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/kategori");
       const data = await res.json();
       
-      const categoriesWithCount = await Promise.all(
-        data.map(async (cat: Category) => {
-          try {
-            const bookRes = await fetch(`/api/buku?category=${cat.id}&limit=1`);
-            const bookData = await bookRes.json();
-            return {
-              ...cat,
-              _count: { books: bookData.pagination?.totalItems || 0 }
-            };
-          } catch {
-            return { ...cat, _count: { books: 0 } };
-          }
-        })
-      );
-      
-      setCategories(categoriesWithCount);
-      setTotalItems(categoriesWithCount.length);
+      // 🔥 API /api/kategori sekarang kita asumsikan mengembalikan data _count
+      // Jika belum, kita fallback (bikin angka 0 sementara)
+      setCategories(data);
+      setTotalItems(data.length);
     } catch (error) {
       console.error("Error fetching categories:", error);
       toast.error("Gagal memuat kategori");

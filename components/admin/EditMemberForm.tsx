@@ -84,6 +84,7 @@ export default function EditMemberForm({ initialData }: any) {
             {initialData.imageUrl ? (
               <img 
                 src={initialData.imageUrl} 
+                alt="Preview foto anggota"
                 className="w-full h-full object-cover"
                 loading="lazy"
                 decoding="async"

@@ -58,7 +58,7 @@ export async function GET(request: Request) {
 
     // 2. 🔥 Ambil Nama User secara terpisah (tanpa relasi Prisma)
     const userIds = activities.map(a => a.userId).filter(id => id !== null) as string[];
-    let userMap: Record<string, string> = {};
+    const userMap: Record<string, string> = {};
     
     if (userIds.length > 0) {
       const users = await db.user.findMany({

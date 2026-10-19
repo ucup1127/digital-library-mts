@@ -133,6 +133,7 @@ export default function EditBookForm({ initialData, categories }: any) {
           {initialData.coverUrl && (
             <img 
               src={initialData.coverUrl} 
+              alt="Preview cover buku"
               className="w-full h-full object-cover"
               loading="lazy"
               decoding="async"

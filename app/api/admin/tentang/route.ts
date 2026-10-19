@@ -20,7 +20,7 @@ const getCachedTentang = unstable_cache(
 
     if (!school) return null;
 
-    let profile = await db.schoolProfile.findUnique({
+    const profile = await db.schoolProfile.findUnique({
       where: { schoolId },
     });
 

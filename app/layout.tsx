@@ -4,6 +4,7 @@ import { Inter } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import CsrfProvider from "@/components/CsrfProvider";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Analytics } from "@vercel/analytics/next";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -27,6 +28,7 @@ export default function RootLayout({
         <CsrfProvider />
         {children}
         <Toaster position="top-center" />
+        <Analytics /> 
         {/* 🔥 Speed Insights — di paling bawah, setelah semua konten */}
         <SpeedInsights />
       </body>

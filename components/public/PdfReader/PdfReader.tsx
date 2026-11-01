@@ -21,6 +21,9 @@ export default function PdfReader({ fileUrl, title }: PdfReaderProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  // 🔥 STATE BARU: Untuk melacak halaman mana saja yang sudah boleh dirender
+  const [renderedPages, setRenderedPages] = useState<Set<number>>(new Set([1]));
+  
   const containerRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -34,7 +37,6 @@ export default function PdfReader({ fileUrl, title }: PdfReaderProps) {
     setLoading(false);
   };
 
-  // Scroll ke halaman tertentu
   const scrollToPage = useCallback((pageNum: number) => {
     const pageEl = pageRefs.current[pageNum - 1];
     if (pageEl) {
@@ -42,23 +44,30 @@ export default function PdfReader({ fileUrl, title }: PdfReaderProps) {
     }
   }, []);
 
-  // Intersection Observer — deteksi halaman aktif
+  // 🔥 PERBAIKAN INTERSECTION OBSERVER
   useEffect(() => {
     if (numPages === 0) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
+          const pageNum = parseInt(entry.target.getAttribute("data-page") || "1");
+          
           if (entry.isIntersecting) {
-            const pageNum = parseInt(entry.target.getAttribute("data-page") || "1");
             setCurrentPage(pageNum);
+            // Tandai halaman ini untuk dirender
+            setRenderedPages((prev) => new Set(prev).add(pageNum));
+            
+            // Pre-render halaman sebelahnya (sebelum & sesudah) biar scroll mulus
+            if (pageNum > 1) setRenderedPages((prev) => new Set(prev).add(pageNum - 1));
+            if (pageNum < numPages) setRenderedPages((prev) => new Set(prev).add(pageNum + 1));
           }
         });
       },
       {
         root: containerRef.current,
-        threshold: 0.5,
-        rootMargin: "-20% 0px -20% 0px",
+        threshold: 0.1, // Ubah ke 0.1 agar lebih sensitif saat scroll cepat
+        rootMargin: "200px 0px", // Pre-load 200px sebelum halaman masuk layar
       }
     );
 
@@ -120,19 +129,30 @@ export default function PdfReader({ fileUrl, title }: PdfReaderProps) {
               key={pageNum}
               ref={(el) => { pageRefs.current[pageNum - 1] = el; }}
               data-page={pageNum}
-              className="shadow-2xl"
+              className="shadow-2xl bg-white" // Tambah bg-white biar ga gelap pas loading
             >
-              <Page
-                pageNumber={pageNum}
-                scale={scale}
-                renderAnnotationLayer={false}
-                renderTextLayer={false}
-                loading={
-                  <div className="bg-white flex items-center justify-center" style={{ width: 600, height: 800 }}>
-                    <div className="text-xs text-gray-400">Halaman {pageNum}...</div>
-                  </div>
-                }
-              />
+              {/* 🔥 LAZY LOADING: Hanya render jika halaman ada di daftar renderedPages */}
+              {renderedPages.has(pageNum) ? (
+                <Page
+                  pageNumber={pageNum}
+                  scale={scale}
+                  renderAnnotationLayer={false}
+                  renderTextLayer={false}
+                  loading={
+                    <div className="flex items-center justify-center bg-white" style={{ width: 600, height: 800 }}>
+                      <div className="text-xs text-gray-400">Memuat Halaman {pageNum}...</div>
+                    </div>
+                  }
+                />
+              ) : (
+                // Placeholder saat halaman belum dirender (menghemat RAM)
+                <div 
+                  className="flex items-center justify-center bg-gray-100" 
+                  style={{ width: 600 * scale, height: 800 * scale }}
+                >
+                  <span className="text-gray-400 text-xs">Halaman {pageNum}</span>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -144,7 +164,11 @@ export default function PdfReader({ fileUrl, title }: PdfReaderProps) {
           currentPage={currentPage}
           numPages={numPages}
           scale={scale}
-          onPageChange={scrollToPage}
+          onPageChange={(page) => {
+            // Pastikan halaman tujuan dirender sebelum di-scroll
+            setRenderedPages((prev) => new Set(prev).add(page));
+            scrollToPage(page);
+          }}
           onScaleChange={setScale}
         />
       )}

@@ -100,48 +100,42 @@ export default function DetailBukuClient({ book }: { book: Book }) {
     checkAuth();
   }, [book.id]);
 
-  const handleReadBook = () => {
-    if (isLoggedIn && book.fileUrl) {
-      setIsReading(true);
-      
-      const history = JSON.parse(localStorage.getItem('reading_history') || '[]');
-      const newHistory = [
-        { id: book.id, title: book.title, coverUrl: book.coverUrl, author: book.author },
-        ...history.filter((item: any) => item.id !== book.id)
-      ].slice(0, 10);
-      localStorage.setItem('reading_history', JSON.stringify(newHistory));
-      
-      const recent = JSON.parse(localStorage.getItem('recently_read') || '[]');
-      const newRecent = [
-        { id: book.id, title: book.title, coverUrl: book.coverUrl },
-        ...recent.filter((item: any) => item.id !== book.id)
-      ].slice(0, 10);
-      localStorage.setItem('recently_read', JSON.stringify(newRecent));
-      
-      const pdfUrl = book.fileUrl!;
-      setTimeout(() => {
-        setIsReading(false);
-        window.open(pdfUrl, "_blank");
-      }, 500);
-    } else if (!isLoggedIn) {
-      localStorage.setItem('redirect_after_login', `/buku/${book.id}`);
-      router.push(`/login/user?redirect=/buku/${book.id}`);
-    }
-  };
+const handleReadBook = () => {
+  if (isLoggedIn && book.fileUrl) {
+    setIsReading(true);
+    
+    // Simpan history (kode kamu sebelumnya biarkan saja)
+    const history = JSON.parse(localStorage.getItem('reading_history') || '[]');
+    const newHistory = [
+      { id: book.id, title: book.title, coverUrl: book.coverUrl, author: book.author },
+      ...history.filter((item: any) => item.id !== book.id)
+    ].slice(0, 10);
+    localStorage.setItem('reading_history', JSON.stringify(newHistory));
+    
+    // 🔥 PERBAIKAN: Langsung pindah halaman internal, TANPA window.open
+    router.push(`/baca/${book.id}`);
+  } else if (!isLoggedIn) {
+    localStorage.setItem('redirect_after_login', `/buku/${book.id}`);
+    router.push(`/login/user?redirect=/buku/${book.id}`);
+  }
+};
 
 const handleDownload = async () => {
   if (!book.fileUrl) return;
   
   setIsDownloading(true);
   try {
-    // Fetch file dari Blob
-    const res = await fetch(book.fileUrl);
+    // 🔥 PERBAIKAN: Gunakan logika URL yang sama dengan halaman /baca
+    const downloadUrl = book.fileUrl.startsWith("http") 
+      ? book.fileUrl 
+      : `/api/pdf${book.fileUrl.replace("/uploads/", "/")}`;
+
+    const res = await fetch(downloadUrl);
     if (!res.ok) throw new Error("Gagal download");
     
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     
-    // Trigger download
     const link = document.createElement('a');
     link.href = url;
     link.download = `${book.title}.pdf`;
@@ -149,7 +143,6 @@ const handleDownload = async () => {
     link.click();
     document.body.removeChild(link);
     
-    // Cleanup
     URL.revokeObjectURL(url);
     toast.success("Download berhasil!");
   } catch (error) {

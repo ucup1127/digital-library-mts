@@ -10,6 +10,7 @@ import { unstable_cache, revalidateTag } from "next/cache";
 // ============================================
 // Cache function
 // ============================================
+// app/api/schools/route.ts
 const getCachedSchools = unstable_cache(
   async () => {
     const schools = await db.school.findMany({
@@ -18,7 +19,8 @@ const getCachedSchools = unstable_cache(
         name: true,
         slug: true,
         logo: true,
-        website: true,   // ← TAMBAH
+        website: true,
+        createdAt: true, 
         _count: {
           select: {
             users: true,
@@ -34,7 +36,8 @@ const getCachedSchools = unstable_cache(
       name: school.name,
       slug: school.slug,
       logo: school.logo,
-      website: school.website,   // ← TAMBAH
+      website: school.website,
+      createdAt: school.createdAt.toISOString(), // ✅ TAMBAH INI (convert ke string)
       totalUsers: school._count.users,
       totalBooks: school._count.books,
     }));

@@ -484,7 +484,13 @@ export default function KelolaSekolahPage() {
                     </td>
                     <td className="px-5 py-3">
                       <span className="text-xs text-gray-500">
-                        {new Date(school.createdAt).toLocaleDateString("id-ID")}
+                        {school.createdAt 
+                          ? new Date(school.createdAt).toLocaleDateString("id-ID", {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric'
+                            }) 
+                          : "-"}
                       </span>
                     </td>
                     <td className="px-5 py-3">

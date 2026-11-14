@@ -1,12 +1,12 @@
 // app/(admin)/admin/users/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 import Link from "next/link";
-import { Upload } from "lucide-react";
+import { Upload, CheckSquare, Square, UserCheck, UserX } from "lucide-react";
 import PrintButton from "@/components/ui/PrintButton";
 import {
   Users,
@@ -25,8 +25,6 @@ import {
   Shield,
   X,
   Save,
-  UserX,
-  UserCheck,
   Download,
   AtSign,
   Hash,
@@ -66,6 +64,10 @@ export default function UsersPage() {
   const [pageSize, setPageSize] = useState(10);
   const pageSizeOptions = [5, 10, 15, 20, 50];
 
+  // 🔥 STATE BULK
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -77,42 +79,25 @@ export default function UsersPage() {
   const [deleting, setDeleting] = useState(false);
 
   const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    username: "",
-    nisn: "",
-    password: "",
-    role: "USER",
-    className: "",
+    name: "", email: "", username: "", nisn: "", password: "", role: "USER", className: "",
   });
 
   const [editForm, setEditForm] = useState({
-    name: "",
-    email: "",
-    username: "",
-    nisn: "",
-    role: "",
-    className: "",
-    password: "",
+    name: "", email: "", username: "", nisn: "", role: "", className: "", password: "",
   });
 
   useEffect(() => {
     const role = localStorage.getItem("user_role") || "";
     const email = localStorage.getItem("user_email") || "";
-
     setUserRole(role);
     setCurrentUserEmail(email);
 
     if (role === "SUPER_ADMIN") {
-      const savedSchoolId = localStorage.getItem("selected_school_id") || "";
-      const savedSchoolName = localStorage.getItem("selected_school_name") || "";
-      setSelectedSchoolId(savedSchoolId);
-      setSelectedSchoolName(savedSchoolName);
+      setSelectedSchoolId(localStorage.getItem("selected_school_id") || "");
+      setSelectedSchoolName(localStorage.getItem("selected_school_name") || "");
     } else {
-      const schoolId = localStorage.getItem("school_id") || "";
-      const schoolName = localStorage.getItem("school_name") || "";
-      setSelectedSchoolId(schoolId);
-      setSelectedSchoolName(schoolName);
+      setSelectedSchoolId(localStorage.getItem("school_id") || "");
+      setSelectedSchoolName(localStorage.getItem("school_name") || "");
     }
   }, []);
 
@@ -124,15 +109,16 @@ export default function UsersPage() {
         setSelectedSchoolId(newSchoolId);
         setSelectedSchoolName(newSchoolName);
         setCurrentPage(1);
+        setSelectedUserIds([]); // reset pilihan
       }
     };
-
     window.addEventListener("schoolChanged", handleSchoolChange);
     return () => window.removeEventListener("schoolChanged", handleSchoolChange);
   }, []);
 
   useEffect(() => {
     setCurrentPage(1);
+    setSelectedUserIds([]); // reset saat filter berubah
   }, [search, filterRole, filterStatus, pageSize, selectedSchoolId]);
 
   useEffect(() => {
@@ -143,19 +129,10 @@ export default function UsersPage() {
 
   const fetchUsers = async () => {
     if (userRole === "SUPER_ADMIN" && !selectedSchoolId) {
-      setUsers([]);
-      setTotalItems(0);
-      setTotalPages(1);
-      setLoading(false);
-      return;
+      setUsers([]); setTotalItems(0); setTotalPages(1); setLoading(false); return;
     }
-
     if (!selectedSchoolId) {
-      setUsers([]);
-      setTotalItems(0);
-      setTotalPages(1);
-      setLoading(false);
-      return;
+      setUsers([]); setTotalItems(0); setTotalPages(1); setLoading(false); return;
     }
 
     setLoading(true);
@@ -181,6 +158,130 @@ export default function UsersPage() {
       toast.error("Gagal memuat data user");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 🔥 HANDLER BULK
+  const allVisibleSelected = useMemo(() => {
+    if (users.length === 0) return false;
+    return users.every((u) => selectedUserIds.includes(u.id));
+  }, [users, selectedUserIds]);
+
+  const someVisibleSelected = useMemo(() => {
+    return users.some((u) => selectedUserIds.includes(u.id));
+  }, [users, selectedUserIds]);
+
+  const toggleSelectAll = () => {
+    if (allVisibleSelected) {
+      // uncheck semua yang terlihat
+      const visibleIds = users.map((u) => u.id);
+      setSelectedUserIds((prev) => prev.filter((id) => !visibleIds.includes(id)));
+    } else {
+      // tambahkan semua yang terlihat
+      const visibleIds = users.map((u) => u.id);
+      setSelectedUserIds((prev) => Array.from(new Set([...prev, ...visibleIds])));
+    }
+  };
+
+  const toggleSelectOne = (id: string) => {
+    setSelectedUserIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkDeactivate = async () => {
+    if (selectedUserIds.length === 0) return;
+
+    const result = await Swal.fire({
+      title: `Nonaktifkan ${selectedUserIds.length} User?`,
+      html: `
+        <div class="text-left">
+          <p class="text-sm text-gray-600">Anda akan menonaktifkan <strong>${selectedUserIds.length} user</strong> sekaligus.</p>
+          <hr class="my-3">
+          <p class="text-xs text-orange-600">⚠️ User tidak akan bisa login sampai diaktifkan kembali</p>
+        </div>
+      `,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d97706",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Ya, Nonaktifkan",
+      cancelButtonText: "Batal",
+      reverseButtons: true,
+    });
+
+    if (!result.isConfirmed) return;
+
+    setBulkProcessing(true);
+    const toastId = toast.loading(`Menonaktifkan ${selectedUserIds.length} user...`);
+    try {
+      const res = await fetch("/api/admin/users/bulk", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedUserIds, isActive: false }),
+      });
+      const data = await res.json();
+      toast.dismiss(toastId);
+
+      if (res.ok) {
+        toast.success(data.message || "Berhasil menonaktifkan user");
+        setSelectedUserIds([]);
+        fetchUsers();
+      } else {
+        toast.error(data.error || "Gagal menonaktifkan user");
+      }
+    } catch (error) {
+      toast.dismiss(toastId);
+      toast.error("Terjadi kesalahan");
+    } finally {
+      setBulkProcessing(false);
+    }
+  };
+
+  const handleBulkActivate = async () => {
+    if (selectedUserIds.length === 0) return;
+
+    const result = await Swal.fire({
+      title: `Aktifkan ${selectedUserIds.length} User?`,
+      html: `
+        <div class="text-left">
+          <p class="text-sm text-gray-600">Anda akan mengaktifkan kembali <strong>${selectedUserIds.length} user</strong> sekaligus.</p>
+        </div>
+      `,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#22c55e",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Ya, Aktifkan",
+      cancelButtonText: "Batal",
+      reverseButtons: true,
+    });
+
+    if (!result.isConfirmed) return;
+
+    setBulkProcessing(true);
+    const toastId = toast.loading(`Mengaktifkan ${selectedUserIds.length} user...`);
+    try {
+      const res = await fetch("/api/admin/users/bulk", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedUserIds, isActive: true }),
+      });
+      const data = await res.json();
+      toast.dismiss(toastId);
+
+      if (res.ok) {
+        toast.success(data.message || "Berhasil mengaktifkan user");
+        setSelectedUserIds([]);
+        fetchUsers();
+      } else {
+        toast.error(data.error || "Gagal mengaktifkan user");
+      }
+    } catch (error) {
+      toast.dismiss(toastId);
+      toast.error("Terjadi kesalahan");
+    } finally {
+      setBulkProcessing(false);
     }
   };
 
@@ -471,7 +572,7 @@ export default function UsersPage() {
     }
   };
 
-  if (userRole === "SUPER_ADMIN" && !selectedSchoolId) {
+   if (userRole === "SUPER_ADMIN" && !selectedSchoolId) {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
@@ -528,29 +629,14 @@ export default function UsersPage() {
               { header: "Status", accessor: "isActive" },
             ]}
           />
-          <button
-            onClick={handleExportExcel}
-            className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg text-sm font-semibold hover:from-green-700 hover:to-emerald-700 transition flex items-center gap-2 shadow-lg shadow-green-200"
-          >
-            <Download className="w-4 h-4" />
-            Export Excel
+          <button onClick={handleExportExcel} className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg text-sm font-semibold hover:from-green-700 hover:to-emerald-700 transition flex items-center gap-2 shadow-lg shadow-green-200">
+            <Download className="w-4 h-4" /> Export Excel
           </button>
-
- {/* 🔥 TAMBAH: Tombol Import */}
-          <Link
-            href="/admin/users/import"
-            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-sm font-semibold hover:from-blue-700 hover:to-indigo-700 transition flex items-center gap-2 shadow-lg shadow-blue-200"
-          >
-            <Upload className="w-4 h-4" />
-            Import User
+          <Link href="/admin/users/import" className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-sm font-semibold hover:from-blue-700 hover:to-indigo-700 transition flex items-center gap-2 shadow-lg shadow-blue-200">
+            <Upload className="w-4 h-4" /> Import User
           </Link>
-
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg text-sm font-semibold hover:from-purple-700 hover:to-indigo-700 transition flex items-center gap-2 shadow-lg shadow-purple-200"
-          >
-            <Plus className="w-4 h-4" />
-            Tambah User
+          <button onClick={() => setShowAddModal(true)} className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg text-sm font-semibold hover:from-purple-700 hover:to-indigo-700 transition flex items-center gap-2 shadow-lg shadow-purple-200">
+            <Plus className="w-4 h-4" /> Tambah User
           </button>
         </div>
       </div>
@@ -562,22 +648,12 @@ export default function UsersPage() {
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">Cari User</label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Nama, username, NISN..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none transition"
-              />
+              <input type="text" placeholder="Nama, username, NISN..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none transition" />
             </div>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">Filter Role</label>
-            <select
-              value={filterRole}
-              onChange={(e) => setFilterRole(e.target.value)}
-              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none bg-white"
-            >
+            <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none bg-white">
               <option value="">-- Semua Role --</option>
               <option value="ADMIN">Admin Sekolah</option>
               <option value="USER">User/Siswa</option>
@@ -585,11 +661,7 @@ export default function UsersPage() {
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">Filter Status</label>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none bg-white"
-            >
+            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none bg-white">
               <option value="">-- Semua Status --</option>
               <option value="active">Aktif</option>
               <option value="inactive">Nonaktif</option>
@@ -597,18 +669,48 @@ export default function UsersPage() {
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5">Tampilkan</label>
-            <select
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
-              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none bg-white"
-            >
-              {pageSizeOptions.map((size) => (
-                <option key={size} value={size}>{size} data</option>
-              ))}
+            <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none bg-white">
+              {pageSizeOptions.map((size) => (<option key={size} value={size}>{size} data</option>))}
             </select>
           </div>
         </div>
       </div>
+
+      {/* 🔥 BULK ACTION BAR */}
+      {selectedUserIds.length > 0 && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-2xl px-5 py-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sticky top-2 z-20 shadow-md">
+          <div className="flex items-center gap-2">
+            <CheckSquare className="w-5 h-5 text-indigo-600" />
+            <p className="text-sm font-semibold text-indigo-800">
+              {selectedUserIds.length} user dipilih
+            </p>
+            <button
+              onClick={() => setSelectedUserIds([])}
+              className="text-xs text-indigo-600 hover:underline ml-2"
+            >
+              Batal pilih
+            </button>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={handleBulkDeactivate}
+              disabled={bulkProcessing}
+              className="px-3 py-1.5 bg-orange-600 text-white rounded-lg text-xs font-semibold hover:bg-orange-700 transition flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <UserX className="w-3.5 h-3.5" />
+              Nonaktifkan Terpilih
+            </button>
+            <button
+              onClick={handleBulkActivate}
+              disabled={bulkProcessing}
+              className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 transition flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <UserCheck className="w-3.5 h-3.5" />
+              Aktifkan Terpilih
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Tabel User */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -616,6 +718,22 @@ export default function UsersPage() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
+                {/* 🔥 KOLOM CHECKBOX */}
+                <th className="px-4 py-3 w-10">
+                  <button
+                    onClick={toggleSelectAll}
+                    className="text-gray-500 hover:text-indigo-600 transition"
+                    title={allVisibleSelected ? "Batal pilih semua" : "Pilih semua di halaman ini"}
+                  >
+                    {allVisibleSelected ? (
+                      <CheckSquare className="w-4 h-4 text-indigo-600" />
+                    ) : someVisibleSelected ? (
+                      <Square className="w-4 h-4 text-indigo-400" />
+                    ) : (
+                      <Square className="w-4 h-4" />
+                    )}
+                  </button>
+                </th>
                 <th className="px-5 py-3 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Nama</th>
                 <th className="px-5 py-3 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Username</th>
                 <th className="px-5 py-3 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider">NISN</th>
@@ -629,7 +747,7 @@ export default function UsersPage() {
             <tbody className="divide-y divide-gray-50">
               {loading && (
                 <tr>
-                  <td colSpan={8} className="px-5 py-12 text-center">
+                  <td colSpan={9} className="px-5 py-12 text-center">
                     <div className="flex justify-center">
                       <div className="w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
                     </div>
@@ -639,137 +757,128 @@ export default function UsersPage() {
 
               {!loading && users.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-5 py-12 text-center">
+                  <td colSpan={9} className="px-5 py-12 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <Users className="w-12 h-12 text-gray-300" />
                       <p className="text-gray-400 text-sm">Belum ada user</p>
                       <button onClick={() => setShowAddModal(true)} className="text-purple-600 text-xs font-medium hover:underline flex items-center gap-1">
-                        <Plus className="w-3 h-3" />
-                        Tambah User
+                        <Plus className="w-3 h-3" /> Tambah User
                       </button>
                     </div>
                   </td>
                 </tr>
               )}
 
-              {!loading && users.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50 transition group">
-                  <td className="px-5 py-3">
-                    <p className="font-medium text-gray-800 text-sm flex items-center gap-2">
-                      <User className="w-3.5 h-3.5 text-gray-400" />
-                      {user.name || "-"}
-                    </p>
-                  </td>
-                  <td className="px-5 py-3">
-                    <p className="text-gray-500 text-sm font-mono flex items-center gap-1.5">
-                      <AtSign className="w-3.5 h-3.5 text-gray-400" />
-                      {user.username || "-"}
-                    </p>
-                  </td>
-                  <td className="px-5 py-3">
-                    <p className="text-gray-500 text-sm font-mono flex items-center gap-1.5">
-                      <Hash className="w-3.5 h-3.5 text-gray-400" />
-                      {user.nisn || "-"}
-                    </p>
-                  </td>
-                  <td className="px-5 py-3">
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-medium rounded-full ${getRoleBadge(user.role)}`}>
-                      {user.role === "SUPER_ADMIN" ? <Shield className="w-3 h-3" /> : user.role === "ADMIN" ? <UserCircle className="w-3 h-3" /> : <User className="w-3 h-3" />}
-                      {getRoleText(user.role)}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3">
-                    <p className="text-gray-500 text-sm flex items-center gap-1.5">
-                      <GraduationCap className="w-3.5 h-3.5 text-gray-400" />
-                      {user.className || "-"}
-                    </p>
-                  </td>
-                  <td className="px-5 py-3">
-                    <p className="text-gray-500 text-sm font-mono flex items-center gap-1.5">
-                      <BadgeCheck className="w-3.5 h-3.5 text-blue-400" />
-                      {user.memberId || "-"}
-                    </p>
-                  </td>
-                  <td className="px-5 py-3">
-                    {user.isActive ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[9px] font-medium bg-green-100 text-green-700 rounded-full">
-                        <BadgeCheck className="w-3 h-3" />
-                        Aktif
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[9px] font-medium bg-red-100 text-red-700 rounded-full">
-                        <UserX className="w-3 h-3" />
-                        Nonaktif
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-5 py-3 text-center">
-                    <div className="flex items-center justify-center gap-1">
+              {!loading && users.map((user) => {
+                const isSelected = selectedUserIds.includes(user.id);
+                return (
+                  <tr key={user.id} className={`hover:bg-gray-50 transition group ${isSelected ? "bg-indigo-50/50" : ""}`}>
+                    {/* 🔥 CHECKBOX BARIS */}
+                    <td className="px-4 py-3">
                       <button
-                        onClick={() => { setViewingUser(user); setShowViewModal(true); }}
-                        className="p-1.5 text-sky-600 bg-sky-50 rounded-lg hover:bg-sky-100 transition group-hover:scale-110"
-                        title="Lihat Detail"
+                        onClick={() => toggleSelectOne(user.id)}
+                        className="text-gray-400 hover:text-indigo-600 transition"
                       >
-                        <Eye className="w-3.5 h-3.5" />
+                        {isSelected ? (
+                          <CheckSquare className="w-4 h-4 text-indigo-600" />
+                        ) : (
+                          <Square className="w-4 h-4" />
+                        )}
                       </button>
-                      <button
-                        onClick={() => {
-                          setSelectedUser(user);
-                          setEditForm({
-                            name: user.name || "",
-                            email: user.email || "",
-                            username: user.username || "",
-                            nisn: user.nisn || "",
-                            role: user.role,
-                            className: user.className || "",
-                            password: "",
-                          });
-                          setShowEditModal(true);
-                        }}
-                        className="p-1.5 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition group-hover:scale-110"
-                        title="Edit User"
-                      >
-                        <Edit className="w-3.5 h-3.5" />
-                      </button>
+                    </td>
+                    <td className="px-5 py-3">
+                      <p className="font-medium text-gray-800 text-sm flex items-center gap-2">
+                        <User className="w-3.5 h-3.5 text-gray-400" />
+                        {user.name || "-"}
+                      </p>
+                    </td>
+                    <td className="px-5 py-3">
+                      <p className="text-gray-500 text-sm font-mono flex items-center gap-1.5">
+                        <AtSign className="w-3.5 h-3.5 text-gray-400" />
+                        {user.username || "-"}
+                      </p>
+                    </td>
+                    <td className="px-5 py-3">
+                      <p className="text-gray-500 text-sm font-mono flex items-center gap-1.5">
+                        <Hash className="w-3.5 h-3.5 text-gray-400" />
+                        {user.nisn || "-"}
+                      </p>
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-medium rounded-full ${getRoleBadge(user.role)}`}>
+                        {user.role === "SUPER_ADMIN" ? <Shield className="w-3 h-3" /> : user.role === "ADMIN" ? <UserCircle className="w-3 h-3" /> : <User className="w-3 h-3" />}
+                        {getRoleText(user.role)}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3">
+                      <p className="text-gray-500 text-sm flex items-center gap-1.5">
+                        <GraduationCap className="w-3.5 h-3.5 text-gray-400" />
+                        {user.className || "-"}
+                      </p>
+                    </td>
+                    <td className="px-5 py-3">
+                      <p className="text-gray-500 text-sm font-mono flex items-center gap-1.5">
+                        <BadgeCheck className="w-3.5 h-3.5 text-blue-400" />
+                        {user.memberId || "-"}
+                      </p>
+                    </td>
+                    <td className="px-5 py-3">
                       {user.isActive ? (
-                        <button
-                          onClick={() => handleDeactivate(user)}
-                          className="p-1.5 text-orange-600 bg-orange-50 rounded-lg hover:bg-orange-100 transition group-hover:scale-110"
-                          title="Nonaktifkan"
-                        >
-                          <UserX className="w-3.5 h-3.5" />
-                        </button>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[9px] font-medium bg-green-100 text-green-700 rounded-full">
+                          <BadgeCheck className="w-3 h-3" /> Aktif
+                        </span>
                       ) : (
-                        <button
-                          onClick={() => handleActivate(user)}
-                          className="p-1.5 text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition group-hover:scale-110"
-                          title="Aktifkan"
-                        >
-                          <UserCheck className="w-3.5 h-3.5" />
-                        </button>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[9px] font-medium bg-red-100 text-red-700 rounded-full">
+                          <UserX className="w-3 h-3" /> Nonaktif
+                        </span>
                       )}
-                      {user.email !== currentUserEmail && (
+                    </td>
+                    <td className="px-5 py-3 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <button onClick={() => { setViewingUser(user); setShowViewModal(true); }} className="p-1.5 text-sky-600 bg-sky-50 rounded-lg hover:bg-sky-100 transition" title="Lihat Detail">
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
                         <button
                           onClick={() => {
-                            setDeletingUser({
-                              id: user.id,
-                              name: user.name || user.username || "User",
-                              username: user.username,
-                              email: user.email,
-                              role: user.role,
+                            setSelectedUser(user);
+                            setEditForm({
+                              name: user.name || "", email: user.email || "", username: user.username || "",
+                              nisn: user.nisn || "", role: user.role, className: user.className || "", password: "",
                             });
-                            setShowDeleteModal(true);
+                            setShowEditModal(true);
                           }}
-                          className="p-1.5 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition group-hover:scale-110"
-                          title="Hapus Permanen"
+                          className="p-1.5 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition" title="Edit User"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Edit className="w-3.5 h-3.5" />
                         </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        {user.isActive ? (
+                          <button onClick={() => handleDeactivate(user)} className="p-1.5 text-orange-600 bg-orange-50 rounded-lg hover:bg-orange-100 transition" title="Nonaktifkan">
+                            <UserX className="w-3.5 h-3.5" />
+                          </button>
+                        ) : (
+                          <button onClick={() => handleActivate(user)} className="p-1.5 text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition" title="Aktifkan">
+                            <UserCheck className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {user.email !== currentUserEmail && (
+                          <button
+                            onClick={() => {
+                              setDeletingUser({
+                                id: user.id, name: user.name || user.username || "User",
+                                username: user.username, email: user.email, role: user.role,
+                              });
+                              setShowDeleteModal(true);
+                            }}
+                            className="p-1.5 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition" title="Hapus Permanen"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -781,24 +890,12 @@ export default function UsersPage() {
               Menampilkan {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, totalItems)} dari {totalItems} user
             </div>
             <div className="flex gap-2">
-              <button
-                onClick={() => setCurrentPage(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg disabled:opacity-50 hover:bg-gray-200 transition flex items-center gap-1"
-              >
-                <ChevronLeft className="w-3 h-3" />
-                Sebelumnya
+              <button onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 1} className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg disabled:opacity-50 hover:bg-gray-200 transition flex items-center gap-1">
+                <ChevronLeft className="w-3 h-3" /> Sebelumnya
               </button>
-              <span className="px-3 py-1.5 text-xs font-medium text-gray-600">
-                Halaman {currentPage} dari {totalPages}
-              </span>
-              <button
-                onClick={() => setCurrentPage(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg disabled:opacity-50 hover:bg-gray-200 transition flex items-center gap-1"
-              >
-                Selanjutnya
-                <ChevronRight className="w-3 h-3" />
+              <span className="px-3 py-1.5 text-xs font-medium text-gray-600">Halaman {currentPage} dari {totalPages}</span>
+              <button onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage === totalPages} className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg disabled:opacity-50 hover:bg-gray-200 transition flex items-center gap-1">
+                Selanjutnya <ChevronRight className="w-3 h-3" />
               </button>
             </div>
           </div>
